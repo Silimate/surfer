@@ -19,7 +19,7 @@ use crate::{
 };
 use egui::scroll_area::ScrollBarVisibility;
 use egui::text::{CCursor, CCursorRange, LayoutJob, TextFormat};
-use egui::{Key, RichText, TextEdit};
+use egui::{Key, RichText, TextEdit, TextStyle};
 use emath::{Align, Align2, NumExt, Vec2};
 use epaint::{FontFamily, FontId};
 use fzcmd::{expand_command, parse_command, Command, FuzzyOutput, ParamGreed, ParseError};
@@ -804,10 +804,13 @@ pub fn show_command_prompt(
                     );
                 }
 
+                let text_style = TextStyle::Button;
+                let row_height = ui.text_style_height(&text_style);
                 egui::ScrollArea::vertical()
                     .scroll_bar_visibility(ScrollBarVisibility::AlwaysVisible)
-                    .show(ui, |ui| {
-                        for (idx, suggestion) in suggestions {
+                    .show_rows(ui, row_height, suggestions.len(), |ui, row_range| {
+                        for (idx, suggestion) in &suggestions[row_range] {
+                            let idx = *idx;
                             let mut job = LayoutJob::default();
                             let selected = state.sys.command_prompt.selected == idx;
 
