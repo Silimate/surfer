@@ -418,7 +418,7 @@ impl Viewport {
                         self.curr_left = self.target_left;
                         self.curr_right = self.target_right;
                     } else {
-                        *move_duration = frame_time + *move_duration;
+                        *move_duration += frame_time;
 
                         self.curr_left = Relative(ease_in_out_size(
                             self.move_start_left.0..=self.target_left.0,

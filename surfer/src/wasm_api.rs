@@ -77,7 +77,7 @@ pub async fn id_of_name(name: String) -> Option<usize> {
                     .find(|(_id, item)| {
                         let item_name = match item {
                             DisplayedItem::Variable(var) => var.variable_ref.full_path_string(),
-                            _ => format!("{}", item.name()),
+                            _ => item.name().to_string(),
                         };
                         item_name == name
                     })
@@ -162,7 +162,7 @@ pub async fn index_of_name(name: String) -> Option<usize> {
                 if let Some(item) = waves.displayed_items.get(itemref) {
                     let item_name = match item {
                         DisplayedItem::Variable(var) => var.variable_ref.full_path_string(),
-                        _ => format!("{}", item.name()),
+                        _ => item.name().to_string(),
                     };
                     if item_name == name {
                         result = Some(idx);

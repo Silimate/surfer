@@ -54,7 +54,7 @@ impl TransactionContainer {
             .unwrap()
             .generators
             .iter()
-            .map(|g| {
+            .flat_map(|g| {
                 self.get_generator(*g)
                     .unwrap()
                     .transactions
@@ -62,7 +62,6 @@ impl TransactionContainer {
                     .map(|t| t.get_tx_id())
                     .collect_vec()
             })
-            .flatten()
             .collect()
     }
     pub fn stream_scope_exists(&self, stream_scope: &StreamScopeRef) -> bool {

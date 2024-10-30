@@ -1371,7 +1371,7 @@ impl State {
                         let mut transactions = waves
                             .displayed_items_order
                             .iter()
-                            .map(|item_id| {
+                            .flat_map(|item_id| {
                                 let item = &waves.displayed_items[item_id];
                                 match item {
                                     DisplayedItem::Stream(s) => {
@@ -1386,7 +1386,6 @@ impl State {
                                     _ => vec![],
                                 }
                             })
-                            .flatten()
                             .collect_vec();
 
                         transactions.sort();
@@ -1410,13 +1409,13 @@ impl State {
                                         }
                                     }
                                 })
-                                .unwrap_or(next.then_some(transactions.len() - 1).unwrap_or(0));
+                                .unwrap_or(if next { transactions.len() - 1 } else { 0 });
                             Some(TransactionRef {
                                 id: *transactions.get(next_id).unwrap(),
                             })
                         } else if !transactions.is_empty() {
                             Some(TransactionRef {
-                                id: *transactions.get(0).unwrap(),
+                                id: *transactions.first().unwrap(),
                             })
                         } else {
                             None

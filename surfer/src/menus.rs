@@ -432,13 +432,7 @@ impl State {
         if ui.button("Remove").clicked() {
             msgs.push(if waves.selected_items.contains(&displayed_item_id) {
                 Message::Batch(vec![
-                    Message::RemoveItems(
-                        waves
-                            .selected_items
-                            .iter()
-                            .map(|item_ref| *item_ref)
-                            .collect_vec(),
-                    ),
+                    Message::RemoveItems(waves.selected_items.iter().copied().collect_vec()),
                     Message::UnfocusItem,
                 ])
             } else {

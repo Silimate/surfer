@@ -1107,7 +1107,7 @@ impl State {
                                 ui.label("Transaction ID");
                             });
                             row.col(|ui| {
-                                ui.label(format!("{}", focused_transaction.get_tx_id()));
+                                ui.label(focused_transaction.get_tx_id().to_string());
                             });
                         });
                         body.row(row_height, |mut row| {
@@ -1124,7 +1124,7 @@ impl State {
                                     .unwrap()
                                     .get_generator(focused_transaction.get_gen_id())
                                     .unwrap();
-                                ui.label(format!("{}", gen.name));
+                                ui.label(gen.name.to_string());
                             });
                         });
                         body.row(row_height, |mut row| {
@@ -1132,7 +1132,7 @@ impl State {
                                 ui.label("Start Time");
                             });
                             row.col(|ui| {
-                                ui.label(format!("{}", focused_transaction.get_start_time()));
+                                ui.label(focused_transaction.get_start_time().to_string());
                             });
                         });
                         body.row(row_height, |mut row| {
@@ -1140,7 +1140,7 @@ impl State {
                                 ui.label("End Time");
                             });
                             row.col(|ui| {
-                                ui.label(format!("{}", focused_transaction.get_end_time()));
+                                ui.label(focused_transaction.get_end_time().to_string());
                             });
                         });
                         body.row(row_height + 5., |mut row| {
@@ -1161,10 +1161,10 @@ impl State {
                         for attr in &focused_transaction.attributes {
                             body.row(row_height, |mut row| {
                                 row.col(|ui| {
-                                    ui.label(format!("{}", attr.name));
+                                    ui.label(attr.name.to_string());
                                 });
                                 row.col(|ui| {
-                                    ui.label(format!("{}", attr.value()));
+                                    ui.label(attr.value().to_string());
                                 });
                             });
                         }
@@ -1188,10 +1188,10 @@ impl State {
                             for rel in &focused_transaction.inc_relations {
                                 body.row(row_height, |mut row| {
                                     row.col(|ui| {
-                                        ui.label(format!("{}", rel.source_tx_id));
+                                        ui.label(rel.source_tx_id.to_string());
                                     });
                                     row.col(|ui| {
-                                        ui.label(format!("{}", rel.sink_tx_id));
+                                        ui.label(rel.sink_tx_id.to_string());
                                     });
                                 });
                             }
@@ -1216,10 +1216,10 @@ impl State {
                             for rel in &focused_transaction.out_relations {
                                 body.row(row_height, |mut row| {
                                     row.col(|ui| {
-                                        ui.label(format!("{}", rel.source_tx_id));
+                                        ui.label(rel.source_tx_id.to_string());
                                     });
                                     row.col(|ui| {
-                                        ui.label(format!("{}", rel.sink_tx_id));
+                                        ui.label(rel.sink_tx_id.to_string());
                                     });
                                 });
                             }

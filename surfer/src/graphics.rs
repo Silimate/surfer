@@ -90,7 +90,7 @@ impl WaveData {
         theme: &SurferTheme,
     ) {
         let color = theme.variable_dontcare;
-        for (_, g) in &self.graphics {
+        for g in self.graphics.values() {
             match g {
                 Graphic::TextArrow {
                     from: (from_point, from_dir),
