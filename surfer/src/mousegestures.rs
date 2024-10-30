@@ -210,27 +210,30 @@ impl State {
         } else {
             (startx, endx)
         };
+        let start_time =
+            waves.viewports[viewport_idx].as_time_bigint(minx, width, &waves.num_timestamps());
+        let end_time =
+            waves.viewports[viewport_idx].as_time_bigint(maxx, width, &waves.num_timestamps());
+        let diff_time = &end_time - &start_time;
         draw_gesture_text(
             ctx,
             (ctx.to_screen)(current_location.x, current_location.y),
             format!(
-                "Zoom in: {} to {}",
+                "Zoom in: {} ({} to {})",
                 time_string(
-                    &(waves.viewports[viewport_idx].as_time_bigint(
-                        minx,
-                        width,
-                        &waves.num_timestamps()
-                    )),
+                    &diff_time,
                     &waves.inner.metadata().timescale,
                     &self.wanted_timeunit,
                     &self.get_time_format()
                 ),
                 time_string(
-                    &(waves.viewports[viewport_idx].as_time_bigint(
-                        maxx,
-                        width,
-                        &waves.num_timestamps()
-                    )),
+                    &start_time,
+                    &waves.inner.metadata().timescale,
+                    &self.wanted_timeunit,
+                    &self.get_time_format()
+                ),
+                time_string(
+                    &end_time,
                     &waves.inner.metadata().timescale,
                     &self.wanted_timeunit,
                     &self.get_time_format()
