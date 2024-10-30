@@ -680,15 +680,7 @@ impl State {
             .body(|ui| {
                 if draw_variables || self.show_parameters_in_scopes() {
                     let wave_container = wave.inner.as_waves().unwrap();
-                    let all_variables = wave_container.variables_in_scope(scope);
-                    let parameters = all_variables
-                        .iter()
-                        .filter(|var| {
-                            let meta = wave_container.variable_meta(var).ok();
-                            meta.unwrap().variable_type == Some(VariableType::VCDParameter)
-                        })
-                        .cloned()
-                        .collect_vec();
+                    let parameters = wave_container.parameters_in_scope(scope);
                     if !parameters.is_empty() {
                         egui::collapsing_header::CollapsingState::load_with_default_open(
                             ui.ctx(),
@@ -711,15 +703,7 @@ impl State {
                 self.draw_root_scope_view(msgs, wave, scope, draw_variables, ui, filter);
                 if draw_variables {
                     let wave_container = wave.inner.as_waves().unwrap();
-                    let all_variables = wave_container.variables_in_scope(scope);
-                    let variables = all_variables
-                        .iter()
-                        .filter(|var| {
-                            let meta = wave_container.variable_meta(var).ok();
-                            meta.unwrap().variable_type != Some(VariableType::VCDParameter)
-                        })
-                        .cloned()
-                        .collect_vec();
+                    let variables = wave_container.variables_in_scope(scope);
                     self.draw_variable_list(msgs, wave_container, ui, &variables, filter);
                 }
             });

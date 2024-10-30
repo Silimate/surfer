@@ -3,6 +3,7 @@ use std::sync::Mutex;
 
 use chrono::prelude::{DateTime, Utc};
 use color_eyre::{eyre::bail, eyre::Context, Result};
+use itertools::Itertools;
 use log::warn;
 use num::BigUint;
 use surfer_translation_types::{VariableType, VariableValue};
@@ -270,15 +271,44 @@ impl WaveContainer {
         }
     }
 
+    /// Return all variables (excluding parameters) in a scope.
     pub fn variables_in_scope(&self, scope: &ScopeRef) -> Vec<VariableRef> {
-        match self {
+        let all_variables = match self {
             WaveContainer::Wellen(f) => f.variables_in_scope(scope),
             WaveContainer::Empty => vec![],
             #[cfg(not(target_arch = "wasm32"))]
             WaveContainer::Cxxrtl(c) => c.lock().unwrap().variables_in_module(scope),
-        }
+        };
+        // Get rid of parameters
+        all_variables
+            .iter()
+            .filter(|var| {
+                let meta = self.variable_meta(var).ok();
+                meta.unwrap().variable_type != Some(VariableType::VCDParameter)
+            })
+            .cloned()
+            .collect_vec()
     }
 
+    /// Return all parameters in a scope.
+    pub fn parameters_in_scope(&self, scope: &ScopeRef) -> Vec<VariableRef> {
+        let all_variables = match self {
+            WaveContainer::Wellen(f) => f.variables_in_scope(scope),
+            WaveContainer::Empty => vec![],
+            #[cfg(not(target_arch = "wasm32"))]
+            WaveContainer::Cxxrtl(c) => c.lock().unwrap().variables_in_module(scope),
+        };
+        all_variables
+            .iter()
+            .filter(|var| {
+                let meta = self.variable_meta(var).ok();
+                meta.unwrap().variable_type == Some(VariableType::VCDParameter)
+            })
+            .cloned()
+            .collect_vec()
+    }
+
+    /// Return true if there are no variables or parameters in the scope.
     pub fn no_variables_in_scope(&self, scope: &ScopeRef) -> bool {
         match self {
             WaveContainer::Wellen(f) => f.no_variables_in_scope(scope),
@@ -304,7 +334,7 @@ impl WaveContainer {
         }
     }
 
-    /// Append parameters in scope and child scopes to `vars`
+    /// Append parameters in scope and child scopes to `vars`.
     fn get_parameters_in_scope_and_below(&mut self, scope: &ScopeRef, vars: &mut Vec<VariableRef>) {
         let Some(child_scopes) = self
             .child_scopes(scope)
@@ -317,17 +347,10 @@ impl WaveContainer {
         for child_scope in child_scopes {
             self.get_parameters_in_scope_and_below(&child_scope, vars);
         }
-        for variable in self.variables_in_scope(scope) {
-            if self
-                .variable_meta(&variable)
-                .is_ok_and(|meta| meta.variable_type == Some(VariableType::VCDParameter))
-            {
-                vars.push(variable);
-            }
-        }
+        vars.extend(self.parameters_in_scope(scope));
     }
 
-    /// Load all the parameters in the design so that the value can be displayed
+    /// Load all the parameters in the design so that the value can be displayed.
     pub fn load_parameters(&mut self) -> Result<Option<LoadSignalsCmd>> {
         let mut vars = vec![];
         for scope in self.root_scopes() {
@@ -337,7 +360,7 @@ impl WaveContainer {
     }
 
     /// Callback for when wellen signals have been loaded. Might lead to a new load variable
-    /// command since new variables might have been requested in the meantime
+    /// command since new variables might have been requested in the meantime.
     pub fn on_signals_loaded(&mut self, res: LoadSignalsResult) -> Result<Option<LoadSignalsCmd>> {
         match self {
             WaveContainer::Wellen(f) => f.on_signals_loaded(res),
