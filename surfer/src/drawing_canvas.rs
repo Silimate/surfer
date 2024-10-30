@@ -547,7 +547,13 @@ impl State {
         }))
     }
 
-    pub fn draw_items(&mut self, msgs: &mut Vec<Message>, ui: &mut Ui, viewport_idx: usize) {
+    pub fn draw_items(
+        &mut self,
+        egui_ctx: &egui::Context,
+        msgs: &mut Vec<Message>,
+        ui: &mut Ui,
+        viewport_idx: usize,
+    ) {
         let (response, mut painter) =
             ui.allocate_painter(ui.available_size(), Sense::click_and_drag());
 
@@ -618,8 +624,10 @@ impl State {
             }
         });
 
-        if response.dragged_by(PointerButton::Primary)
-            || response.clicked_by(PointerButton::Primary)
+        let modifiers = egui_ctx.input(|i| i.modifiers);
+        if !modifiers.command
+            && (response.dragged_by(PointerButton::Primary)
+                || response.clicked_by(PointerButton::Primary))
         {
             if let Some(snap_point) =
                 self.snap_to_edge(pointer_pos_canvas, waves, frame_width, viewport_idx)
@@ -627,16 +635,22 @@ impl State {
                 msgs.push(Message::CursorSet(snap_point));
             }
         }
-
         painter.rect_filled(
             response.rect,
             Rounding::ZERO,
             self.config.theme.canvas_colors.background,
         );
 
-        response
-            .drag_started_by(PointerButton::Middle)
-            .then(|| msgs.push(Message::SetDragStart(pointer_pos_canvas)));
+        // Check for mouse gesture starting
+        if response.drag_started_by(PointerButton::Middle)
+            || modifiers.command && response.drag_started_by(PointerButton::Primary)
+        {
+            msgs.push(Message::SetDragStart(
+                response
+                    .interact_pointer_pos()
+                    .map(|p| to_screen.inverse().transform_pos(p)),
+            ));
+        }
 
         let mut ctx = DrawingContext {
             painter: &mut painter,
@@ -1011,6 +1025,7 @@ impl State {
         );
 
         self.draw_mouse_gesture_widget(
+            egui_ctx,
             waves,
             pointer_pos_canvas,
             &response,

@@ -444,7 +444,7 @@ impl State {
                                 outer_margin: Margin::ZERO,
                                 ..Default::default()
                             })
-                            .show(ctx, |ui| self.draw_items(&mut msgs, ui, viewport_idx));
+                            .show(ctx, |ui| self.draw_items(ctx, &mut msgs, ui, viewport_idx));
                     }
                 }
 
@@ -455,7 +455,7 @@ impl State {
                         ..Default::default()
                     })
                     .show(ctx, |ui| {
-                        self.draw_items(&mut msgs, ui, 0);
+                        self.draw_items(ctx, &mut msgs, ui, 0);
                     });
                 ctx.style_mut(|style| {
                     style.visuals.widgets.noninteractive.bg_stroke = std_stroke;

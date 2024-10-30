@@ -22,6 +22,7 @@ impl State {
     /// Draw the mouse gesture widget, i.e., the line(s) and text showing which gesture is being drawn.
     pub fn draw_mouse_gesture_widget(
         &self,
+        egui_ctx: &egui::Context,
         waves: &WaveData,
         pointer_pos_canvas: Option<Pos2>,
         response: &Response,
@@ -29,110 +30,139 @@ impl State {
         ctx: &mut DrawingContext,
         viewport_idx: usize,
     ) {
-        let frame_width = response.rect.width();
         if let Some(start_location) = self.sys.gesture_start_location {
-            response.dragged_by(PointerButton::Middle).then(|| {
-                let current_location = pointer_pos_canvas.unwrap();
-                let distance = current_location - start_location;
-                if distance.length_sq() >= self.config.gesture.deadzone {
-                    match gesture_type(start_location, current_location) {
-                        Some(GestureKind::ZoomToFit) => self.draw_gesture_line(
-                            start_location,
-                            current_location,
-                            "Zoom to fit",
-                            true,
-                            ctx,
-                        ),
-                        Some(GestureKind::ZoomIn) => self.draw_zoom_in_gesture(
-                            start_location,
-                            current_location,
-                            response,
-                            ctx,
-                            waves,
-                            viewport_idx,
-                        ),
+            let modifiers = egui_ctx.input(|i| i.modifiers);
+            if response.dragged_by(PointerButton::Middle)
+                || modifiers.command && response.dragged_by(PointerButton::Primary)
+            {
+                self.start_dragging(
+                    pointer_pos_canvas,
+                    start_location,
+                    ctx,
+                    response,
+                    waves,
+                    viewport_idx,
+                );
+            }
 
-                        Some(GestureKind::GoToStart) => self.draw_gesture_line(
-                            start_location,
-                            current_location,
-                            "Go to start",
-                            true,
-                            ctx,
-                        ),
-                        Some(GestureKind::GoToEnd) => self.draw_gesture_line(
-                            start_location,
-                            current_location,
-                            "Go to end",
-                            true,
-                            ctx,
-                        ),
-                        Some(GestureKind::ZoomOut) => self.draw_gesture_line(
-                            start_location,
-                            current_location,
-                            "Zoom out",
-                            true,
-                            ctx,
-                        ),
-                        _ => self.draw_gesture_line(
-                            start_location,
-                            current_location,
-                            "Cancel",
-                            false,
-                            ctx,
-                        ),
-                    }
-                } else {
-                    self.draw_gesture_help(response, ctx.painter, Some(start_location), true);
-                }
-            });
+            if response.drag_stopped_by(PointerButton::Middle)
+                || modifiers.command && response.drag_stopped_by(PointerButton::Primary)
+            {
+                let frame_width = response.rect.width();
+                self.stop_dragging(
+                    pointer_pos_canvas,
+                    start_location,
+                    msgs,
+                    viewport_idx,
+                    waves,
+                    frame_width,
+                );
+            }
+        }
+    }
 
-            response.drag_stopped_by(PointerButton::Middle).then(|| {
-                let end_location = pointer_pos_canvas.unwrap();
-                let distance = end_location - start_location;
-                if distance.length_sq() >= self.config.gesture.deadzone {
-                    match gesture_type(start_location, end_location) {
-                        Some(GestureKind::ZoomToFit) => {
-                            msgs.push(Message::ZoomToFit { viewport_idx });
-                        }
-                        Some(GestureKind::ZoomIn) => {
-                            let (minx, maxx) = if end_location.x < start_location.x {
-                                (end_location.x, start_location.x)
-                            } else {
-                                (start_location.x, end_location.x)
-                            };
-                            msgs.push(Message::ZoomToRange {
-                                // FIXME: No need to go via bigint here, this could all be relative
-                                start: waves.viewports[viewport_idx].as_time_bigint(
-                                    minx,
-                                    frame_width,
-                                    &waves.num_timestamps(),
-                                ),
-                                end: waves.viewports[viewport_idx].as_time_bigint(
-                                    maxx,
-                                    frame_width,
-                                    &waves.num_timestamps(),
-                                ),
-                                viewport_idx,
-                            });
-                        }
-                        Some(GestureKind::GoToStart) => {
-                            msgs.push(Message::GoToStart { viewport_idx });
-                        }
-                        Some(GestureKind::GoToEnd) => {
-                            msgs.push(Message::GoToEnd { viewport_idx });
-                        }
-                        Some(GestureKind::ZoomOut) => {
-                            msgs.push(Message::CanvasZoom {
-                                mouse_ptr: None,
-                                delta: 2.0,
-                                viewport_idx,
-                            });
-                        }
-                        _ => {}
-                    }
+    fn stop_dragging(
+        &self,
+        pointer_pos_canvas: Option<Pos2>,
+        start_location: Pos2,
+        msgs: &mut Vec<Message>,
+        viewport_idx: usize,
+        waves: &WaveData,
+        frame_width: f32,
+    ) {
+        let end_location = pointer_pos_canvas.unwrap();
+        let distance = end_location - start_location;
+        if distance.length_sq() >= self.config.gesture.deadzone {
+            match gesture_type(start_location, end_location) {
+                Some(GestureKind::ZoomToFit) => {
+                    msgs.push(Message::ZoomToFit { viewport_idx });
                 }
-                msgs.push(Message::SetDragStart(None));
-            });
+                Some(GestureKind::ZoomIn) => {
+                    let (minx, maxx) = if end_location.x < start_location.x {
+                        (end_location.x, start_location.x)
+                    } else {
+                        (start_location.x, end_location.x)
+                    };
+                    msgs.push(Message::ZoomToRange {
+                        // FIXME: No need to go via bigint here, this could all be relative
+                        start: waves.viewports[viewport_idx].as_time_bigint(
+                            minx,
+                            frame_width,
+                            &waves.num_timestamps(),
+                        ),
+                        end: waves.viewports[viewport_idx].as_time_bigint(
+                            maxx,
+                            frame_width,
+                            &waves.num_timestamps(),
+                        ),
+                        viewport_idx,
+                    });
+                }
+                Some(GestureKind::GoToStart) => {
+                    msgs.push(Message::GoToStart { viewport_idx });
+                }
+                Some(GestureKind::GoToEnd) => {
+                    msgs.push(Message::GoToEnd { viewport_idx });
+                }
+                Some(GestureKind::ZoomOut) => {
+                    msgs.push(Message::CanvasZoom {
+                        mouse_ptr: None,
+                        delta: 2.0,
+                        viewport_idx,
+                    });
+                }
+                _ => {}
+            }
+        }
+        msgs.push(Message::SetDragStart(None));
+    }
+
+    fn start_dragging(
+        &self,
+        pointer_pos_canvas: Option<Pos2>,
+        start_location: Pos2,
+        ctx: &mut DrawingContext<'_>,
+        response: &Response,
+        waves: &WaveData,
+        viewport_idx: usize,
+    ) {
+        let current_location = pointer_pos_canvas.unwrap();
+        let distance = current_location - start_location;
+        if distance.length_sq() >= self.config.gesture.deadzone {
+            match gesture_type(start_location, current_location) {
+                Some(GestureKind::ZoomToFit) => self.draw_gesture_line(
+                    start_location,
+                    current_location,
+                    "Zoom to fit",
+                    true,
+                    ctx,
+                ),
+                Some(GestureKind::ZoomIn) => self.draw_zoom_in_gesture(
+                    start_location,
+                    current_location,
+                    response,
+                    ctx,
+                    waves,
+                    viewport_idx,
+                ),
+
+                Some(GestureKind::GoToStart) => self.draw_gesture_line(
+                    start_location,
+                    current_location,
+                    "Go to start",
+                    true,
+                    ctx,
+                ),
+                Some(GestureKind::GoToEnd) => {
+                    self.draw_gesture_line(start_location, current_location, "Go to end", true, ctx)
+                }
+                Some(GestureKind::ZoomOut) => {
+                    self.draw_gesture_line(start_location, current_location, "Zoom out", true, ctx)
+                }
+                _ => self.draw_gesture_line(start_location, current_location, "Cancel", false, ctx),
+            }
+        } else {
+            self.draw_gesture_help(response, ctx.painter, Some(start_location), true);
         }
     }
 
