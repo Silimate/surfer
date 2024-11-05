@@ -3293,9 +3293,9 @@ dependencies = [
 
 [[package]]
 name = "numeric-sort"
-version = "0.1.1"
+version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5180ed575d2ae6100dc63813e3810aba273c291608cf019aa58f76784ecc331b"
+checksum = "6267845eb6dccf7a8a0f86140ea6dc7f62820413f2f5f29a194cc59e8327e5c1"
 
 [[package]]
 name = "objc"
