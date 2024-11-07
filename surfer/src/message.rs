@@ -79,7 +79,7 @@ pub enum Message {
     VerticalScroll(MoveDir, CommandCount),
     ScrollToItem(usize),
     SetScrollOffset(f32),
-    VariableFormatChange(DisplayedFieldRef, String),
+    VariableFormatChange(Option<DisplayedFieldRef>, String),
     ItemSelectionClear,
     ItemColorChange(Option<DisplayedItemIndex>, Option<String>),
     ItemBackgroundColorChange(Option<DisplayedItemIndex>, Option<String>),

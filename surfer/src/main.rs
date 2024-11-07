@@ -62,6 +62,7 @@ use clap::Parser;
 use color_eyre::eyre::Context;
 use color_eyre::Result;
 use derive_more::Display;
+use displayed_item::DisplayedVariable;
 use eframe::App;
 use egui::style::{Selection, WidgetVisuals, Widgets};
 use egui::{FontData, FontDefinitions, FontFamily, Visuals};
@@ -1251,37 +1252,68 @@ impl State {
                     return;
                 }
 
-                let Some(DisplayedItem::Variable(displayed_variable)) =
-                    waves.displayed_items.get_mut(&displayed_field_ref.item)
-                else {
-                    return;
-                };
+                let update_format =
+                    |variable: &mut DisplayedVariable, field_ref: DisplayedFieldRef| {
+                        if field_ref.field.is_empty() {
+                            let Ok(meta) = waves
+                                .inner
+                                .as_waves()
+                                .unwrap()
+                                .variable_meta(&variable.variable_ref)
+                                .map_err(|e| warn!("{e:#?}"))
+                            else {
+                                return;
+                            };
+                            let translator = self.sys.translators.get_translator(&format);
+                            let new_info = translator.variable_info(&meta).unwrap();
 
-                if displayed_field_ref.field.is_empty() {
-                    let Ok(meta) = waves
-                        .inner
-                        .as_waves()
-                        .unwrap()
-                        .variable_meta(&displayed_variable.variable_ref)
-                        .map_err(|e| warn!("{e:#?}"))
-                    else {
-                        return;
+                            variable.format = Some(format.clone());
+                            variable.info = new_info;
+                        } else {
+                            variable
+                                .field_formats
+                                .retain(|ff| ff.field != field_ref.field);
+                            variable.field_formats.push(FieldFormat {
+                                field: field_ref.field,
+                                format: format.clone(),
+                            });
+                        }
                     };
-                    let translator = self.sys.translators.get_translator(&format);
-                    let new_info = translator.variable_info(&meta).unwrap();
 
-                    displayed_variable.format = Some(format);
-                    displayed_variable.info = new_info;
-                } else {
-                    displayed_variable
-                        .field_formats
-                        .retain(|ff| ff.field != displayed_field_ref.field);
-                    displayed_variable.field_formats.push(FieldFormat {
-                        field: displayed_field_ref.field,
-                        format,
-                    });
+                // convert focused item index to item ref
+                let focused = waves
+                    .focused_item
+                    .and_then(|idx| waves.displayed_items_order.get(idx.0));
+
+                let mut redraw = false;
+
+                if let Some(id @ DisplayedItemRef(_)) = displayed_field_ref
+                    .as_ref()
+                    .map(|r| r.item)
+                    .or(focused.copied())
+                {
+                    if let Some(DisplayedItem::Variable(displayed_variable)) =
+                        waves.displayed_items.get_mut(&id)
+                    {
+                        update_format(displayed_variable, DisplayedFieldRef::from(id));
+                    }
+                    redraw = true;
                 }
-                self.invalidate_draw_commands();
+                if displayed_field_ref.is_none() {
+                    for item in &waves.selected_items {
+                        let field_ref = DisplayedFieldRef::from(*item);
+                        if let Some(DisplayedItem::Variable(variable)) =
+                            waves.displayed_items.get_mut(item)
+                        {
+                            update_format(variable, field_ref);
+                        }
+                    }
+                    redraw = true;
+                }
+
+                if redraw {
+                    self.invalidate_draw_commands();
+                }
             }
             Message::ItemSelectionClear => {
                 if let Some(waves) = self.waves.as_mut() {

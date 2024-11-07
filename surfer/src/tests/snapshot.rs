@@ -359,17 +359,17 @@ fn render_readme_screenshot() {
                     ),
                 ]),
                 Message::VariableFormatChange(
-                    DisplayedFieldRef {
+                    Some(DisplayedFieldRef {
                         item: DisplayedItemRef(1),
                         field: vec![],
-                    },
+                    }),
                     String::from("Clock"),
                 ),
                 Message::VariableFormatChange(
-                    DisplayedFieldRef {
+                    Some(DisplayedFieldRef {
                         item: DisplayedItemRef(2),
                         field: vec![],
-                    },
+                    }),
                     String::from("RV32"),
                 ),
                 Message::FocusItem(DisplayedItemIndex(2)),
@@ -609,19 +609,19 @@ snapshot_ui! {resizing_the_canvas_redraws, || {
 
 snapshot_ui_with_file_and_msgs! {clock_pulses_render_line, "examples/counter.vcd", [
     Message::AddScope(ScopeRef::from_strs(&["tb"]), false),
-    Message::VariableFormatChange(DisplayedFieldRef{item: DisplayedItemRef(2), field: vec![]}, String::from("Clock")),
+    Message::VariableFormatChange(Some(DisplayedFieldRef{item: DisplayedItemRef(2), field: vec![]}), String::from("Clock")),
     Message::SetClockHighlightType(ClockHighlightType::Line),
 ]}
 
 snapshot_ui_with_file_and_msgs! {clock_pulses_render_cycle, "examples/counter.vcd", [
     Message::AddScope(ScopeRef::from_strs(&["tb"]), false),
-    Message::VariableFormatChange(DisplayedFieldRef{item: DisplayedItemRef(2), field: vec![]}, String::from("Clock")),
+    Message::VariableFormatChange(Some(DisplayedFieldRef{item: DisplayedItemRef(2), field: vec![]}), String::from("Clock")),
     Message::SetClockHighlightType(ClockHighlightType::Cycle),
 ]}
 
 snapshot_ui_with_file_and_msgs! {clock_pulses_render_none, "examples/counter.vcd", [
     Message::AddScope(ScopeRef::from_strs(&["tb"]), false),
-    Message::VariableFormatChange(DisplayedFieldRef{item: DisplayedItemRef(2), field: vec![]}, String::from("Clock")),
+    Message::VariableFormatChange(Some(DisplayedFieldRef{item: DisplayedItemRef(2), field: vec![]}), String::from("Clock")),
     Message::SetClockHighlightType(ClockHighlightType::None),
 ]}
 
@@ -1669,10 +1669,10 @@ snapshot_ui!(rising_clock_markers, || {
         VariableRef::from_hierarchy_string("tb.clk"),
     ]));
     state.update(Message::VariableFormatChange(
-        DisplayedFieldRef {
+        Some(DisplayedFieldRef {
             item: DisplayedItemRef(1),
             field: vec![],
-        },
+        }),
         String::from("Clock"),
     ));
     state.update(Message::CanvasZoom {
@@ -1742,10 +1742,10 @@ snapshot_ui!(save_and_start_with_state, || {
         .into(),
     ));
     state.update(Message::VariableFormatChange(
-        DisplayedFieldRef {
+        Some(DisplayedFieldRef {
             item: DisplayedItemRef(1),
             field: vec![],
-        },
+        }),
         String::from("Binary"),
     ));
     state.update(Message::ZoomToFit { viewport_idx: 0 });
@@ -1761,10 +1761,10 @@ snapshot_ui!(save_and_start_with_state, || {
     );
 
     state.update(Message::VariableFormatChange(
-        DisplayedFieldRef {
+        Some(DisplayedFieldRef {
             item: DisplayedItemRef(2),
             field: vec![],
-        },
+        }),
         String::from("RV32"),
     ));
 
@@ -1836,17 +1836,17 @@ snapshot_ui!(switch, || {
     );
 
     state.update(Message::VariableFormatChange(
-        DisplayedFieldRef {
+        Some(DisplayedFieldRef {
             item: DisplayedItemRef(1),
             field: vec![],
-        },
+        }),
         String::from("Binary"),
     ));
     state.update(Message::VariableFormatChange(
-        DisplayedFieldRef {
+        Some(DisplayedFieldRef {
             item: DisplayedItemRef(3),
             field: vec![],
-        },
+        }),
         String::from("Hexadecimal"),
     ));
     state.update(Message::ZoomToFit { viewport_idx: 0 });
@@ -1903,17 +1903,17 @@ snapshot_ui!(switch_and_switch_back, || {
         .into(),
     ));
     state.update(Message::VariableFormatChange(
-        DisplayedFieldRef {
+        Some(DisplayedFieldRef {
             item: DisplayedItemRef(1),
             field: vec![],
-        },
+        }),
         String::from("RV32"),
     ));
     state.update(Message::VariableFormatChange(
-        DisplayedFieldRef {
+        Some(DisplayedFieldRef {
             item: DisplayedItemRef(2),
             field: vec![],
-        },
+        }),
         String::from("Hexadecimal"),
     ));
     state.update(Message::ZoomToFit { viewport_idx: 0 });
@@ -1992,10 +1992,10 @@ snapshot_ui!(save_and_load, || {
         .into(),
     ));
     state.update(Message::VariableFormatChange(
-        DisplayedFieldRef {
+        Some(DisplayedFieldRef {
             item: DisplayedItemRef(1),
             field: vec![],
-        },
+        }),
         String::from("Binary"),
     ));
 

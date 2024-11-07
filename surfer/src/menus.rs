@@ -530,7 +530,11 @@ impl State {
                 .then(|| {
                     ui.close_menu();
                     msgs.push(Message::VariableFormatChange(
-                        displayed_field_ref.clone(),
+                        if waves.selected_items.contains(&displayed_field_ref.item) {
+                            None
+                        } else {
+                            Some(displayed_field_ref.clone())
+                        },
                         name.to_string(),
                     ));
                 });
