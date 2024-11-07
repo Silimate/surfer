@@ -106,6 +106,13 @@ pub fn get_parser(state: &State) -> Command<Message> {
         .unwrap_or_default();
 
     let color_names = state.config.theme.colors.keys().cloned().collect_vec();
+    let format_names: Vec<String> = state
+        .sys
+        .translators
+        .all_translator_names()
+        .into_iter()
+        .map(&str::to_owned)
+        .collect();
 
     let active_scope = state.waves.as_ref().and_then(|w| w.active_scope.clone());
 
@@ -157,6 +164,7 @@ pub fn get_parser(state: &State) -> Command<Message> {
             "item_focus",
             "item_set_color",
             "item_set_background_color",
+            "item_set_format",
             "item_unset_color",
             "item_unset_background_color",
             "item_unfocus",
@@ -422,6 +430,15 @@ pub fn get_parser(state: &State) -> Command<Message> {
                     }),
                 ),
                 "item_unset_color" => Some(Command::Terminal(Message::ItemColorChange(None, None))),
+                "item_set_format" => single_word(
+                    format_names.clone(),
+                    Box::new(|word| {
+                        Some(Command::Terminal(Message::VariableFormatChange(
+                            None,
+                            word.to_string(),
+                        )))
+                    }),
+                ),
                 "item_unset_background_color" => Some(Command::Terminal(
                     Message::ItemBackgroundColorChange(None, None),
                 )),

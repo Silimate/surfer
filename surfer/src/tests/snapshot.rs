@@ -2050,10 +2050,10 @@ snapshot_ui_with_file_and_msgs!(
                 .unwrap()
         ),
         Message::VariableFormatChange(
-            DisplayedFieldRef {
+            Some(DisplayedFieldRef {
                 item: DisplayedItemRef(1),
                 field: vec![],
-            },
+            }),
             String::from("Hexadecimal (Python)"),
         ),
     ]
