@@ -32,8 +32,10 @@ use crate::{config::HierarchyStyle, wave_source::WaveFormat};
 type CommandCount = usize;
 
 pub enum HeaderResult {
-    /// result of locally parsing the header of a waveform file with wellen
-    Local(Box<wellen::viewers::HeaderResult>),
+    /// result of locally parsing the header of a waveform file with wellen from a file
+    LocalFile(Box<wellen::viewers::HeaderResult<std::io::BufReader<std::fs::File>>>),
+    /// result of locally parsing the header of a waveform file with wellen from bytes
+    LocalBytes(Box<wellen::viewers::HeaderResult<std::io::Cursor<Vec<u8>>>>),
     /// result of querying a remote surfer server
     Remote(
         std::sync::Arc<wellen::Hierarchy>,

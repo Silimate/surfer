@@ -11,6 +11,7 @@ use hyper_util::rt::TokioIo;
 use log::{error, info, warn};
 use rand::distributions::{Alphanumeric, DistString};
 use std::collections::HashMap;
+use std::io::{BufRead, Seek};
 use std::net::SocketAddr;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::mpsc::Sender;
@@ -296,7 +297,7 @@ pub async fn server_main(
     // load file
     let start_read_header = web_time::Instant::now();
     let header_result =
-        wellen::viewers::read_header(filename.as_str(), &WELLEN_SURFER_DEFAULT_OPTIONS)
+        wellen::viewers::read_header_from_file(filename.clone(), &WELLEN_SURFER_DEFAULT_OPTIONS)
             .map_err(|e| anyhow!("{e:?}"))
             .with_context(|| format!("Failed to parse wave file: {filename}"))?;
     info!(
@@ -372,9 +373,9 @@ pub async fn server_main(
 }
 
 /// Thread that loads the body and signals.
-fn loader(
+fn loader<R: BufRead + Seek + Sync + Send + 'static>(
     shared: Arc<ReadOnly>,
-    body_cont: viewers::ReadBodyContinuation,
+    body_cont: viewers::ReadBodyContinuation<R>,
     state: Arc<RwLock<State>>,
     rx: std::sync::mpsc::Receiver<SignalRequest>,
 ) -> Result<()> {

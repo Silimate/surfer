@@ -200,10 +200,12 @@ impl State {
         let sender = self.sys.channels.msg_sender.clone();
 
         perform_work(move || {
-            let header_result =
-                wellen::viewers::read_header(filename.as_str(), &WELLEN_SURFER_DEFAULT_OPTIONS)
-                    .map_err(|e| anyhow!("{e:?}"))
-                    .with_context(|| format!("Failed to parse wave file: {source}"));
+            let header_result = wellen::viewers::read_header_from_file(
+                filename.as_str(),
+                &WELLEN_SURFER_DEFAULT_OPTIONS,
+            )
+            .map_err(|e| anyhow!("{e:?}"))
+            .with_context(|| format!("Failed to parse wave file: {source}"));
 
             match header_result {
                 Ok(header) => {
@@ -211,7 +213,7 @@ impl State {
                         start,
                         source,
                         load_options,
-                        HeaderResult::Local(Box::new(header)),
+                        HeaderResult::LocalFile(Box::new(header)),
                     );
                     sender.send(msg).unwrap();
                 }
@@ -493,7 +495,7 @@ impl State {
         let source_copy = source.clone();
         perform_work(move || {
             let header_result =
-                wellen::viewers::read_header_from_bytes(bytes, &WELLEN_SURFER_DEFAULT_OPTIONS)
+                wellen::viewers::read_header(Cursor::new(bytes), &WELLEN_SURFER_DEFAULT_OPTIONS)
                     .map_err(|e| anyhow!("{e:?}"))
                     .with_context(|| format!("Failed to parse wave file: {source}"));
 
@@ -503,7 +505,7 @@ impl State {
                         start,
                         source,
                         load_options,
-                        HeaderResult::Local(Box::new(header)),
+                        HeaderResult::LocalBytes(Box::new(header)),
                     );
                     sender.send(msg).unwrap();
                 }
@@ -529,10 +531,10 @@ impl State {
         }
     }
 
-    pub fn load_wave_body(
+    pub fn load_wave_body<R: std::io::BufRead + std::io::Seek + Sync + Send + 'static>(
         &mut self,
         source: WaveSource,
-        cont: wellen::viewers::ReadBodyContinuation,
+        cont: wellen::viewers::ReadBodyContinuation<R>,
         body_len: u64,
         hierarchy: Arc<wellen::Hierarchy>,
     ) {

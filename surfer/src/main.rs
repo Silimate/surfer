@@ -1495,7 +1495,21 @@ impl State {
                     start.elapsed()
                 );
                 match header {
-                    HeaderResult::Local(header) => {
+                    HeaderResult::LocalFile(header) => {
+                        // register waveform as loaded (but with no variable info yet!)
+                        let shared_hierarchy = Arc::new(header.hierarchy);
+                        let new_waves =
+                            Box::new(WaveContainer::new_waveform(shared_hierarchy.clone()));
+                        self.on_waves_loaded(
+                            source.clone(),
+                            convert_format(header.file_format),
+                            new_waves,
+                            load_options,
+                        );
+                        // start parsing of the body
+                        self.load_wave_body(source, header.body, header.body_len, shared_hierarchy);
+                    }
+                    HeaderResult::LocalBytes(header) => {
                         // register waveform as loaded (but with no variable info yet!)
                         let shared_hierarchy = Arc::new(header.hierarchy);
                         let new_waves =
