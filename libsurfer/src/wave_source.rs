@@ -29,13 +29,27 @@ use crate::{message::Message, State};
 use surver::{Status, HTTP_SERVER_KEY, HTTP_SERVER_VALUE_SURFER, WELLEN_SURFER_DEFAULT_OPTIONS};
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
+pub enum CxxrtlKind {
+    Tcp { url: String },
+    Stdio { binary: String },
+}
+impl std::fmt::Display for CxxrtlKind {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            CxxrtlKind::Tcp { url } => write!(f, "cxxrtl+tcp://{url}"),
+            CxxrtlKind::Stdio { binary } => write!(f, "cxxrtl+file://{binary}"),
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 pub enum WaveSource {
     File(Utf8PathBuf),
     Data,
     DragAndDrop(Option<Utf8PathBuf>),
     Url(String),
     #[cfg(not(target_arch = "wasm32"))]
-    CxxrtlTcp(String),
+    Cxxrtl(CxxrtlKind),
 }
 
 impl WaveSource {
@@ -51,11 +65,26 @@ pub fn url_to_wavesource(url: &str) -> Option<WaveSource> {
     if url.starts_with("https://") || url.starts_with("http://") {
         info!("Wave source is url");
         Some(WaveSource::Url(url.to_string()))
+    } else if url.starts_with("cxxrtl+file://") {
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            info!("Wave source is cxxrtl stdio");
+            Some(WaveSource::Cxxrtl(CxxrtlKind::Stdio {
+                binary: url.replace("cxxrtl+file://", ""),
+            }))
+        }
+        #[cfg(target_arch = "wasm32")]
+        {
+            log::warn!("Loading waves from cxxrtl is unsupported in WASM builds.");
+            None
+        }
     } else if url.starts_with("cxxrtl+tcp://") {
         #[cfg(not(target_arch = "wasm32"))]
         {
-            info!("Wave source is cxxrtl");
-            Some(WaveSource::CxxrtlTcp(url.replace("cxxrtl+tcp://", "")))
+            info!("Wave source is cxxrtl tcp");
+            Some(WaveSource::Cxxrtl(CxxrtlKind::Tcp {
+                url: url.replace("cxxrtl+tcp://", ""),
+            }))
         }
         #[cfg(target_arch = "wasm32")]
         {
@@ -84,8 +113,8 @@ impl Display for WaveSource {
             WaveSource::DragAndDrop(None) => write!(f, "Dropped file"),
             WaveSource::DragAndDrop(Some(filename)) => write!(f, "Dropped file ({filename})"),
             WaveSource::Url(url) => write!(f, "{url}"),
-            #[cfg(not(target_arch = "wasm32"))]
-            WaveSource::CxxrtlTcp(url) => write!(f, "{url}"),
+            WaveSource::Cxxrtl(CxxrtlKind::Tcp { url }) => write!(f, "cxxrtl+tcp://{url}"),
+            WaveSource::Cxxrtl(CxxrtlKind::Stdio { binary }) => write!(f, "cxxrtl+file://{binary}"),
         }
     }
 }
@@ -148,6 +177,7 @@ impl LoadProgress {
 
 pub enum LoadProgressStatus {
     Downloading(String),
+    Connecting(String),
     ReadingHeader(WaveSource),
     ReadingBody(WaveSource, u64, Arc<AtomicU64>),
     LoadingVariables(u64),
@@ -262,8 +292,8 @@ impl State {
             // We want to support opening cxxrtl urls using open url and friends,
             // so we'll special case
             #[cfg(not(target_arch = "wasm32"))]
-            Some(WaveSource::CxxrtlTcp(url)) => {
-                self.connect_to_cxxrtl(url, load_options.keep_variables);
+            Some(WaveSource::Cxxrtl(kind)) => {
+                self.connect_to_cxxrtl(kind, load_options.keep_variables);
             }
             // However, if we don't get a cxxrtl url, we want to continue loading this as
             // a url even if it isn't auto detected as a url.
@@ -459,16 +489,25 @@ impl State {
     }
 
     #[cfg(not(target_arch = "wasm32"))]
-    pub fn connect_to_cxxrtl(&mut self, url: String, keep_variables: bool) {
+    pub fn connect_to_cxxrtl(&mut self, kind: CxxrtlKind, keep_variables: bool) {
         let sender = self.sys.channels.msg_sender.clone();
-        let url_ = url.clone();
         let msg_sender = self.sys.channels.msg_sender.clone();
+
+        self.sys.progress_tracker = Some(LoadProgress::new(LoadProgressStatus::Connecting(
+            format!("{kind}"),
+        )));
+
         let task = async move {
-            let container = CxxrtlContainer::new(&url, msg_sender);
+            let container = match &kind {
+                CxxrtlKind::Tcp { url } => CxxrtlContainer::new_tcp(&url, msg_sender).await,
+                CxxrtlKind::Stdio { binary } => {
+                    CxxrtlContainer::new_stdio(&binary, msg_sender).await
+                }
+            };
 
             match container {
                 Ok(c) => sender.send(Message::WavesLoaded(
-                    WaveSource::CxxrtlTcp(url),
+                    WaveSource::Cxxrtl(kind),
                     WaveFormat::CxxRtl,
                     Box::new(WaveContainer::Cxxrtl(Mutex::new(c))),
                     LoadOptions {
@@ -480,8 +519,6 @@ impl State {
             }
         };
         spawn!(task);
-
-        self.sys.progress_tracker = Some(LoadProgress::new(LoadProgressStatus::Downloading(url_)));
     }
 
     pub fn load_wave_from_bytes(
@@ -798,6 +835,12 @@ impl State {
 
 pub fn draw_progress_information(ui: &mut egui::Ui, progress_data: &LoadProgress) {
     match &progress_data.progress {
+        LoadProgressStatus::Connecting(url) => {
+            ui.horizontal(|ui| {
+                ui.spinner();
+                ui.monospace(format!("Connecting {url}"));
+            });
+        }
         LoadProgressStatus::Downloading(url) => {
             ui.horizontal(|ui| {
                 ui.spinner();

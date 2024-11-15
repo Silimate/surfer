@@ -36,14 +36,6 @@ impl QueryContainer {
         }
     }
 
-    pub fn invalidate(&mut self) {
-        if let Some(wh) = &self.worker_handle {
-            wh.abort();
-            self.worker_handle = None;
-        }
-        self.variable_values = Arc::new(RwLock::new(BTreeMap::new()));
-    }
-
     pub fn populate(
         &mut self,
         variables: Vec<VariableRef>,

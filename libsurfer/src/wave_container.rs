@@ -480,7 +480,7 @@ impl WaveContainer {
             WaveContainer::Cxxrtl(c) => c
                 .lock()
                 .unwrap()
-                .max_timestamp()
+                .max_displayed_timestamp()
                 .map(|t| t.as_femtoseconds()),
         }
     }

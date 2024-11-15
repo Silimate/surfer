@@ -198,8 +198,8 @@ impl State {
             }
             Some(WaveSource::Data) => error!("Attempted to load data at startup"),
             #[cfg(not(target_arch = "wasm32"))]
-            Some(WaveSource::CxxrtlTcp(url)) => {
-                self.add_startup_message(Message::ConnectToCxxrtl(url));
+            Some(WaveSource::Cxxrtl(url)) => {
+                self.add_startup_message(Message::SetupToCxxrtl(url));
             }
             Some(WaveSource::DragAndDrop(_)) => {
                 error!("Attempted to load from drag and drop at startup (how?)");

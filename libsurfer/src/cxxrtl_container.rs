@@ -6,21 +6,23 @@ use std::{
 };
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
-    net::TcpStream,
     sync::mpsc,
     sync::RwLock,
 };
 
 use color_eyre::{eyre::Context, Result};
 use log::{error, info, trace, warn};
-use num::{bigint::ToBigInt, BigUint};
+use num::{
+    bigint::{ToBigInt, ToBigUint},
+    BigUint,
+};
 use serde::Deserialize;
 use surfer_translation_types::VariableEncoding;
 
-use crate::wave_container::ScopeRefExt;
+use crate::{cxxrtl::io_worker::CxxrtlWorker, wave_container::ScopeRefExt};
 use crate::{
     cxxrtl::{
-        command::{CxxrtlCommand, Diagnostic},
+        command::CxxrtlCommand,
         cs_message::CSMessage,
         query_container::QueryContainer,
         sc_message::{
@@ -37,6 +39,8 @@ use crate::{
 
 const DEFAULT_REFERENCE: &str = "ALL_VARIABLES";
 
+pub type Callback = Box<dyn FnOnce(CommandResponse, &mut CxxrtlData) + Sync + Send>;
+
 #[derive(Deserialize, Debug, Clone)]
 pub(crate) struct CxxrtlScope {}
 
@@ -44,143 +48,6 @@ pub(crate) struct CxxrtlScope {}
 pub struct CxxrtlItem {
     pub width: u32,
 }
-
-pub struct CxxrtlWorker {
-    stream: TcpStream,
-    read_buf: VecDeque<u8>,
-
-    command_channel: mpsc::Receiver<(CxxrtlCommand, Callback)>,
-    callback_queue: VecDeque<Callback>,
-    data: Arc<RwLock<CxxrtlData>>,
-}
-
-impl CxxrtlWorker {
-    async fn start(mut self) {
-        info!("cxxrtl worker is up-and-running");
-        let mut buf = [0; 1024];
-        loop {
-            tokio::select! {
-                rx = self.command_channel.recv() => {
-                    if let Some((command, callback)) = rx {
-                        if let Err(e) =  self.send_message(CSMessage::command(command)).await {
-                                error!("Failed to send message {e:#?}");
-                            } else {
-                                self.callback_queue.push_back(callback);
-                            }
-                    }
-                }
-                count = self.stream.read(&mut buf) => {
-                    match count {
-                        Ok(count) => {
-                            let msg = self.process_stream(count, &mut buf).await.map_err(|e| {
-                                error!("Failed to process cxxrtl message ({e:#?})");
-                            })
-                            .ok()
-                            .flatten();
-                            if let Some(m) = msg {
-                                self.handle_scmessage(m).await;
-                            }
-                        },
-                        Err(e) => {
-                            error!("Failed to read bytes from cxxrtl {e:#?}. Shutting down client");
-                            break;
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    async fn send_message(&mut self, message: CSMessage) -> Result<()> {
-        let encoded = serde_json::to_string(&message)
-            .with_context(|| "Failed to encode greeting message".to_string())?;
-        self.stream.write_all(encoded.as_bytes()).await?;
-        self.stream.write_all(&[b'\0']).await?;
-
-        trace!("cxxrtl: C>S: {encoded}");
-
-        Ok(())
-    }
-
-    async fn handle_scmessage(&mut self, message: SCMessage) {
-        match message {
-            SCMessage::response(r) => {
-                if let Some(cb) = self.callback_queue.pop_front() {
-                    let mut w = self.data.write().await;
-                    cb(r, &mut w);
-                    if let Some(ctx) = crate::EGUI_CONTEXT.read().unwrap().as_ref() {
-                        ctx.request_repaint();
-                    }
-                } else {
-                    warn!("Received a response ({r:?}) without a corresponding callback");
-                }
-            }
-            SCMessage::greeting { .. } => {
-                info!("Received greting from cxxrtl");
-            }
-            SCMessage::event(e) => {
-                trace!("Got event {e:?} from cxxrtl");
-                match e {
-                    Event::simulation_paused { time, cause: _ } => {
-                        self.data.write().await.simulation_status =
-                            CachedData::Filled(Arc::new(CxxrtlSimulationStatus {
-                                status: SimulationStatusType::paused,
-                                latest_time: time,
-                            }));
-                    }
-                    Event::simulation_finished { time } => {
-                        self.data.write().await.simulation_status =
-                            CachedData::Filled(Arc::new(CxxrtlSimulationStatus {
-                                status: SimulationStatusType::finished,
-                                latest_time: time,
-                            }));
-                    }
-                }
-                if let Some(ctx) = crate::EGUI_CONTEXT.read().unwrap().as_ref() {
-                    ctx.request_repaint();
-                }
-            }
-        }
-    }
-
-    async fn process_stream(
-        &mut self,
-        count: usize,
-        buf: &mut [u8; 1024],
-    ) -> Result<Option<SCMessage>> {
-        if count != 0 {
-            self.read_buf
-                .write_all(&buf[0..count])
-                .context("Failed to read from cxxrtl tcp socket")?;
-        }
-
-        if let Some(idx) = self
-            .read_buf
-            .iter()
-            .enumerate()
-            .find(|(_i, c)| **c == b'\0')
-        {
-            let message = self.read_buf.drain(0..idx.0).collect::<Vec<_>>();
-            // The newline should not be part of this or the next message message
-            self.read_buf.pop_front();
-
-            let decoded = serde_json::from_slice(&message).with_context(|| {
-                format!(
-                    "Failed to decode message from cxxrtl. Message: '{}'",
-                    String::from_utf8_lossy(&message)
-                )
-            })?;
-
-            trace!("cxxrtl: S>C: {decoded:?}");
-
-            Ok(Some(decoded))
-        } else {
-            Ok(None)
-        }
-    }
-}
-
-type Callback = Box<dyn FnOnce(CommandResponse, &mut CxxrtlData) + Sync + Send>;
 
 /// A piece of data which we cache from Cxxrtl
 pub enum CachedData<T> {
@@ -200,8 +67,27 @@ impl<T> CachedData<T> {
         Self::Uncached { prev: None }
     }
 
+    fn make_uncached(&self) -> Self {
+        // Since the internals here are all Arc, clones are cheap
+        match &self {
+            CachedData::Uncached { prev } => CachedData::Uncached { prev: prev.clone() },
+            CachedData::Waiting { prev } => CachedData::Uncached { prev: prev.clone() },
+            CachedData::Filled(prev) => CachedData::Uncached {
+                prev: Some(prev.clone()),
+            },
+        }
+    }
+
     pub fn filled(t: T) -> Self {
         Self::Filled(Arc::new(t))
+    }
+
+    fn get(&self) -> Option<Arc<T>> {
+        match self {
+            CachedData::Uncached { prev } => prev.clone(),
+            CachedData::Waiting { prev } => prev.clone(),
+            CachedData::Filled(val) => Some(val.clone()),
+        }
     }
 }
 
@@ -232,8 +118,11 @@ pub struct CxxrtlData {
     all_items_cache: CachedData<HashMap<VariableRef, CxxrtlItem>>,
 
     /// We use the CachedData system to keep track of if we have sent a query request,
-    /// but the actual data is stored in the interval_query_cache
-    query_result: CachedData<()>,
+    /// but the actual data is stored in the interval_query_cache.
+    ///
+    /// The held value in the query result is the end timestamp of the current current
+    /// interval_query_cache
+    query_result: CachedData<CxxrtlTimestamp>,
     interval_query_cache: QueryContainer,
 
     loaded_signals: Vec<VariableRef>,
@@ -245,14 +134,16 @@ pub struct CxxrtlData {
 }
 
 impl CxxrtlData {
-    fn on_simulation_status_update(&mut self, status: CxxrtlSimulationStatus) {
+    pub fn on_simulation_status_update(&mut self, status: CxxrtlSimulationStatus) {
         self.simulation_status = CachedData::filled(status);
+        let _ = self.msg_channel.send(Message::InvalidateDrawCommands);
         self.invalidate_query_result();
     }
 
-    fn invalidate_query_result(&mut self) {
-        self.query_result = CachedData::empty();
-        self.interval_query_cache.invalidate();
+    pub fn invalidate_query_result(&mut self) {
+        self.query_result = self.query_result.make_uncached();
+        let _ = self.msg_channel.send(Message::InvalidateDrawCommands);
+        // self.interval_query_cache.invalidate();
     }
 }
 
@@ -275,18 +166,18 @@ pub struct CxxrtlContainer {
 }
 
 impl CxxrtlContainer {
-    pub fn new(addr: &str, msg_channel: std::sync::mpsc::Sender<Message>) -> Result<Self> {
-        info!("Setting up TCP stream to {addr}");
-        let mut stream = std::net::TcpStream::connect(addr)
-            .with_context(|| format!("Failed to connect to {addr}"))?;
-        info!("Done setting up TCP stream");
-
+    async fn new(
+        read: impl AsyncReadExt + Unpin + Send + 'static,
+        mut write: impl AsyncWriteExt + Unpin + Send + 'static,
+        msg_channel: std::sync::mpsc::Sender<Message>,
+    ) -> Result<Self> {
         let greeting = serde_json::to_string(&CSMessage::greeting { version: 0 })
             .with_context(|| "Failed to encode greeting message".to_string())?;
-        stream.write_all(greeting.as_bytes())?;
-        stream.write_all(&[b'\0'])?;
 
-        trace!("C>S: {greeting}");
+        trace!("Sending greeting {greeting}");
+        write.write_all(greeting.as_bytes()).await?;
+        write.write_all(&[b'\0']).await?;
+        write.flush().await?;
 
         let data = Arc::new(RwLock::new(CxxrtlData {
             scopes_cache: CachedData::empty(),
@@ -303,11 +194,10 @@ impl CxxrtlContainer {
         let (tx, rx) = mpsc::channel(100);
 
         let data_ = data.clone();
-        let stream = TcpStream::from_std(stream)
-            .with_context(|| "Failed to turn std stream into tokio stream")?;
         tokio::spawn(async move {
             CxxrtlWorker {
-                stream,
+                read,
+                write,
                 read_buf: VecDeque::new(),
                 command_channel: rx,
                 data: data_,
@@ -327,31 +217,68 @@ impl CxxrtlContainer {
         Ok(result)
     }
 
+    pub async fn new_tcp(
+        addr: &str,
+        msg_channel: std::sync::mpsc::Sender<Message>,
+    ) -> Result<Self> {
+        let stream = tokio::net::TcpStream::connect(addr)
+            .await
+            .with_context(|| format!("Failed to connect to {addr}"))?;
+
+        let (read, write) = tokio::io::split(stream);
+
+        let result = Self::new(read, write, msg_channel).await;
+
+        result
+    }
+
+    // TODO: Replace the channel with a tokio channel
+    pub async fn new_stdio(
+        binary: &str,
+        msg_channel: std::sync::mpsc::Sender<Message>,
+    ) -> Result<Self> {
+        let mut child = tokio::process::Command::new(binary)
+            .stdin(std::process::Stdio::piped())
+            .stdout(std::process::Stdio::piped())
+            .spawn()
+            .context("Failed to spawn {binary}")?;
+
+        Self::new(
+            child.stdout.take().unwrap(),
+            child.stdin.take().unwrap(),
+            msg_channel,
+        )
+        .await
+    }
+
     fn get_scopes(&mut self) -> Arc<HashMap<ScopeRef, CxxrtlScope>> {
         block_on(self.data.write())
             .scopes_cache
             .fetch_if_needed(|| {
-                self.run_command(CxxrtlCommand::list_scopes, |response, data| {
-                    expect_response!(CommandResponse::list_scopes { scopes }, response);
+                self.run_command(
+                    CxxrtlCommand::list_scopes { scope: None },
+                    |response, data| {
+                        expect_response!(CommandResponse::list_scopes { scopes }, response);
 
-                    let scopes = scopes
-                        .into_iter()
-                        .map(|(name, s)| {
-                            (
-                                ScopeRef {
-                                    strs: name
-                                        .split(' ')
-                                        .map(std::string::ToString::to_string)
-                                        .collect(),
-                                    id: ScopeId::None,
-                                },
-                                s,
-                            )
-                        })
-                        .collect();
+                        let scopes = scopes
+                            .into_iter()
+                            .map(|(name, s)| {
+                                (
+                                    ScopeRef {
+                                        strs: name
+                                            .split(' ')
+                                            .map(std::string::ToString::to_string)
+                                            .collect(),
+                                        id: ScopeId::None,
+                                    },
+                                    s,
+                                )
+                            })
+                            .collect();
 
-                    data.scopes_cache = CachedData::filled(scopes);
-                });
+                        data.scopes_cache = CachedData::filled(scopes);
+                    },
+                );
             })
             .unwrap_or_else(|| Arc::new(HashMap::new()))
     }
@@ -532,6 +459,13 @@ impl CxxrtlContainer {
             }))
     }
 
+    pub fn max_displayed_timestamp(&self) -> Option<CxxrtlTimestamp> {
+        block_on(self.data.read())
+            .query_result
+            .get()
+            .map(|t| (*t).clone())
+    }
+
     pub fn max_timestamp(&mut self) -> Option<CxxrtlTimestamp> {
         self.raw_simulation_status().map(|s| s.latest_time)
     }
@@ -557,7 +491,7 @@ impl CxxrtlContainer {
 
                 s.run_command(
                     CxxrtlCommand::query_interval {
-                        interval: (CxxrtlTimestamp::zero(), max_timestamp),
+                        interval: (CxxrtlTimestamp::zero(), max_timestamp.clone()),
                         collapse: true,
                         items: Some(DEFAULT_REFERENCE.to_string()),
                         item_values_encoding: "base64(u32)",
@@ -566,7 +500,7 @@ impl CxxrtlContainer {
                     move |response, data| {
                         expect_response!(CommandResponse::query_interval { samples }, response);
 
-                        data.query_result = CachedData::filled(());
+                        data.query_result = CachedData::filled(max_timestamp);
                         data.interval_query_cache.populate(
                             loaded_signals,
                             info,
@@ -636,9 +570,20 @@ impl CxxrtlContainer {
     }
 
     pub fn unpause(&self) {
+        let duration = self
+            .raw_simulation_status()
+            .map(|s| {
+                CxxrtlTimestamp::from_femtoseconds(
+                    s.latest_time.as_femtoseconds() + 100_000_000u32.to_biguint().unwrap(),
+                )
+            })
+            .unwrap_or_else(|| {
+                CxxrtlTimestamp::from_femtoseconds(100_000_000u32.to_biguint().unwrap())
+            });
+
         let cmd = CxxrtlCommand::run_simulation {
-            until_time: None,
-            until_diagnostics: vec![Diagnostic::print],
+            until_time: Some(duration),
+            until_diagnostics: vec![],
             sample_item_values: true,
         };
 

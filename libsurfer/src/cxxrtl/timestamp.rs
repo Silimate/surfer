@@ -63,6 +63,6 @@ impl Serialize for CxxrtlTimestamp {
 
 impl std::fmt::Display for CxxrtlTimestamp {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}.{}", self.seconds, self.femtoseconds)
+        write!(f, "{}.{:015}", self.seconds, self.femtoseconds)
     }
 }

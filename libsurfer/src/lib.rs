@@ -986,7 +986,7 @@ impl State {
                 }
             }
             #[cfg(not(target_arch = "wasm32"))]
-            Message::ConnectToCxxrtl(url) => self.connect_to_cxxrtl(url, false),
+            Message::SetupToCxxrtl(kind) => self.connect_to_cxxrtl(kind, false),
             Message::SurferServerStatus(_start, server, status) => {
                 self.server_status_to_progress(server, status);
             }
@@ -1273,7 +1273,7 @@ impl State {
                     }
                     WaveSource::Data => {} // can't reload
                     #[cfg(not(target_arch = "wasm32"))]
-                    WaveSource::CxxrtlTcp(..) => {} // can't reload
+                    WaveSource::Cxxrtl(..) => {} // can't reload
                     WaveSource::DragAndDrop(filename) => {
                         filename.clone().and_then(|filename| {
                             self.load_from_file(

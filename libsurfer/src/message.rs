@@ -16,6 +16,7 @@ use crate::transaction_container::{
 use crate::translation::DynTranslator;
 use crate::viewport::ViewportStrategy;
 use crate::wave_data::ScopeType;
+use crate::wave_source::CxxrtlKind;
 use crate::{
     clock_highlighting::ClockHighlightType,
     config::ArrowKeyBindings,
@@ -119,7 +120,7 @@ pub enum Message {
         state: String,
     },
     #[cfg(not(target_arch = "wasm32"))]
-    ConnectToCxxrtl(String),
+    SetupToCxxrtl(CxxrtlKind),
     #[serde(skip)]
     WaveHeaderLoaded(
         web_time::Instant,
