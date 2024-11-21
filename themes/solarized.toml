@@ -15,7 +15,7 @@ variable_undefined = "46000c"
 # to make visible on a white background, so we'll make it blue
 variable_highimp = "000347"
 cursor = { color="b63935", width=2 }
-linewidth = 1
+linewidth = 2
 
 [colors]
 Green = "859900"

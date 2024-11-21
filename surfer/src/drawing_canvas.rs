@@ -655,9 +655,19 @@ impl State {
         let mut ctx = DrawingContext {
             painter: &mut painter,
             cfg: &cfg,
-            // This 0.5 is very odd, but it fixes the lines we draw being smushed out across two
-            // pixels, resulting in dimmer colors https://github.com/emilk/egui/issues/1322
-            to_screen: &|x, y| to_screen.transform_pos(Pos2::new(x, y) + Vec2::new(0.5, 0.5)),
+            to_screen: &|x, y| {
+                // As of 0.29 Egui draws things in the middle of pixels which means that if our
+                // line width is odd, we'll get very fuzzy lines. To compensate for this, we'll
+                // offset the coordinates by 0.5 if we have an odd line width.
+                // Relevant issues: https://github.com/emilk/egui/issues/1322
+                //                  https://github.com/emilk/egui/pull/4943
+                let offset = if (self.config.theme.linewidth as i32) % 2 == 1 {
+                    Vec2::new(0.5, 0.5)
+                } else {
+                    Vec2::ZERO
+                };
+                to_screen.transform_pos(Pos2::new(x, y) + offset)
+            },
             theme: &self.config.theme,
         };
 
@@ -1118,6 +1128,21 @@ impl State {
                     .value
                     .bool_drawing_spec(color, &self.config.theme, new_result.kind);
 
+            if let Some(old_bg) = old_bg {
+                ctx.painter.add(RectShape::new(
+                    Rect {
+                        min: (ctx.to_screen)(*old_x, offset),
+                        max: (ctx.to_screen)(
+                            *new_x,
+                            offset + ctx.cfg.line_height + ctx.theme.linewidth / 2.,
+                        ),
+                    },
+                    Rounding::ZERO,
+                    old_bg,
+                    Stroke::NONE,
+                ));
+            }
+
             let stroke = Stroke {
                 color: old_color,
                 width: self.config.theme.linewidth,
@@ -1148,18 +1173,6 @@ impl State {
                     ],
                     old_color,
                     stroke,
-                ));
-            }
-
-            if let Some(old_bg) = old_bg {
-                ctx.painter.add(RectShape::new(
-                    Rect {
-                        min: (ctx.to_screen)(*old_x, offset),
-                        max: (ctx.to_screen)(*new_x, offset + ctx.cfg.line_height),
-                    },
-                    Rounding::ZERO,
-                    old_bg,
-                    Stroke::new(0.0, Color32::BLACK),
                 ));
             }
         }

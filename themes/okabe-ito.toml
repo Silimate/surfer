@@ -17,7 +17,7 @@ variable_dontcare = "56b4e9"
 variable_weak = "bbbbbb"
 cursor = { color="ffffff", width=2 }
 gesture = { color="ffffff", width=2 }
-linewidth = 2.4
+linewidth = 3
 alt_frequency = 0
 
 [colors]

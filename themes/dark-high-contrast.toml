@@ -23,7 +23,7 @@ variable_weak = "e1e1e1" # custom grey
 waveform_opacity = 0.5
 cursor = { color="ffffff", width=3 } # fg-main
 gesture = { color="ffffff", width=2 } # fg-main
-linewidth = 2.4
+linewidth = 3
 alt_frequency = 0
 
 # Note: The "bg-graph-1"-variants of the bg-colors are used

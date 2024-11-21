@@ -18,7 +18,7 @@ variable_dontcare = "17265e"
 variable_weak = "808080"
 waveform_opacity = 0.5
 cursor = { color="b63935", width=2 }
-linewidth = 1.5
+linewidth = 2
 
 [colors]
 Green = "6a9955"
@@ -31,5 +31,5 @@ Gray = "808080"
 Violet = "646695"
 
 [ticks]
-style = { color="9f9f9f", width=2 }
+style = { color="c9c9c9", width=2 }
 density = 1
