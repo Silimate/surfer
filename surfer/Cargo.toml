@@ -41,7 +41,6 @@ lazy_static.workspace = true
 local-impl = "0.1.2"
 log.workspace = true
 lz4_flex.workspace = true
-notify = "6.1.1"
 num.workspace = true
 numeric-sort = "0.1.2"
 pure-rust-locales = "0.8.1"
@@ -74,6 +73,9 @@ performance_plot = ["dep:egui_plot"]
 python = ["pyo3", "surfer-translation-types/pyo3"]
 spade = ["dep:spade", "dep:spade-common", "dep:spade-hir-lowering", "dep:spade-types", "dep:serde_stacker"]
 
+[target.'cfg(all(not(windows), not(target_arch = "wasm32")))'.dependencies]
+notify = "6.1.1"
+
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 tokio.workspace = true
 base64 = "0.22"
@@ -81,7 +83,6 @@ directories = "5.0"
 futures = { version = "0.3.30", features = ["executor"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-console_error_panic_hook = "0.1.6"
 toml = "0.8.12"
 wasm-bindgen = "0.2.91"
 wasm-bindgen-futures = "0.4"

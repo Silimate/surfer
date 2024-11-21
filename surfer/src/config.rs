@@ -383,7 +383,7 @@ impl SurferTheme {
     pub fn new(theme_name: Option<String>) -> Result<Self> {
         use color_eyre::eyre::anyhow;
 
-        let (mut theme, theme_names) = Self::generate_defaults(&theme_name);
+        let (theme, _) = Self::generate_defaults(&theme_name);
 
         let theme = theme.set_override("theme_names", all_theme_names())?;
 

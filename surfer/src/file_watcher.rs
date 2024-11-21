@@ -1,16 +1,19 @@
+#[cfg(all(not(windows), not(target_arch = "wasm32")))]
 use camino::Utf8Path;
-#[cfg(not(windows))]
+#[cfg(all(not(windows), not(target_arch = "wasm32")))]
 use log::{error, info};
+#[cfg(all(not(windows), not(target_arch = "wasm32")))]
 use notify::Error;
-#[cfg(not(windows))]
+#[cfg(all(not(windows), not(target_arch = "wasm32")))]
 use notify::{event::ModifyKind, Config, Event, EventKind, RecursiveMode, Watcher};
-#[cfg(not(windows))]
+#[cfg(all(not(windows), not(target_arch = "wasm32")))]
 use std::time::Duration;
 
 /// Watches a provided file for changes.
 /// Currently, this only works for Unix-like systems (tested on linux and macOS).
+#[cfg(all(not(windows), not(target_arch = "wasm32")))]
 pub struct FileWatcher {
-    #[cfg(not(windows))]
+    #[cfg(all(not(windows), not(target_arch = "wasm32")))]
     _inner: notify::RecommendedWatcher,
 }
 
@@ -28,7 +31,7 @@ fn is_same_file(p1: impl AsRef<std::path::Path>, p2: impl AsRef<std::path::Path>
     }
 }
 
-#[cfg(not(windows))]
+#[cfg(all(not(windows), not(target_arch = "wasm32")))]
 impl FileWatcher {
     /// Create a watcher for a path pointing to some file.
     /// Whenever that file changes, the provided `on_change` will be called.
@@ -75,7 +78,7 @@ impl FileWatcher {
 // systems
 #[cfg(windows)]
 impl FileWatcher {
-    pub fn new<F>(_path: &Utf8Path, _on_change: F) -> Result<FileWatcher, Error>
+    pub fn new<F>(_path: &Utf8Path, _on_change: F) -> color_eyre::Result<FileWatcher>
     where
         F: Fn() + Send + Sync + 'static,
     {

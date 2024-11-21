@@ -335,7 +335,8 @@ fn main() -> Result<()> {
 // When compiling to web using trunk:
 #[cfg(target_arch = "wasm32")]
 fn main() -> Result<()> {
-    console_error_panic_hook::set_once();
+    use eframe::wasm_bindgen::JsCast as _;
+
     color_eyre::install()?;
 
     let web_log_config = fern::Dispatch::new()
@@ -356,9 +357,20 @@ fn main() -> Result<()> {
     let mut state = State::new()?.with_params(StartupParams::from_url(url));
 
     wasm_bindgen_futures::spawn_local(async {
+        let document = web_sys::window()
+            .expect("No window")
+            .document()
+            .expect("No document");
+
+        let canvas = document
+            .get_element_by_id("the_canvas_id")
+            .expect("Failed to find the_canvas_id")
+            .dyn_into::<web_sys::HtmlCanvasElement>()
+            .expect("the_canvas_id was not a HtmlCanvasElement");
+
         eframe::WebRunner::new()
             .start(
-                "the_canvas_id", // hardcode it
+                canvas,
                 web_options,
                 Box::new(|cc| {
                     let ctx_arc = Arc::new(cc.egui_ctx.clone());
@@ -370,7 +382,7 @@ fn main() -> Result<()> {
                 }),
             )
             .await
-            .expect("failed to start eframe");
+            .unwrap();
     });
 
     Ok(())
@@ -1919,6 +1931,10 @@ impl State {
                 #[cfg(not(target_arch = "wasm32"))]
                 {
                     self.state_file = Some(path);
+                }
+                #[cfg(target_arch = "wasm32")]
+                {
+                    error!("Failed to load {path:?}. Loading state files is unsupported on wasm")
                 }
             }
             Message::SetAboutVisible(s) => self.show_about = s,

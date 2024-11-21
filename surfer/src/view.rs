@@ -162,6 +162,8 @@ impl eframe::App for State {
                 Some(i.screen_rect.size()),
             )
         });
+        #[cfg(target_arch = "wasm32")]
+        let _ = fullscreen;
 
         #[cfg(feature = "performance_plot")]
         self.sys.timing.borrow_mut().start("draw");

@@ -228,6 +228,8 @@ fn find_user_decoders_at_path(path: &Path) -> Vec<Box<DynBasicTranslator>> {
 }
 
 pub fn all_translators() -> TranslatorList {
+    // WASM does not need mut, non-wasm does so we'll allow it
+    #[allow(unused_mut)]
     let mut basic_translators: Vec<Box<DynBasicTranslator>> = vec![
         Box::new(BitTranslator {}),
         Box::new(HexTranslator {}),
