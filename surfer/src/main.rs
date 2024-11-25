@@ -322,7 +322,10 @@ fn main() -> Result<()> {
             let ctx_arc = Arc::new(cc.egui_ctx.clone());
             *EGUI_CONTEXT.write().unwrap() = Some(ctx_arc.clone());
             state.sys.context = Some(ctx_arc.clone());
-            cc.egui_ctx.set_visuals(state.get_visuals());
+            cc.egui_ctx
+                .set_visuals_of(egui::Theme::Dark, state.get_visuals());
+            cc.egui_ctx
+                .set_visuals_of(egui::Theme::Light, state.get_visuals());
             setup_custom_font(&cc.egui_ctx);
             Ok(Box::new(state))
         }),
@@ -376,8 +379,11 @@ fn main() -> Result<()> {
                     let ctx_arc = Arc::new(cc.egui_ctx.clone());
                     *EGUI_CONTEXT.write().unwrap() = Some(ctx_arc.clone());
                     state.sys.context = Some(ctx_arc.clone());
-                    cc.egui_ctx.set_visuals(state.get_visuals());
                     setup_custom_font(&cc.egui_ctx);
+                    cc.egui_ctx
+                        .set_visuals_of(egui::Theme::Dark, state.get_visuals());
+                    cc.egui_ctx
+                        .set_visuals_of(egui::Theme::Light, state.get_visuals());
                     Ok(Box::new(state))
                 }),
             )
