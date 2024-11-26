@@ -41,7 +41,7 @@ const DEFAULT_REFERENCE: &str = "ALL_VARIABLES";
 pub(crate) struct CxxrtlScope {}
 
 #[derive(Deserialize, Debug, Clone)]
-pub(crate) struct CxxrtlItem {
+pub struct CxxrtlItem {
     pub width: u32,
 }
 

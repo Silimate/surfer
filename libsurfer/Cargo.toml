@@ -1,0 +1,105 @@
+[package]
+name = "libsurfer"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+categories.workspace = true
+rust-version.workspace = true
+build = "build.rs"
+description = "Waveform viewer for VCD, FST, and GHW"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+bincode.workspace = true
+bytes = "1.7.1"
+bytesize.workspace = true
+camino.workspace = true
+chrono = "0.4.31"
+color-eyre.workspace = true
+config = { version = "0.14", default-features = false, features = ["toml"] }
+derive_more.workspace = true
+ecolor.workspace = true
+eframe.workspace = true
+egui.workspace = true
+egui-remixicon = { version = "0.29.1", default-features = false }
+egui_extras = { version = "0.29.1", default-features = false }
+egui_plot = { version = "0.29", optional = true }
+emath.workspace = true
+enum-iterator = "2.0"
+epaint = "0.29.1"
+f128 = { path = "../f128", optional = true }
+fern.workspace = true
+ftr_parser = { path = "../ftr_parser" }
+futures-core = "0.3.29"
+futures-util = "0.3.29"
+fuzzy-matcher = "0.3.7"
+fzcmd = { path = "../fzcmd" }
+half = "2.4.1"
+instruction-decoder = { path = "../instruction-decoder" }
+itertools = "0.13.0"
+lazy_static.workspace = true
+local-impl = "0.1.2"
+log.workspace = true
+lz4_flex.workspace = true
+num.workspace = true
+numeric-sort = "0.1.2"
+pure-rust-locales = "0.8.1"
+pyo3 = { workspace = true, optional = true }
+rayon = "1.10.0"
+regex = "1.10.2"
+reqwest = { version = "0.12.4", features = ["stream"] }
+rfd = { version = "0.14.0", default-features = false, features = ["tokio", "xdg-portal"] }
+ron.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+serde_stacker = { version = "0.1", optional = true }
+softposit = "0.4.0"
+spade = { git = "https://gitlab.com/spade-lang/spade", rev = "84f6e75016f40d9b3f82d8085e9b08393c56db95", optional = true }
+spade-common = { git = "https://gitlab.com/spade-lang/spade", rev = "84f6e75016f40d9b3f82d8085e9b08393c56db95", optional = true }
+spade-hir-lowering = { git = "https://gitlab.com/spade-lang/spade", rev = "84f6e75016f40d9b3f82d8085e9b08393c56db95", optional = true }
+spade-types = { git = "https://gitlab.com/spade-lang/spade", rev = "84f6e75016f40d9b3f82d8085e9b08393c56db95", optional = true }
+surfer-translation-types = { path = "../surfer-translation-types" }
+surver.workspace = true
+sys-locale = "0.3.1"
+toml = "0.8.12"
+web-time.workspace = true
+wellen.workspace = true
+
+[features]
+default = ["spade", "performance_plot"]
+accesskit = ["eframe/accesskit", "eframe/web_screen_reader"]
+f128 = ["dep:f128"]
+performance_plot = ["dep:egui_plot"]
+python = ["pyo3", "surfer-translation-types/pyo3"]
+spade = ["dep:spade", "dep:spade-common", "dep:spade-hir-lowering", "dep:spade-types", "dep:serde_stacker"]
+
+[target.'cfg(all(not(windows), not(target_arch = "wasm32")))'.dependencies]
+notify = "6.1.1"
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+tokio.workspace = true
+base64 = "0.22"
+directories = "5.0"
+futures = { version = "0.3.30", features = ["executor"] }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+toml = "0.8.12"
+wasm-bindgen = "0.2.91"
+wasm-bindgen-futures = "0.4"
+web-sys = { version = "= 0.3.72", features = ["Location", "UrlSearchParams"] }
+futures = "0.3.30"
+tokio = {workspace = true, features = ["sync"]}
+
+[dev-dependencies]
+egui_skia_renderer = { git = "https://gitlab.com/sornas/egui_skia_renderer", rev = "a45332b332e8c6b3fa9587dc8438cebec7dc3b0e" }
+image = { version = "0.25", default-features = false, features = ["png"] }
+image-compare = "0.4.1"
+project-root = "0.2.2"
+skia-safe = "0.78.0"
+tempfile = "3.12.0"
+test-log = "0.2.15"
+
+[build-dependencies]
+vergen-gitcl = { version = "1.0", features=["build"] }

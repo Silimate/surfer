@@ -19,9 +19,14 @@ use crate::graphics::GrPoint;
 use crate::graphics::Graphic;
 use crate::graphics::GraphicId;
 use crate::graphics::GraphicsY;
+use crate::logs;
+use crate::setup_custom_font;
+use crate::wasm_panic;
+use crate::wasm_util;
 use crate::wave_container::VariableRefExt;
 use crate::DisplayedItem;
 use crate::Message;
+use crate::StartupParams;
 use crate::State;
 use crate::EGUI_CONTEXT;
 
@@ -41,6 +46,71 @@ pub fn try_repaint() {
         ctx.request_repaint();
     } else {
         warn!("Attempted to request surfer repaint but surfer has not given us EGUI_CONTEXT yet")
+    }
+}
+
+/// Your handle to the web app from JavaScript.
+#[derive(Clone)]
+#[wasm_bindgen]
+pub struct WebHandle {
+    runner: eframe::WebRunner,
+}
+
+#[wasm_bindgen]
+impl WebHandle {
+    /// Installs a panic hook, then returns.
+    #[allow(clippy::new_without_default)]
+    #[wasm_bindgen(constructor)]
+    pub fn new() -> Self {
+        let web_log_config = fern::Dispatch::new()
+            .level(log::LevelFilter::Info)
+            .format(move |out, message, record| {
+                out.finish(format_args!("[{}] {}", record.level(), message))
+            })
+            .chain(Box::new(eframe::WebLogger::new(log::LevelFilter::Debug)) as Box<dyn log::Log>);
+
+        logs::setup_logging(web_log_config).unwrap();
+
+        wasm_panic::set_once();
+
+        Self {
+            runner: eframe::WebRunner::new(),
+        }
+    }
+
+    /// Call this once from JavaScript to start your app.
+    #[wasm_bindgen]
+    pub async fn start(
+        &self,
+        canvas: web_sys::HtmlCanvasElement,
+    ) -> Result<(), wasm_bindgen::JsValue> {
+        let web_options = eframe::WebOptions::default();
+
+        let url = wasm_util::vcd_from_url();
+
+        // NOTE: Safe unwrap, we're loading a system config which cannot be changed by the
+        // user
+        let mut state = State::new()
+            .unwrap()
+            .with_params(StartupParams::from_url(url));
+
+        self.runner
+            .start(
+                canvas,
+                web_options,
+                Box::new(|cc| {
+                    let ctx_arc = Arc::new(cc.egui_ctx.clone());
+                    *EGUI_CONTEXT.write().unwrap() = Some(ctx_arc.clone());
+                    state.sys.context = Some(ctx_arc.clone());
+                    setup_custom_font(&cc.egui_ctx);
+                    cc.egui_ctx
+                        .set_visuals_of(egui::Theme::Dark, state.get_visuals());
+                    cc.egui_ctx
+                        .set_visuals_of(egui::Theme::Light, state.get_visuals());
+                    Ok(Box::new(state))
+                }),
+            )
+            .await
     }
 }
 
