@@ -9,7 +9,7 @@ exclude = [
   "fzcmd",
   "instruction-decoder",
 ]
-default-members = ["surfer", "surver"]
+default-members = ["surfer", "surver", "libsurfer"]
 
 [workspace.package]
 version = "0.3.0-dev"
