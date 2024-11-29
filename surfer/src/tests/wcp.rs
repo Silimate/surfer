@@ -40,7 +40,7 @@ async fn run_test_client(port: usize, msgs: Vec<WcpMessage>, test_done: Arc<Atom
 
     // read greeting message
     let _ = get_json_message(&mut client).expect("Could not read greeting message");
-    // TODO check response content
+    // FIXME check response content
     // clear screen
     let _ = serde_json::to_writer(&client, &WcpMessage::Command(WcpCommand::Clear));
     let _ = client.write(b"\0");
