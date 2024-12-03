@@ -18,6 +18,9 @@ tokio.workspace = true
 ron.workspace=true
 surver.path = "../surver"
 
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen-futures = "0.4"
+
 
 [features]
 accesskit = ["eframe/accesskit", "eframe/web_screen_reader"]

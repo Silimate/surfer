@@ -1,4 +1,4 @@
-#![deny(unused_crate_dependencies)]
+#![cfg_attr(not(target_arch = "wasm32"), deny(unused_crate_dependencies))]
 
 #[cfg(not(target_arch = "wasm32"))]
 mod main_impl {
@@ -192,12 +192,34 @@ mod main_impl {
     }
 }
 
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(target_arch = "wasm32")]
+mod main_impl {
+    use eframe::wasm_bindgen::JsCast;
+    use eframe::web_sys;
+    use libsurfer::wasm_api::WebHandle;
+
+    // Calling main is not the intended way to start surfer, instead, it should be
+    // started by `wasm_util::WebHandle`
+    pub(crate) fn main() -> color_eyre::Result<()> {
+        let document = web_sys::window()
+            .expect("No window")
+            .document()
+            .expect("No document");
+        let canvas = document
+            .get_element_by_id("the_canvas_id")
+            .expect("Failed to find the_canvas_id")
+            .dyn_into::<web_sys::HtmlCanvasElement>()
+            .expect("the_canvas_id was not a HtmlCanvasElement");
+
+        wasm_bindgen_futures::spawn_local(async {
+            let wh = WebHandle::new();
+            wh.start(canvas).await.expect("Failed to start surfer");
+        });
+
+        Ok(())
+    }
+}
+
 fn main() -> color_eyre::Result<()> {
     main_impl::main()
 }
-
-// Calling main is not the intended way to start surfer, instead, it should be
-// started by `wasm_util::WebHandle`
-#[cfg(target_arch = "wasm32")]
-fn main() {}

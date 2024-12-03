@@ -4838,6 +4838,7 @@ dependencies = [
  "ron",
  "surver",
  "tokio",
+ "wasm-bindgen-futures",
 ]
 
 [[package]]

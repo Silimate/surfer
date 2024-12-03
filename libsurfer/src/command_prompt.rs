@@ -159,6 +159,8 @@ pub fn get_parser(state: &State) -> Command<Message> {
     } else {
         "wcp_server_start"
     };
+    #[cfg(target_arch = "wasm32")]
+    let _ = wcp_start_or_stop;
 
     let keep_during_reload = state.config.behavior.keep_during_reload;
     let mut commands = if state.waves.is_some() {

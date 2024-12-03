@@ -4,8 +4,6 @@ pattern_script = """
         import init from '{base}{js}';
         await init({module_or_path: '{base}{wasm}'});
         import {WebHandle, inject_message, id_of_name, draw_text_arrow} from '{base}{js}';
-        let wh = new WebHandle()
-        wh.start(document.getElementById("the_canvas_id"))
         window.inject_message = inject_message;
         window.id_of_name = id_of_name;
         window.draw_text_arrow = draw_text_arrow;

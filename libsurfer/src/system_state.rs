@@ -37,9 +37,13 @@ pub struct SystemState {
     pub(crate) batch_commands_completed: bool,
 
     /// The WCP server
+    #[allow(unused)]
     pub(crate) wcp_server_thread: Option<JoinHandle<()>>,
+    #[allow(unused)]
     pub(crate) wcp_server_address: Option<String>,
+    #[allow(unused)]
     pub(crate) wcp_stop_signal: Arc<AtomicBool>,
+    #[allow(unused)]
     pub(crate) wcp_server_load_outstanding: bool,
 
     /// The draw commands for every variable currently selected

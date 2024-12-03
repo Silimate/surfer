@@ -152,6 +152,7 @@ pub fn run_egui(cc: &CreationContext, mut state: State) -> Result<Box<dyn App>> 
         .set_visuals_of(egui::Theme::Dark, state.get_visuals());
     cc.egui_ctx
         .set_visuals_of(egui::Theme::Light, state.get_visuals());
+    #[cfg(not(target_arch = "wasm32"))]
     if state.config.wcp.autostart {
         state.start_wcp_server(Some(state.config.wcp.address.clone()));
     }
@@ -1648,12 +1649,20 @@ impl State {
                     self.invalidate_draw_commands();
                 }
             }
+            #[cfg(target_arch = "wasm32")]
+            Message::StartWcpServer(_) => {
+                error!("Wcp is not supported on wasm")
+            }
+            #[cfg(target_arch = "wasm32")]
+            Message::StopWcpServer => {
+                error!("Wcp is not supported on wasm")
+            }
+            #[cfg(not(target_arch = "wasm32"))]
             Message::StartWcpServer(address) => {
-                #[cfg(not(target_arch = "wasm32"))]
                 self.start_wcp_server(address);
             }
+            #[cfg(not(target_arch = "wasm32"))]
             Message::StopWcpServer => {
-                #[cfg(not(target_arch = "wasm32"))]
                 self.stop_wcp_server();
             }
             Message::Exit | Message::ToggleFullscreen => {} // Handled in eframe::update
