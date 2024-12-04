@@ -12,6 +12,7 @@ description = "Waveform viewer for VCD, FST, and GHW"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
+base64 = "0.22"
 bincode.workspace = true
 bytes = "1.7.1"
 bytesize.workspace = true
@@ -80,7 +81,6 @@ notify = "6.1.1"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 tokio.workspace = true
-base64 = "0.22"
 directories = "5.0"
 futures = { version = "0.3.30", features = ["executor"] }
 

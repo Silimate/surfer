@@ -30,6 +30,7 @@ impl DataContainer {
     pub fn __new_empty() -> Self {
         DataContainer::Empty
     }
+
     pub fn as_waves(&self) -> Option<&WaveContainer> {
         match self {
             DataContainer::Waves(w) => Some(w),

@@ -1,17 +1,12 @@
 use futures::executor::block_on;
 use std::{
     collections::{HashMap, VecDeque},
-    io::Write,
     sync::Arc,
 };
-use tokio::{
-    io::{AsyncReadExt, AsyncWriteExt},
-    sync::mpsc,
-    sync::RwLock,
-};
+use tokio::sync::mpsc;
 
 use color_eyre::{eyre::Context, Result};
-use log::{error, info, trace, warn};
+use log::{error, info};
 use num::{
     bigint::{ToBigInt, ToBigUint},
     BigUint,
@@ -19,7 +14,7 @@ use num::{
 use serde::Deserialize;
 use surfer_translation_types::VariableEncoding;
 
-use crate::{cxxrtl::io_worker::CxxrtlWorker, wave_container::ScopeRefExt};
+use crate::wave_container::ScopeRefExt;
 use crate::{
     cxxrtl::{
         command::CxxrtlCommand,
@@ -39,7 +34,7 @@ use crate::{
 
 const DEFAULT_REFERENCE: &str = "ALL_VARIABLES";
 
-pub type Callback = Box<dyn FnOnce(CommandResponse, &mut CxxrtlData) + Sync + Send>;
+type Callback = Box<dyn FnOnce(CommandResponse, &mut CxxrtlData) + Sync + Send>;
 
 #[derive(Deserialize, Debug, Clone)]
 pub(crate) struct CxxrtlScope {}
@@ -99,9 +94,11 @@ where
     /// Uncached run `f` to fetch the new value. The function must make sure that
     /// the cache is updated eventually. The state is changed to `Waiting`
     fn fetch_if_needed(&mut self, f: impl FnOnce()) -> Option<Arc<T>> {
+        if let CachedData::Uncached { .. } = self {
+            f();
+        }
         match self {
             CachedData::Uncached { prev } => {
-                f();
                 let result = prev.as_ref().cloned();
                 *self = CachedData::Waiting { prev: prev.clone() };
                 result
@@ -150,7 +147,7 @@ impl CxxrtlData {
 macro_rules! expect_response {
     ($expected:pat, $response:expr) => {
         let $expected = $response else {
-            error!(
+            log::error!(
                 "Got unexpected response. Got {:?} expected {}",
                 $response,
                 stringify!(expected)
@@ -160,26 +157,44 @@ macro_rules! expect_response {
     };
 }
 
+struct CSSender {
+    cs_messages: mpsc::Sender<String>,
+    callback_queue: VecDeque<Callback>,
+}
+
+impl CSSender {
+    fn run_command<F>(&mut self, command: CxxrtlCommand, f: F)
+    where
+        F: 'static + FnOnce(CommandResponse, &mut CxxrtlData) + Sync + Send,
+    {
+        self.callback_queue.push_back(Box::new(f));
+        let json = serde_json::to_string(&CSMessage::command(command))
+            .expect("Failed to encode cxxrtl command");
+        block_on(self.cs_messages.send(json)).unwrap();
+    }
+}
+
 pub struct CxxrtlContainer {
-    command_channel: mpsc::Sender<(CxxrtlCommand, Callback)>,
-    data: Arc<RwLock<CxxrtlData>>,
+    data: CxxrtlData,
+    sending: CSSender,
+    sc_messages: mpsc::Receiver<String>,
+    disconnected_reported: bool,
 }
 
 impl CxxrtlContainer {
     async fn new(
-        read: impl AsyncReadExt + Unpin + Send + 'static,
-        mut write: impl AsyncWriteExt + Unpin + Send + 'static,
         msg_channel: std::sync::mpsc::Sender<Message>,
+        sending: CSSender,
+        sc_messages: mpsc::Receiver<String>,
     ) -> Result<Self> {
-        let greeting = serde_json::to_string(&CSMessage::greeting { version: 0 })
-            .with_context(|| "Failed to encode greeting message".to_string())?;
+        info!("Sending cxxrtl greeting");
+        sending
+            .cs_messages
+            .send(serde_json::to_string(&CSMessage::greeting { version: 0 }).unwrap())
+            .await
+            .unwrap();
 
-        trace!("Sending greeting {greeting}");
-        write.write_all(greeting.as_bytes()).await?;
-        write.write_all(&[b'\0']).await?;
-        write.flush().await?;
-
-        let data = Arc::new(RwLock::new(CxxrtlData {
+        let data = CxxrtlData {
             scopes_cache: CachedData::empty(),
             module_item_cache: HashMap::new(),
             all_items_cache: CachedData::empty(),
@@ -189,27 +204,13 @@ impl CxxrtlContainer {
             signal_index_map: HashMap::new(),
             simulation_status: CachedData::empty(),
             msg_channel,
-        }));
-
-        let (tx, rx) = mpsc::channel(100);
-
-        let data_ = data.clone();
-        tokio::spawn(async move {
-            CxxrtlWorker {
-                read,
-                write,
-                read_buf: VecDeque::new(),
-                command_channel: rx,
-                data: data_,
-                callback_queue: VecDeque::new(),
-            }
-            .start()
-            .await;
-        });
+        };
 
         let result = Self {
-            command_channel: tx,
             data,
+            sc_messages,
+            sending,
+            disconnected_reported: false,
         };
 
         info!("cxxrtl connected");
@@ -217,45 +218,129 @@ impl CxxrtlContainer {
         Ok(result)
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     pub async fn new_tcp(
         addr: &str,
         msg_channel: std::sync::mpsc::Sender<Message>,
     ) -> Result<Self> {
+        use crate::cxxrtl::io_worker;
+
         let stream = tokio::net::TcpStream::connect(addr)
             .await
             .with_context(|| format!("Failed to connect to {addr}"))?;
 
         let (read, write) = tokio::io::split(stream);
 
-        let result = Self::new(read, write, msg_channel).await;
+        let (cs_tx, cs_rx) = mpsc::channel(100);
+        let (sc_tx, sc_rx) = mpsc::channel(100);
+        tokio::spawn(io_worker::CxxrtlWorker::new(write, read, sc_tx, cs_rx).start());
+
+        let result = Self::new(
+            msg_channel,
+            CSSender {
+                cs_messages: cs_tx,
+                callback_queue: VecDeque::new(),
+            },
+            sc_rx,
+        )
+        .await;
 
         result
     }
 
-    // TODO: Replace the channel with a tokio channel
-    pub async fn new_stdio(
-        binary: &str,
-        msg_channel: std::sync::mpsc::Sender<Message>,
-    ) -> Result<Self> {
-        let mut child = tokio::process::Command::new(binary)
-            .stdin(std::process::Stdio::piped())
-            .stdout(std::process::Stdio::piped())
-            .spawn()
-            .context("Failed to spawn {binary}")?;
+    #[cfg(target_arch = "wasm32")]
+    pub async fn new_wasm_mailbox(msg_channel: std::sync::mpsc::Sender<Message>) -> Result<Self> {
+        use color_eyre::eyre::anyhow;
 
-        Self::new(
-            child.stdout.take().unwrap(),
-            child.stdin.take().unwrap(),
+        use crate::wasm_api::{CXXRTL_CS_HANDLER, CXXRTL_SC_HANDLER};
+
+        let result = Self::new(
             msg_channel,
+            CSSender {
+                cs_messages: CXXRTL_CS_HANDLER.tx.clone(),
+                callback_queue: VecDeque::new(),
+            },
+            CXXRTL_SC_HANDLER
+                .rx
+                .write()
+                .await
+                .take()
+                .ok_or_else(|| anyhow!("The wasm mailbox has already been consumed."))?,
         )
-        .await
+        .await;
+
+        result
+    }
+
+    pub fn tick(&mut self) {
+        loop {
+            match self.sc_messages.try_recv() {
+                Ok(s) => {
+                    info!("CXXRTL S>C: {s}");
+                    let msg = match serde_json::from_str::<SCMessage>(&s) {
+                        Ok(msg) => msg,
+                        Err(e) => {
+                            error!("Got an unrecognised message from the cxxrtl server {e}");
+                            continue;
+                        }
+                    };
+                    match msg {
+                        SCMessage::greeting { .. } => {
+                            info!("Received cxxrtl greeting")
+                        }
+                        SCMessage::response(response) => {
+                            if let Some(cb) = self.sending.callback_queue.pop_front() {
+                                cb(response, &mut self.data)
+                            } else {
+                                error!("Got a CXXRTL message with no corresponding callback")
+                            };
+                        }
+                        SCMessage::error(e) => {
+                            error!("CXXRTL error: '{}'", e.message);
+                            self.sending.callback_queue.pop_front();
+                        }
+                        SCMessage::event(event) => {
+                            match event {
+                                Event::simulation_paused { time, cause: _ } => {
+                                    self.data
+                                        .on_simulation_status_update(CxxrtlSimulationStatus {
+                                            status: SimulationStatusType::paused,
+                                            latest_time: time,
+                                        });
+                                }
+                                Event::simulation_finished { time } => {
+                                    self.data
+                                        .on_simulation_status_update(CxxrtlSimulationStatus {
+                                            status: SimulationStatusType::finished,
+                                            latest_time: time,
+                                        });
+                                }
+                            }
+                            if let Some(ctx) = crate::EGUI_CONTEXT.read().unwrap().as_ref() {
+                                ctx.request_repaint();
+                            }
+                        }
+                    }
+                }
+                Err(mpsc::error::TryRecvError::Empty) => {
+                    break;
+                }
+                Err(mpsc::error::TryRecvError::Disconnected) => {
+                    if !self.disconnected_reported {
+                        error!("CXXRTL sender disconnected");
+                        self.disconnected_reported = true;
+                    }
+                    break;
+                }
+            }
+        }
     }
 
     fn get_scopes(&mut self) -> Arc<HashMap<ScopeRef, CxxrtlScope>> {
-        block_on(self.data.write())
+        self.data
             .scopes_cache
             .fetch_if_needed(|| {
-                self.run_command(
+                self.sending.run_command(
                     CxxrtlCommand::list_scopes { scope: None },
                     |response, data| {
                         expect_response!(CommandResponse::list_scopes { scopes }, response);
@@ -287,10 +372,10 @@ impl CxxrtlContainer {
     /// up the specific item before returning. This is done in order to not have to return
     /// the whole Item list since we need to lock the data structure to get that.
     fn fetch_item(&mut self, var: &VariableRef) -> Option<CxxrtlItem> {
-        block_on(self.data.write())
+        self.data
             .all_items_cache
             .fetch_if_needed(|| {
-                self.run_command(
+                self.sending.run_command(
                     CxxrtlCommand::list_items { scope: None },
                     |response, data| {
                         expect_response!(CommandResponse::list_items { items }, response);
@@ -305,10 +390,10 @@ impl CxxrtlContainer {
     }
 
     fn fetch_all_items(&mut self) -> Option<Arc<HashMap<VariableRef, CxxrtlItem>>> {
-        block_on(self.data.write())
+        self.data
             .all_items_cache
             .fetch_if_needed(|| {
-                self.run_command(
+                self.sending.run_command(
                     CxxrtlCommand::list_items { scope: None },
                     |response, data| {
                         expect_response!(CommandResponse::list_items { items }, response);
@@ -323,13 +408,14 @@ impl CxxrtlContainer {
     }
 
     fn fetch_items_in_module(&mut self, scope: &ScopeRef) -> Arc<HashMap<VariableRef, CxxrtlItem>> {
-        let result = block_on(self.data.write())
+        let result = self
+            .data
             .module_item_cache
             .entry(scope.clone())
             .or_insert(CachedData::empty())
             .fetch_if_needed(|| {
                 let scope = scope.clone();
-                self.run_command(
+                self.sending.run_command(
                     CxxrtlCommand::list_items {
                         scope: Some(scope.cxxrtl_repr()),
                     },
@@ -460,10 +546,7 @@ impl CxxrtlContainer {
     }
 
     pub fn max_displayed_timestamp(&self) -> Option<CxxrtlTimestamp> {
-        block_on(self.data.read())
-            .query_result
-            .get()
-            .map(|t| (*t).clone())
+        self.data.query_result.get().map(|t| (*t).clone())
     }
 
     pub fn max_timestamp(&mut self) -> Option<CxxrtlTimestamp> {
@@ -479,17 +562,15 @@ impl CxxrtlContainer {
         // that we'll early return with no value
         let max_timestamp = self.max_timestamp()?;
         let info = self.fetch_all_items()?;
-        let loaded_signals = block_on(self.data.read()).loaded_signals.clone();
+        let loaded_signals = self.data.loaded_signals.clone();
 
-        let s = &self;
-
-        let mut data = block_on(self.data.write());
-        let res = data
+        let res = self
+            .data
             .query_result
-            .fetch_if_needed(move || {
+            .fetch_if_needed(|| {
                 info!("Running query variable");
 
-                s.run_command(
+                self.sending.run_command(
                     CxxrtlCommand::query_interval {
                         interval: (CxxrtlTimestamp::zero(), max_timestamp.clone()),
                         collapse: true,
@@ -500,9 +581,11 @@ impl CxxrtlContainer {
                     move |response, data| {
                         expect_response!(CommandResponse::query_interval { samples }, response);
 
+                        info!("Got query_interval response");
+
                         data.query_result = CachedData::filled(max_timestamp);
                         data.interval_query_cache.populate(
-                            loaded_signals,
+                            loaded_signals.clone(),
                             info,
                             samples,
                             data.msg_channel.clone(),
@@ -513,7 +596,8 @@ impl CxxrtlContainer {
             .map(|_cached| {
                 // If we get here, the cache is valid and we we should look into the
                 // interval_query_cache for the query result
-                data.interval_query_cache
+                self.data
+                    .interval_query_cache
                     .query(variable, time.to_bigint().unwrap())
             })
             .unwrap_or_default();
@@ -521,7 +605,7 @@ impl CxxrtlContainer {
     }
 
     pub fn load_variables<S: AsRef<VariableRef>, T: Iterator<Item = S>>(&mut self, variables: T) {
-        let mut data = block_on(self.data.write());
+        let data = &mut self.data;
         for variable in variables {
             let varref = variable.as_ref().clone();
 
@@ -532,7 +616,7 @@ impl CxxrtlContainer {
             }
         }
 
-        self.run_command(
+        self.sending.run_command(
             CxxrtlCommand::reference_items {
                 reference: DEFAULT_REFERENCE.to_string(),
                 items: data
@@ -548,20 +632,21 @@ impl CxxrtlContainer {
         );
     }
 
-    fn raw_simulation_status(&self) -> Option<CxxrtlSimulationStatus> {
-        block_on(self.data.write())
+    fn raw_simulation_status(&mut self) -> Option<CxxrtlSimulationStatus> {
+        self.data
             .simulation_status
             .fetch_if_needed(|| {
-                self.run_command(CxxrtlCommand::get_simulation_status, |response, data| {
-                    expect_response!(CommandResponse::get_simulation_status(status), response);
+                self.sending
+                    .run_command(CxxrtlCommand::get_simulation_status, |response, data| {
+                        expect_response!(CommandResponse::get_simulation_status(status), response);
 
-                    data.on_simulation_status_update(status);
-                });
+                        data.on_simulation_status_update(status);
+                    });
             })
             .map(|s| s.as_ref().clone())
     }
 
-    pub fn simulation_status(&self) -> Option<SimulationStatus> {
+    pub fn simulation_status(&mut self) -> Option<SimulationStatus> {
         self.raw_simulation_status().map(|s| match s.status {
             SimulationStatusType::running => SimulationStatus::Running,
             SimulationStatusType::paused => SimulationStatus::Paused,
@@ -569,7 +654,7 @@ impl CxxrtlContainer {
         })
     }
 
-    pub fn unpause(&self) {
+    pub fn unpause(&mut self) {
         let duration = self
             .raw_simulation_status()
             .map(|s| {
@@ -587,7 +672,7 @@ impl CxxrtlContainer {
             sample_item_values: true,
         };
 
-        self.run_command(cmd, |_, data| {
+        self.sending.run_command(cmd, |_, data| {
             data.simulation_status = CachedData::filled(CxxrtlSimulationStatus {
                 status: SimulationStatusType::running,
                 latest_time: CxxrtlTimestamp::zero(),
@@ -596,22 +681,15 @@ impl CxxrtlContainer {
         });
     }
 
-    pub fn pause(&self) {
-        self.run_command(CxxrtlCommand::pause_simulation, |response, data| {
-            expect_response!(CommandResponse::pause_simulation { time }, response);
+    pub fn pause(&mut self) {
+        self.sending
+            .run_command(CxxrtlCommand::pause_simulation, |response, data| {
+                expect_response!(CommandResponse::pause_simulation { time }, response);
 
-            data.on_simulation_status_update(CxxrtlSimulationStatus {
-                status: SimulationStatusType::paused,
-                latest_time: time,
+                data.on_simulation_status_update(CxxrtlSimulationStatus {
+                    status: SimulationStatusType::paused,
+                    latest_time: time,
+                });
             });
-        });
-    }
-
-    fn run_command<F>(&self, command: CxxrtlCommand, f: F)
-    where
-        F: 'static + FnOnce(CommandResponse, &mut CxxrtlData) + Sync + Send,
-    {
-        block_on(self.command_channel.send((command, Box::new(f))))
-            .expect("CXXRTL command channel disconnected");
     }
 }

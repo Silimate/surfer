@@ -4,10 +4,8 @@ use std::path::PathBuf;
 use std::sync::atomic::AtomicU64;
 use std::sync::mpsc::Sender;
 use std::sync::Arc;
-#[cfg(not(target_arch = "wasm32"))]
 use std::sync::Mutex;
 
-#[cfg(not(target_arch = "wasm32"))]
 use crate::cxxrtl_container::CxxrtlContainer;
 use crate::wasm_util::{perform_async_work, perform_work, sleep_ms};
 use camino::{Utf8Path, Utf8PathBuf};
@@ -22,7 +20,6 @@ use web_time::Instant;
 
 use crate::message::{AsyncJob, BodyResult, HeaderResult};
 use crate::transaction_container::TransactionContainer;
-#[cfg(not(target_arch = "wasm32"))]
 use crate::wave_container::WaveContainer;
 use crate::wellen::{LoadSignalPayload, LoadSignalsCmd, LoadSignalsResult};
 use crate::{message::Message, State};
@@ -31,13 +28,13 @@ use surver::{Status, HTTP_SERVER_KEY, HTTP_SERVER_VALUE_SURFER, WELLEN_SURFER_DE
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 pub enum CxxrtlKind {
     Tcp { url: String },
-    Stdio { binary: String },
+    Mailbox,
 }
 impl std::fmt::Display for CxxrtlKind {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             CxxrtlKind::Tcp { url } => write!(f, "cxxrtl+tcp://{url}"),
-            CxxrtlKind::Stdio { binary } => write!(f, "cxxrtl+file://{binary}"),
+            CxxrtlKind::Mailbox => write!(f, "cxxrtl mailbox"),
         }
     }
 }
@@ -48,7 +45,6 @@ pub enum WaveSource {
     Data,
     DragAndDrop(Option<Utf8PathBuf>),
     Url(String),
-    #[cfg(not(target_arch = "wasm32"))]
     Cxxrtl(CxxrtlKind),
 }
 
@@ -65,19 +61,6 @@ pub fn url_to_wavesource(url: &str) -> Option<WaveSource> {
     if url.starts_with("https://") || url.starts_with("http://") {
         info!("Wave source is url");
         Some(WaveSource::Url(url.to_string()))
-    } else if url.starts_with("cxxrtl+file://") {
-        #[cfg(not(target_arch = "wasm32"))]
-        {
-            info!("Wave source is cxxrtl stdio");
-            Some(WaveSource::Cxxrtl(CxxrtlKind::Stdio {
-                binary: url.replace("cxxrtl+file://", ""),
-            }))
-        }
-        #[cfg(target_arch = "wasm32")]
-        {
-            log::warn!("Loading waves from cxxrtl is unsupported in WASM builds.");
-            None
-        }
     } else if url.starts_with("cxxrtl+tcp://") {
         #[cfg(not(target_arch = "wasm32"))]
         {
@@ -88,7 +71,7 @@ pub fn url_to_wavesource(url: &str) -> Option<WaveSource> {
         }
         #[cfg(target_arch = "wasm32")]
         {
-            log::warn!("Loading waves from cxxrtl is unsupported in WASM builds.");
+            log::warn!("Loading waves from cxxrtl via tcp is unsupported in WASM builds.");
             None
         }
     } else {
@@ -114,7 +97,7 @@ impl Display for WaveSource {
             WaveSource::DragAndDrop(Some(filename)) => write!(f, "Dropped file ({filename})"),
             WaveSource::Url(url) => write!(f, "{url}"),
             WaveSource::Cxxrtl(CxxrtlKind::Tcp { url }) => write!(f, "cxxrtl+tcp://{url}"),
-            WaveSource::Cxxrtl(CxxrtlKind::Stdio { binary }) => write!(f, "cxxrtl+file://{binary}"),
+            WaveSource::Cxxrtl(CxxrtlKind::Mailbox) => write!(f, "cxxrtl mailbox"),
         }
     }
 }
@@ -488,21 +471,32 @@ impl State {
         }
     }
 
-    #[cfg(not(target_arch = "wasm32"))]
     pub fn connect_to_cxxrtl(&mut self, kind: CxxrtlKind, keep_variables: bool) {
         let sender = self.sys.channels.msg_sender.clone();
-        let msg_sender = self.sys.channels.msg_sender.clone();
 
         self.sys.progress_tracker = Some(LoadProgress::new(LoadProgressStatus::Connecting(
             format!("{kind}"),
         )));
 
+        // TODO: This should probably be block_on!
         let task = async move {
             let container = match &kind {
-                CxxrtlKind::Tcp { url } => CxxrtlContainer::new_tcp(&url, msg_sender).await,
-                CxxrtlKind::Stdio { binary } => {
-                    CxxrtlContainer::new_stdio(&binary, msg_sender).await
+                #[cfg(not(target_arch = "wasm32"))]
+                CxxrtlKind::Tcp { url } => {
+                    CxxrtlContainer::new_tcp(url, self.sys.channels.msg_sender.clone()).await
                 }
+                #[cfg(target_arch = "wasm32")]
+                CxxrtlKind::Tcp { .. } => {
+                    error!("Cxxrtl tcp is not supported om wasm");
+                    return;
+                }
+                #[cfg(not(target_arch = "wasm32"))]
+                CxxrtlKind::Mailbox => {
+                    error!("CXXRTL mailboxes are only supported on wasm for now");
+                    return;
+                }
+                #[cfg(target_arch = "wasm32")]
+                CxxrtlKind::Mailbox => CxxrtlContainer::new_wasm_mailbox(sender.clone()).await,
             };
 
             match container {
@@ -517,6 +511,7 @@ impl State {
                 )),
                 Err(e) => sender.send(Message::Error(e)),
             }
+            .unwrap()
         };
         spawn!(task);
     }

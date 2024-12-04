@@ -217,6 +217,10 @@ impl eframe::App for State {
             false
         };
 
+        if let Some(waves) = self.waves.as_ref().and_then(|w| w.inner.as_waves()) {
+            waves.tick()
+        }
+
         if viewport_is_moving {
             self.invalidate_draw_commands();
             ctx.request_repaint();

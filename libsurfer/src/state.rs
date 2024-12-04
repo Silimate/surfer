@@ -197,9 +197,8 @@ impl State {
                 self.add_startup_message(Message::LoadFile(file, LoadOptions::clean()));
             }
             Some(WaveSource::Data) => error!("Attempted to load data at startup"),
-            #[cfg(not(target_arch = "wasm32"))]
             Some(WaveSource::Cxxrtl(url)) => {
-                self.add_startup_message(Message::SetupToCxxrtl(url));
+                self.add_startup_message(Message::SetupCxxrtl(url));
             }
             Some(WaveSource::DragAndDrop(_)) => {
                 error!("Attempted to load from drag and drop at startup (how?)");
@@ -625,7 +624,6 @@ impl State {
         }
     }
 
-    #[cfg(not(target_arch = "wasm32"))]
     pub(crate) fn start_wcp_server(&mut self, address: Option<String>) {
         use std::{sync::mpsc, thread};
 
@@ -663,7 +661,6 @@ impl State {
         }));
     }
 
-    #[cfg(not(target_arch = "wasm32"))]
     pub(crate) fn stop_wcp_server(&mut self) {
         // stop wcp server if there is one running
 

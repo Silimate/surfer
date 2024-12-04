@@ -119,8 +119,7 @@ pub enum Message {
         #[debug(skip)]
         state: String,
     },
-    #[cfg(not(target_arch = "wasm32"))]
-    SetupToCxxrtl(CxxrtlKind),
+    SetupCxxrtl(CxxrtlKind),
     #[serde(skip)]
     WaveHeaderLoaded(
         web_time::Instant,
