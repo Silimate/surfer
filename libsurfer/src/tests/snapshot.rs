@@ -79,6 +79,8 @@ pub(crate) fn render_and_compare_inner(
 
     let mut state = state();
     state.config.layout.show_statusbar = false;
+    // disable the default timeline (except if it was toggled in the test case)
+    state.config.layout.show_default_timeline = !state.config.layout.show_default_timeline;
 
     let size_i = (size.x as i32, size.y as i32);
 
@@ -2281,3 +2283,8 @@ snapshot_ui!(arrow_drawing, || {
     wait_for_waves_fully_loaded(&mut state, 10);
     state
 });
+
+snapshot_ui_with_file_and_msgs! {default_timeline_works, "examples/counter.vcd", [
+    Message::AddScope(ScopeRef::from_strs(&["tb"]), false),
+    Message::ToggleDefaultTimeline,
+]}

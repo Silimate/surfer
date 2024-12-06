@@ -19,6 +19,7 @@ show_overview = true
 show_statusbar = true
 show_variable_indices = true
 show_variable_direction = true
+show_default_timeline = true
 show_empty_scopes = false
 show_parameters_in_scopes = true
 window_width = 1920

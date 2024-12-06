@@ -391,6 +391,10 @@ impl State {
                     .show(ctx, |ui| {
                         ui.style_mut().wrap_mode = Some(TextWrapMode::Extend);
                         self.handle_pointer_in_ui(ui, &mut msgs);
+                        if self.config.layout.show_default_timeline {
+                            ui.label(RichText::new("Time").italics());
+                        }
+
                         let response = ScrollArea::both()
                             .vertical_scroll_offset(scroll_offset)
                             .show(ui, |ui| {
@@ -1840,6 +1844,35 @@ impl State {
         } else {
             &Color32::TRANSPARENT
         }
+    }
+
+    /// Draw the default timeline at the top of the canvas
+    pub fn draw_default_timeline(
+        &self,
+        waves: &WaveData,
+        ctx: &DrawingContext,
+        viewport_idx: usize,
+        frame_width: f32,
+        cfg: &DrawConfig,
+    ) {
+        let ticks = waves.get_ticks(
+            &waves.viewports[viewport_idx],
+            &waves.inner.metadata().timescale,
+            frame_width,
+            cfg.text_size,
+            &self.wanted_timeunit,
+            &self.get_time_format(),
+            &self.config,
+        );
+
+        waves.draw_ticks(
+            Some(&self.config.theme.foreground),
+            &ticks,
+            ctx,
+            0.0,
+            egui::Align2::CENTER_TOP,
+            &self.config,
+        );
     }
 }
 

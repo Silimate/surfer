@@ -70,7 +70,6 @@ pub enum Message {
     RemoveItems(Vec<DisplayedItemRef>),
     FocusItem(DisplayedItemIndex),
     ItemSelectRange(DisplayedItemIndex),
-    ToggleItemSelected(Option<DisplayedItemIndex>),
     UnfocusItem,
     RenameItem(Option<DisplayedItemIndex>),
     MoveFocus(MoveDir, CommandCount, bool),
@@ -153,7 +152,6 @@ pub enum Message {
     /// Take note that the specified translator errored on a `translates` call on the
     /// specified variable
     BlacklistTranslator(VariableRef, String),
-    ToggleSidePanel,
     ShowCommandPrompt(Option<String>),
     FileDropped(DroppedFile),
     #[serde(skip)]
@@ -195,6 +193,9 @@ pub enum Message {
     ToggleDirection,
     ToggleEmptyScopes,
     ToggleParametersInScopes,
+    ToggleSidePanel,
+    ToggleItemSelected(Option<DisplayedItemIndex>),
+    ToggleDefaultTimeline,
     SetTimeUnit(TimeUnit),
     SetTimeStringFormatting(Option<TimeStringFormatting>),
     CommandPromptClear,

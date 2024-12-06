@@ -1034,6 +1034,19 @@ impl State {
             y_zero,
         );
 
+        if self.config.layout.show_default_timeline {
+            let rect = Rect {
+                min: Pos2 { x: 0.0, y: y_zero },
+                max: Pos2 {
+                    x: response.rect.max.x,
+                    y: y_zero + ui.text_style_height(&egui::TextStyle::Body),
+                },
+            };
+            ctx.painter
+                .rect_filled(rect, 0.0, self.config.theme.canvas_colors.background);
+            self.draw_default_timeline(waves, &ctx, viewport_idx, frame_width, &cfg);
+        }
+
         self.draw_mouse_gesture_widget(
             egui_ctx,
             waves,

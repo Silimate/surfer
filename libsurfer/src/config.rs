@@ -103,6 +103,8 @@ pub struct SurferLayout {
     show_variable_indices: bool,
     /// Flag to show/hide the variable direction icon
     show_variable_direction: bool,
+    /// Flag to show/hide a default timeline
+    pub show_default_timeline: bool,
     /// Flag to show/hide empty scopes
     show_empty_scopes: bool,
     /// Flag to show parameters in scope view
