@@ -743,6 +743,16 @@ snapshot_ui_with_file_and_msgs! {goto_markers, "examples/counter.vcd", [
     Message::GoToMarkerPosition(2, 0)
 ]}
 
+snapshot_ui_with_file_and_msgs! {delete_markers, "examples/counter.vcd", [
+    Message::AddVariables(vec![VariableRef::from_hierarchy_string("tb.dut.counter")]),
+    Message::CursorSet(BigInt::from(200)),
+    Message::MoveMarkerToCursor(2),
+    Message::CursorSet(BigInt::from(400)),
+    Message::MoveMarkerToCursor(3),
+    Message::RemoveItemByIndex(DisplayedItemIndex(1)),
+    Message::RemoveItemByIndex(DisplayedItemIndex(1)),
+]}
+
 snapshot_ui_with_file_and_msgs! {
     startup_commands_work,
     "examples/counter.vcd",

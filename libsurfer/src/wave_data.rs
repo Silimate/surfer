@@ -458,8 +458,11 @@ impl WaveData {
                 }
                 // when the removed item is above the focus, the focus does not move
             }
+
             self.displayed_items_order.remove(idx.0);
-            self.displayed_items.remove(&id);
+            if let Some(DisplayedItem::Marker(m)) = self.displayed_items.remove(&id) {
+                self.markers.remove(&m.idx);
+            }
             if self.displayed_items_order.is_empty() {
                 self.focused_item = None;
             }
