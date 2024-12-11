@@ -1,3 +1,4 @@
+pub mod channels;
 pub mod command;
 pub mod cs_message;
 #[cfg(not(target_arch = "wasm32"))]

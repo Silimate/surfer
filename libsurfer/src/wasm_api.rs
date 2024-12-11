@@ -6,7 +6,6 @@ use std::sync::Arc;
 
 use futures::executor::block_on;
 use lazy_static::lazy_static;
-use log::info;
 use log::{error, warn};
 use num::BigInt;
 use tokio::sync::mpsc;
@@ -14,9 +13,8 @@ use tokio::sync::Mutex;
 use tokio::sync::RwLock;
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
-use web_sys::js_sys;
 
-use crate::cxxrtl::cs_message::CSMessage;
+use crate::cxxrtl::channels::SCSender;
 use crate::displayed_item::DisplayedItemRef;
 use crate::graphics::Anchor;
 use crate::graphics::Direction;
@@ -35,7 +33,6 @@ use crate::Message;
 use crate::StartupParams;
 use crate::State;
 use crate::EGUI_CONTEXT;
-use crate::OUTSTANDING_TRANSACTIONS;
 
 lazy_static! {
     pub(crate) static ref MESSAGE_QUEUE: Mutex<Vec<Message>> = Mutex::new(vec![]);
@@ -45,21 +42,20 @@ lazy_static! {
     pub(crate) static ref CXXRTL_CS_HANDLER: CSHandler = CSHandler::new();
 }
 
-
 struct Callback {
     function: Box<dyn FnOnce(&State) + Send + Sync>,
     executed: tokio::sync::oneshot::Sender<()>,
 }
 
 pub(crate) struct SCHandler {
-    pub tx: mpsc::Sender<String>,
+    pub tx: SCSender,
     pub rx: RwLock<Option<mpsc::Receiver<String>>>,
 }
 impl SCHandler {
     fn new() -> Self {
         let (tx, rx) = mpsc::channel(100);
         Self {
-            tx,
+            tx: SCSender::new(tx),
             rx: RwLock::new(Some(rx)),
         }
     }
@@ -324,13 +320,6 @@ pub async fn cxxrtl_cs_message() -> Option<String> {
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen)]
 pub async fn on_cxxrtl_sc_message(message: String) {
     CXXRTL_SC_HANDLER.tx.send(message).await.unwrap();
-
-    if let Some(ctx) = EGUI_CONTEXT.read().unwrap().as_ref() {
-        info!("Requesting repaint");
-        OUTSTANDING_TRANSACTIONS.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
-        ctx.request_repaint();
-    }
-
 }
 
 impl State {

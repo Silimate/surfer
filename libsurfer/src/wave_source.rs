@@ -478,7 +478,6 @@ impl State {
             format!("{kind}"),
         )));
 
-        // TODO: This should probably be block_on!
         let task = async move {
             let container = match &kind {
                 #[cfg(not(target_arch = "wasm32"))]
@@ -513,7 +512,10 @@ impl State {
             }
             .unwrap()
         };
-        spawn!(task);
+        #[cfg(not(target_arch = "wasm32"))]
+        futures::executor::block_on(task);
+        #[cfg(target_arch = "wasm32")]
+        wasm_bindgen_futures::spawn_local(task);
     }
 
     pub fn load_wave_from_bytes(

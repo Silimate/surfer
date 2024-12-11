@@ -4,7 +4,6 @@ use egui_remixicon::icons;
 use emath::{Align, Vec2};
 
 use crate::wave_container::SimulationStatus;
-use crate::OUTSTANDING_TRANSACTIONS;
 use crate::{
     message::Message,
     wave_data::{PER_SCROLL_EVENT, SCROLL_EVENTS_PER_PAGE},
@@ -65,14 +64,6 @@ impl State {
             SimulationStatus::Finished => {
                 ui.label("Finished");
             }
-        }
-        // TODO: Remove this debug thing
-        let transactions = OUTSTANDING_TRANSACTIONS.load(std::sync::atomic::Ordering::SeqCst);
-        if transactions != 0 {
-            ui.label(format!(
-                "Outstanding transactions: {}",
-                transactions
-            ));
         }
     }
 

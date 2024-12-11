@@ -240,8 +240,8 @@ impl WaveContainer {
         match self {
             WaveContainer::Wellen(_) => true,
             WaveContainer::Empty => true,
-            // TODO: Do we not want AA?
-            WaveContainer::Cxxrtl(_) => false,
+            // FIXME: Once we do AA on the server side, we can set this to false
+            WaveContainer::Cxxrtl(_) => true,
         }
     }
 

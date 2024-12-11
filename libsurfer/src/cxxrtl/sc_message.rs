@@ -73,7 +73,6 @@ pub(crate) enum Event {
 #[derive(Deserialize, Debug)]
 #[allow(non_camel_case_types)]
 pub(crate) struct Error {
-    // TODO: Error can have more arguments, how should we handle those?
     pub message: String,
 }
 

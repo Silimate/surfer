@@ -7,17 +7,15 @@ use tokio::{
     sync::mpsc,
 };
 
-use crate::cxxrtl::cs_message::CSMessage;
-
-use super::sc_message::SCMessage;
+use super::channels::SCSender;
 
 pub struct CxxrtlWorker<W, R> {
     write: W,
     read: R,
     read_buf: VecDeque<u8>,
 
-    sc_channel: mpsc::Sender<SCMessage>,
-    cs_channel: mpsc::Receiver<CSMessage>,
+    sc_channel: SCSender,
+    cs_channel: mpsc::Receiver<String>,
 }
 
 impl<W, R> CxxrtlWorker<W, R>
@@ -28,8 +26,8 @@ where
     pub(crate) fn new(
         write: W,
         read: R,
-        sc_channel: mpsc::Sender<SCMessage>,
-        cs_channel: mpsc::Receiver<CSMessage>,
+        sc_channel: SCSender,
+        cs_channel: mpsc::Receiver<String>,
     ) -> Self {
         Self {
             write,
@@ -48,9 +46,8 @@ where
                 rx = self.cs_channel.recv() => {
                     if let Some(msg) = rx {
                         if let Err(e) =  self.send_message(msg).await {
-                                error!("Failed to send message {e:#?}");
-                            } else {
-                            }
+                            error!("Failed to send message {e:#?}");
+                        }
                     }
                 }
                 count = self.read.read(&mut buf) => {
@@ -78,11 +75,7 @@ where
         }
     }
 
-    async fn process_stream(
-        &mut self,
-        count: usize,
-        buf: &mut [u8; 1024],
-    ) -> Result<Vec<SCMessage>> {
+    async fn process_stream(&mut self, count: usize, buf: &mut [u8; 1024]) -> Result<Vec<String>> {
         if count != 0 {
             self.read_buf
                 .write_all(&buf[0..count])
@@ -98,32 +91,20 @@ where
             .find(|(_i, c)| **c == b'\0')
         {
             let message = self.read_buf.drain(0..idx.0).collect::<Vec<_>>();
-            // The newline should not be part of this or the next message message
+            // The null byte should not be part of this or the next message message
             self.read_buf.pop_front();
 
-            let decoded = serde_json::from_slice(&message).with_context(|| {
-                format!(
-                    "Failed to decode message from cxxrtl. Message: '{}'",
-                    String::from_utf8_lossy(&message)
-                )
-            })?;
-
-            trace!("cxxrtl: S>C: {decoded:?}");
-
-            new_messages.push(decoded)
+            new_messages
+                .push(String::from_utf8(message).context("Got non-utf8 characters from cxxrtl")?)
         }
 
         Ok(new_messages)
     }
 
-    async fn send_message(&mut self, message: CSMessage) -> Result<()> {
-        let encoded = serde_json::to_string(&message)
-            .with_context(|| "Failed to encode message".to_string())?;
-        self.write.write_all(encoded.as_bytes()).await?;
+    async fn send_message(&mut self, message: String) -> Result<()> {
+        self.write.write_all(message.as_bytes()).await?;
         self.write.write_all(&[b'\0']).await?;
         self.write.flush().await?;
-
-        trace!("cxxrtl: C>S: {encoded}");
 
         Ok(())
     }

@@ -14,8 +14,10 @@ use num::{
 use serde::Deserialize;
 use surfer_translation_types::VariableEncoding;
 
+use crate::wave_container::ScopeRefExt;
 use crate::{
     cxxrtl::{
+        channels::SCReceiver,
         command::CxxrtlCommand,
         cs_message::CSMessage,
         query_container::QueryContainer,
@@ -30,7 +32,6 @@ use crate::{
         VariableRefExt,
     },
 };
-use crate::{wave_container::ScopeRefExt, OUTSTANDING_TRANSACTIONS};
 
 const DEFAULT_REFERENCE: &str = "ALL_VARIABLES";
 
@@ -132,7 +133,9 @@ pub struct CxxrtlData {
 
 impl CxxrtlData {
     pub fn trigger_redraw(&self) {
-        self.msg_channel.send(Message::InvalidateDrawCommands).unwrap();
+        self.msg_channel
+            .send(Message::InvalidateDrawCommands)
+            .unwrap();
         if let Some(ctx) = crate::EGUI_CONTEXT.read().unwrap().as_ref() {
             ctx.request_repaint();
         }
@@ -184,9 +187,8 @@ impl CSSender {
 pub struct CxxrtlContainer {
     data: CxxrtlData,
     sending: CSSender,
-    sc_messages: mpsc::Receiver<String>,
+    sc_messages: SCReceiver,
     disconnected_reported: bool,
-    msg_channel: std::sync::mpsc::Sender<Message>,
 }
 
 impl CxxrtlContainer {
@@ -216,10 +218,9 @@ impl CxxrtlContainer {
 
         let result = Self {
             data,
-            sc_messages,
+            sc_messages: SCReceiver::new(sc_messages),
             sending,
             disconnected_reported: false,
-            msg_channel,
         };
 
         info!("cxxrtl connected");
@@ -232,7 +233,9 @@ impl CxxrtlContainer {
         addr: &str,
         msg_channel: std::sync::mpsc::Sender<Message>,
     ) -> Result<Self> {
-        use crate::cxxrtl::io_worker;
+        use color_eyre::eyre::Context;
+
+        use crate::cxxrtl::{channels::SCSender, io_worker};
 
         let stream = tokio::net::TcpStream::connect(addr)
             .await
@@ -242,7 +245,9 @@ impl CxxrtlContainer {
 
         let (cs_tx, cs_rx) = mpsc::channel(100);
         let (sc_tx, sc_rx) = mpsc::channel(100);
-        tokio::spawn(io_worker::CxxrtlWorker::new(write, read, sc_tx, cs_rx).start());
+        tokio::spawn(
+            io_worker::CxxrtlWorker::new(write, read, SCSender::new(sc_tx), cs_rx).start(),
+        );
 
         let result = Self::new(
             msg_channel,
@@ -285,7 +290,6 @@ impl CxxrtlContainer {
         loop {
             match self.sc_messages.try_recv() {
                 Ok(s) => {
-                    OUTSTANDING_TRANSACTIONS.fetch_sub(1, std::sync::atomic::Ordering::SeqCst);
                     info!("CXXRTL S>C: {s}");
                     let msg = match serde_json::from_str::<SCMessage>(&s) {
                         Ok(msg) => msg,
@@ -331,7 +335,6 @@ impl CxxrtlContainer {
                     break;
                 }
                 Err(mpsc::error::TryRecvError::Disconnected) => {
-                    OUTSTANDING_TRANSACTIONS.store(0, std::sync::atomic::Ordering::SeqCst);
                     if !self.disconnected_reported {
                         error!("CXXRTL sender disconnected");
                         self.disconnected_reported = true;

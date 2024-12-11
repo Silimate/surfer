@@ -21,7 +21,6 @@ use surfer_translation_types::{
 
 #[cfg(feature = "performance_plot")]
 use crate::benchmark::NUM_PERF_SAMPLES;
-use crate::{data_container::VariableType as VarType, OUTSTANDING_TRANSACTIONS};
 use crate::displayed_item::{
     draw_rename_window, DisplayedFieldRef, DisplayedItem, DisplayedItemIndex, DisplayedItemRef,
 };
@@ -44,6 +43,7 @@ use crate::{
     Message, MoveDir, State,
 };
 use crate::{config::SurferTheme, wave_container::VariableMeta};
+use crate::{data_container::VariableType as VarType, OUTSTANDING_TRANSACTIONS};
 pub struct DrawingContext<'a> {
     pub painter: &'a mut Painter,
     pub cfg: &'a DrawConfig,
@@ -239,7 +239,7 @@ impl eframe::App for State {
         // we'll let egui manage repainting. In practice
         if self.sys.continuous_redraw
             || self.sys.progress_tracker.is_some()
-            || self.show_performance 
+            || self.show_performance
             || OUTSTANDING_TRANSACTIONS.load(std::sync::atomic::Ordering::SeqCst) != 0
         {
             ctx.request_repaint();

@@ -624,6 +624,7 @@ impl State {
         }
     }
 
+    #[cfg_attr(target_arch = "wasm32", allow(dead_code))]
     pub(crate) fn start_wcp_server(&mut self, address: Option<String>) {
         use std::{sync::mpsc, thread};
 
@@ -661,6 +662,7 @@ impl State {
         }));
     }
 
+    #[cfg_attr(target_arch = "wasm32", allow(dead_code))]
     pub(crate) fn stop_wcp_server(&mut self) {
         // stop wcp server if there is one running
 
