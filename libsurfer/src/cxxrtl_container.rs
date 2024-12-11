@@ -5,7 +5,7 @@ use std::{
 };
 use tokio::sync::mpsc;
 
-use color_eyre::{eyre::Context, Result};
+use color_eyre::Result;
 use log::{error, info};
 use num::{
     bigint::{ToBigInt, ToBigUint},
@@ -14,7 +14,6 @@ use num::{
 use serde::Deserialize;
 use surfer_translation_types::VariableEncoding;
 
-use crate::wave_container::ScopeRefExt;
 use crate::{
     cxxrtl::{
         command::CxxrtlCommand,
@@ -31,6 +30,7 @@ use crate::{
         VariableRefExt,
     },
 };
+use crate::{wave_container::ScopeRefExt, OUTSTANDING_TRANSACTIONS};
 
 const DEFAULT_REFERENCE: &str = "ALL_VARIABLES";
 
@@ -131,15 +131,22 @@ pub struct CxxrtlData {
 }
 
 impl CxxrtlData {
+    pub fn trigger_redraw(&self) {
+        self.msg_channel.send(Message::InvalidateDrawCommands).unwrap();
+        if let Some(ctx) = crate::EGUI_CONTEXT.read().unwrap().as_ref() {
+            ctx.request_repaint();
+        }
+    }
+
     pub fn on_simulation_status_update(&mut self, status: CxxrtlSimulationStatus) {
         self.simulation_status = CachedData::filled(status);
-        let _ = self.msg_channel.send(Message::InvalidateDrawCommands);
+        self.trigger_redraw();
         self.invalidate_query_result();
     }
 
     pub fn invalidate_query_result(&mut self) {
         self.query_result = self.query_result.make_uncached();
-        let _ = self.msg_channel.send(Message::InvalidateDrawCommands);
+        self.trigger_redraw();
         // self.interval_query_cache.invalidate();
     }
 }
@@ -179,6 +186,7 @@ pub struct CxxrtlContainer {
     sending: CSSender,
     sc_messages: mpsc::Receiver<String>,
     disconnected_reported: bool,
+    msg_channel: std::sync::mpsc::Sender<Message>,
 }
 
 impl CxxrtlContainer {
@@ -203,7 +211,7 @@ impl CxxrtlContainer {
             loaded_signals: vec![],
             signal_index_map: HashMap::new(),
             simulation_status: CachedData::empty(),
-            msg_channel,
+            msg_channel: msg_channel.clone(),
         };
 
         let result = Self {
@@ -211,6 +219,7 @@ impl CxxrtlContainer {
             sc_messages,
             sending,
             disconnected_reported: false,
+            msg_channel,
         };
 
         info!("cxxrtl connected");
@@ -276,6 +285,7 @@ impl CxxrtlContainer {
         loop {
             match self.sc_messages.try_recv() {
                 Ok(s) => {
+                    OUTSTANDING_TRANSACTIONS.fetch_sub(1, std::sync::atomic::Ordering::SeqCst);
                     info!("CXXRTL S>C: {s}");
                     let msg = match serde_json::from_str::<SCMessage>(&s) {
                         Ok(msg) => msg,
@@ -299,33 +309,29 @@ impl CxxrtlContainer {
                             error!("CXXRTL error: '{}'", e.message);
                             self.sending.callback_queue.pop_front();
                         }
-                        SCMessage::event(event) => {
-                            match event {
-                                Event::simulation_paused { time, cause: _ } => {
-                                    self.data
-                                        .on_simulation_status_update(CxxrtlSimulationStatus {
-                                            status: SimulationStatusType::paused,
-                                            latest_time: time,
-                                        });
-                                }
-                                Event::simulation_finished { time } => {
-                                    self.data
-                                        .on_simulation_status_update(CxxrtlSimulationStatus {
-                                            status: SimulationStatusType::finished,
-                                            latest_time: time,
-                                        });
-                                }
+                        SCMessage::event(event) => match event {
+                            Event::simulation_paused { time, cause: _ } => {
+                                self.data
+                                    .on_simulation_status_update(CxxrtlSimulationStatus {
+                                        status: SimulationStatusType::paused,
+                                        latest_time: time,
+                                    });
                             }
-                            if let Some(ctx) = crate::EGUI_CONTEXT.read().unwrap().as_ref() {
-                                ctx.request_repaint();
+                            Event::simulation_finished { time } => {
+                                self.data
+                                    .on_simulation_status_update(CxxrtlSimulationStatus {
+                                        status: SimulationStatusType::finished,
+                                        latest_time: time,
+                                    });
                             }
-                        }
+                        },
                     }
                 }
                 Err(mpsc::error::TryRecvError::Empty) => {
                     break;
                 }
                 Err(mpsc::error::TryRecvError::Disconnected) => {
+                    OUTSTANDING_TRANSACTIONS.store(0, std::sync::atomic::Ordering::SeqCst);
                     if !self.disconnected_reported {
                         error!("CXXRTL sender disconnected");
                         self.disconnected_reported = true;
@@ -580,8 +586,6 @@ impl CxxrtlContainer {
                     },
                     move |response, data| {
                         expect_response!(CommandResponse::query_interval { samples }, response);
-
-                        info!("Got query_interval response");
 
                         data.query_result = CachedData::filled(max_timestamp);
                         data.interval_query_cache.populate(

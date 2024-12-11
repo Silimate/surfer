@@ -14,7 +14,7 @@ use tokio::sync::RwLock;
 use crate::{
     cxxrtl_container::CxxrtlItem,
     message::Message,
-    wave_container::{QueryResult, VariableRef},
+    wave_container::{QueryResult, VariableRef}, EGUI_CONTEXT,
 };
 
 use super::sc_message::CxxrtlSample;
@@ -40,8 +40,6 @@ impl QueryContainer {
         msg_sender: std::sync::mpsc::Sender<Message>,
     ) {
         let variable_values = self.variable_values.clone();
-
-        info!("Populating cxxrtl query container");
 
         wasm_bindgen_futures::spawn_local(fill_variable_values(variables, item_info, data, variable_values, msg_sender));
     }
@@ -120,4 +118,8 @@ async fn fill_variable_values(
             .send(Message::InvalidateDrawCommands)
             .expect("Message receiver disconnected");
     });
+
+    if let Some(ctx) = EGUI_CONTEXT.read().unwrap().as_ref() {
+        ctx.request_repaint();
+    }
 }

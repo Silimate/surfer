@@ -6,6 +6,7 @@ use std::sync::Arc;
 
 use futures::executor::block_on;
 use lazy_static::lazy_static;
+use log::info;
 use log::{error, warn};
 use num::BigInt;
 use tokio::sync::mpsc;
@@ -34,6 +35,16 @@ use crate::Message;
 use crate::StartupParams;
 use crate::State;
 use crate::EGUI_CONTEXT;
+use crate::OUTSTANDING_TRANSACTIONS;
+
+lazy_static! {
+    pub(crate) static ref MESSAGE_QUEUE: Mutex<Vec<Message>> = Mutex::new(vec![]);
+    static ref QUERY_QUEUE: tokio::sync::Mutex<VecDeque<Callback>> =
+        tokio::sync::Mutex::new(VecDeque::new());
+    pub(crate) static ref CXXRTL_SC_HANDLER: SCHandler = SCHandler::new();
+    pub(crate) static ref CXXRTL_CS_HANDLER: CSHandler = CSHandler::new();
+}
+
 
 struct Callback {
     function: Box<dyn FnOnce(&State) + Send + Sync>,
@@ -66,14 +77,6 @@ impl CSHandler {
             rx: RwLock::new(rx),
         }
     }
-}
-
-lazy_static! {
-    pub(crate) static ref MESSAGE_QUEUE: Mutex<Vec<Message>> = Mutex::new(vec![]);
-    static ref QUERY_QUEUE: tokio::sync::Mutex<VecDeque<Callback>> =
-        tokio::sync::Mutex::new(VecDeque::new());
-    pub(crate) static ref CXXRTL_SC_HANDLER: SCHandler = SCHandler::new();
-    pub(crate) static ref CXXRTL_CS_HANDLER: CSHandler = CSHandler::new();
 }
 
 pub fn try_repaint() {
@@ -321,6 +324,13 @@ pub async fn cxxrtl_cs_message() -> Option<String> {
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen)]
 pub async fn on_cxxrtl_sc_message(message: String) {
     CXXRTL_SC_HANDLER.tx.send(message).await.unwrap();
+
+    if let Some(ctx) = EGUI_CONTEXT.read().unwrap().as_ref() {
+        info!("Requesting repaint");
+        OUTSTANDING_TRANSACTIONS.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        ctx.request_repaint();
+    }
+
 }
 
 impl State {
