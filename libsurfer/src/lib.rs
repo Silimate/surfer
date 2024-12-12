@@ -915,12 +915,10 @@ impl State {
                                         } else {
                                             transactions.len() - 1
                                         }
+                                    } else if vec_idx as i32 - 1 > 0 {
+                                        vec_idx - 1
                                     } else {
-                                        if vec_idx as i32 - 1 > 0 {
-                                            vec_idx - 1
-                                        } else {
-                                            0
-                                        }
+                                        0
                                     }
                                 })
                                 .unwrap_or(if next { transactions.len() - 1 } else { 0 });
@@ -1542,15 +1540,13 @@ impl State {
                                 .displayed_items_order
                                 .insert(target_idx + i, to_insert);
                         }
-                    } else {
-                        if let (Some(cmd), _) = self
-                            .waves
-                            .as_mut()
-                            .unwrap()
-                            .add_variables(&self.sys.translators, variables)
-                        {
-                            self.load_variables(cmd);
-                        }
+                    } else if let (Some(cmd), _) = self
+                        .waves
+                        .as_mut()
+                        .unwrap()
+                        .add_variables(&self.sys.translators, variables)
+                    {
+                        self.load_variables(cmd);
                     }
                     self.invalidate_draw_commands();
                 }

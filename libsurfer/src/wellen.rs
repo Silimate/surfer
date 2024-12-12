@@ -92,6 +92,10 @@ impl LoadSignalsResult {
     pub fn len(&self) -> usize {
         self.signals.len()
     }
+
+    pub fn is_empty(&self) -> bool {
+        self.signals.is_empty()
+    }
 }
 
 pub fn convert_format(format: FileFormat) -> crate::WaveFormat {

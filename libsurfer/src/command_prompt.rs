@@ -125,9 +125,8 @@ pub fn get_parser(state: &State) -> Command<Message> {
         if let Ok(res) = fs::read_dir(".") {
             res.map(|res| res.map(|e| e.path()).unwrap_or_default())
                 .filter(|file| {
-                    file.extension().map_or(false, |extension| {
-                        (matches)(extension.to_str().unwrap_or(""))
-                    })
+                    file.extension()
+                        .is_some_and(|extension| (matches)(extension.to_str().unwrap_or("")))
                 })
                 .map(|file| file.into_os_string().into_string().unwrap())
                 .collect::<Vec<String>>()

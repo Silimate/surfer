@@ -157,6 +157,12 @@ impl Timing {
     }
 }
 
+impl Default for Timing {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl State {
     pub fn draw_performance_graph(&self, ctx: &egui::Context, msgs: &mut Vec<Message>) {
         let mut open = true;

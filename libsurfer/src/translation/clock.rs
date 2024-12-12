@@ -17,6 +17,12 @@ impl ClockTranslator {
     }
 }
 
+impl Default for ClockTranslator {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Translator<VarId, ScopeId, Message> for ClockTranslator {
     fn name(&self) -> String {
         "Clock".to_string()

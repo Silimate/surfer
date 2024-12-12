@@ -5,6 +5,7 @@ use crate::wave_data::ScopeType;
 use crate::wave_data::ScopeType::{StreamScope, WaveScope};
 use num::BigUint;
 
+#[allow(clippy::large_enum_variant)]
 pub enum DataContainer {
     Waves(WaveContainer),
     Transactions(TransactionContainer),

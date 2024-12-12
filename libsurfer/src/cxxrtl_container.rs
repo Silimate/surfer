@@ -249,7 +249,7 @@ impl CxxrtlContainer {
             io_worker::CxxrtlWorker::new(write, read, SCSender::new(sc_tx), cs_rx).start(),
         );
 
-        let result = Self::new(
+        Self::new(
             msg_channel,
             CSSender {
                 cs_messages: cs_tx,
@@ -257,9 +257,7 @@ impl CxxrtlContainer {
             },
             sc_rx,
         )
-        .await;
-
-        result
+        .await
     }
 
     #[cfg(target_arch = "wasm32")]

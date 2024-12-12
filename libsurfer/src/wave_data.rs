@@ -442,21 +442,21 @@ impl WaveData {
             .find(|(_, local_id)| **local_id == id)
         {
             if let Some(fidx) = self.focused_item {
-                // move focus up if if signal was removed below focus
-                if fidx.0 > idx.0 {
-                    self.focused_item = Some(DisplayedItemIndex(
+                self.focused_item = match fidx.0.cmp(&idx.0) {
+                    // move focus up if if signal was removed below focus
+                    std::cmp::Ordering::Greater => Some(DisplayedItemIndex(
                         fidx.0
                             .saturating_sub(1)
                             .min(self.displayed_items_order.len().saturating_sub(2)),
-                    ));
-                // if the focus was removed move if it was the last element
-                } else if fidx.0 == idx.0 {
-                    self.focused_item = Some(DisplayedItemIndex(
+                    )),
+                    // if the focus was removed move if it was the last element
+                    std::cmp::Ordering::Equal => Some(DisplayedItemIndex(
                         fidx.0
                             .min(self.displayed_items_order.len().saturating_sub(2)),
-                    ));
+                    )),
+                    // when the removed item is above the focus, the focus does not move
+                    _ => self.focused_item,
                 }
-                // when the removed item is above the focus, the focus does not move
             }
 
             self.displayed_items_order.remove(idx.0);

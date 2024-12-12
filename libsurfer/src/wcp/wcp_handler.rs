@@ -150,7 +150,7 @@ impl State {
                     WcpCommand::GetItemInfo { ids } => {
                         let mut items: Vec<ItemInfo> = Vec::new();
                         for id in ids {
-                            if let Ok(id) = usize::from_str_radix(id, 10) {
+                            if let Ok(id) = id.parse::<usize>() {
                                 let item = self
                                     .waves
                                     .as_ref()
@@ -200,7 +200,7 @@ impl State {
                                     items.push(ItemInfo {
                                         name,
                                         t: item_type,
-                                        id: id,
+                                        id,
                                     });
                                 }
                             }
@@ -257,11 +257,7 @@ impl State {
                             );
                             self.invalidate_draw_commands();
                         } else {
-                            self.send_error(
-                                "scope_add",
-                                vec![],
-                                format!("No waveform loaded").as_str(),
-                            );
+                            self.send_error("scope_add", vec![], "No waveform loaded");
                         }
                     }
                     WcpCommand::Reload => {
@@ -274,14 +270,10 @@ impl State {
                     }
                     WcpCommand::SetItemColor { id, color } => {
                         let Some(waves) = &self.waves else {
-                            self.send_error(
-                                "set_item_color",
-                                vec![],
-                                format!("No waveform loaded").as_str(),
-                            );
+                            self.send_error("set_item_color", vec![], "No waveform loaded");
                             return;
                         };
-                        if let Ok(id) = usize::from_str_radix(id, 10) {
+                        if let Ok(id) = id.parse::<usize>() {
                             if let Some(idx) = waves
                                 .displayed_items_order
                                 .iter()
@@ -314,7 +306,7 @@ impl State {
                         };
                         let mut msgs = vec![];
                         for id in ids {
-                            if let Ok(id) = usize::from_str_radix(id, 10) {
+                            if let Ok(id) = id.parse::<usize>() {
                                 if let Some(idx) = waves
                                     .displayed_items_order
                                     .iter()
@@ -333,7 +325,7 @@ impl State {
                             self.send_error("remove_items", vec![], "No waveform loaded");
                             return;
                         };
-                        if let Ok(id) = usize::from_str_radix(id, 10) {
+                        if let Ok(id) = id.parse::<usize>() {
                             if let Some(idx) = waves
                                 .displayed_items_order
                                 .iter()
@@ -352,11 +344,8 @@ impl State {
                         }
                     }
                     WcpCommand::Clear => {
-                        match &self.waves {
-                            Some(wave) => {
-                                self.update(Message::RemoveItems(self.get_displayed_items(wave)))
-                            }
-                            None => (),
+                        if let Some(wave) = &self.waves {
+                            self.update(Message::RemoveItems(self.get_displayed_items(wave)))
                         }
 
                         self.send_response(command, Vecs::Int(vec![]));

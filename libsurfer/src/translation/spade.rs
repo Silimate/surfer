@@ -61,8 +61,8 @@ impl SpadeTranslator {
         let mut de = ron::Deserializer::from_str_with_options(state_content, opt)
             .context("Failed to initialize ron deserializer")?;
         let de = serde_stacker::Deserializer::new(&mut de);
-        let state = CompilerState::deserialize(de)
-            .with_context(|| format!("Failed to decode Spade state"))?;
+        let state =
+            CompilerState::deserialize(de).with_context(|| "Failed to decode Spade state")?;
 
         let path = top_name
             .split("::")

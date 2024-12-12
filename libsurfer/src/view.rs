@@ -486,7 +486,7 @@ impl State {
             || self
                 .waves
                 .as_ref()
-                .map_or(false, |waves| !waves.any_displayed())
+                .is_some_and(|waves| !waves.any_displayed())
         {
             egui::CentralPanel::default()
                 .frame(Frame::none().fill(self.config.theme.canvas_colors.background))

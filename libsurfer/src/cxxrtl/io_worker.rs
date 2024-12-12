@@ -103,7 +103,7 @@ where
 
     async fn send_message(&mut self, message: String) -> Result<()> {
         self.write.write_all(message.as_bytes()).await?;
-        self.write.write_all(&[b'\0']).await?;
+        self.write.write_all(b"\0").await?;
         self.write.flush().await?;
 
         Ok(())
