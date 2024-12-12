@@ -186,6 +186,7 @@ pub fn get_parser(state: &State) -> Command<Message> {
             "divider_add",
             "config_reload",
             "theme_select",
+            #[cfg(not(target_arch = "wasm32"))]
             "reload",
             "remove_unavailable",
             "show_controls",

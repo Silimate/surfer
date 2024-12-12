@@ -99,6 +99,7 @@ impl State {
                 Message::SetUrlEntryVisible(true),
                 true,
             );
+            #[cfg(not(target_arch = "wasm32"))]
             add_toolbar_button(
                 ui,
                 msgs,
