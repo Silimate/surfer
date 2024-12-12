@@ -632,8 +632,13 @@ impl State {
 
         use crate::wcp;
 
-        if self.sys.wcp_server_thread.as_ref().is_some() {
-            warn!("WCP server is already running");
+        if self.sys.wcp_server_thread.as_ref().is_some()
+            || self
+                .sys
+                .wcp_running_signal
+                .load(std::sync::atomic::Ordering::Relaxed)
+        {
+            warn!("WCP HTTP server is already running");
             return;
         }
         // TODO: Consider an unbounded channel?
@@ -642,6 +647,9 @@ impl State {
         self.sys.channels.wcp_c2s_receiver = Some(wcp_s2c_receiver);
         self.sys.channels.wcp_s2c_sender = Some(wcp_c2s_sender);
         let stop_signal_copy = self.sys.wcp_stop_signal.clone();
+        stop_signal_copy.store(false, std::sync::atomic::Ordering::Relaxed);
+        let running_signal_copy = self.sys.wcp_running_signal.clone();
+        running_signal_copy.store(true, std::sync::atomic::Ordering::Relaxed);
 
         let ctx = self.sys.context.clone();
         let address = address.unwrap_or(self.config.wcp.address.clone());
@@ -652,6 +660,7 @@ impl State {
                 wcp_s2c_sender,
                 wcp_c2s_receiver,
                 stop_signal_copy,
+                running_signal_copy,
                 ctx,
             );
             match server {

@@ -44,6 +44,8 @@ pub struct SystemState {
     #[allow(unused)]
     pub(crate) wcp_stop_signal: Arc<AtomicBool>,
     #[allow(unused)]
+    pub(crate) wcp_running_signal: Arc<AtomicBool>,
+    #[allow(unused)]
     pub(crate) wcp_server_load_outstanding: bool,
 
     /// The draw commands for every variable currently selected
@@ -109,6 +111,7 @@ impl SystemState {
             wcp_server_thread: None,
             wcp_server_address: None,
             wcp_stop_signal: Arc::new(AtomicBool::new(false)),
+            wcp_running_signal: Arc::new(AtomicBool::new(false)),
             wcp_server_load_outstanding: false,
             gesture_start_location: None,
             batch_commands: VecDeque::new(),

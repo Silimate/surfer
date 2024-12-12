@@ -10,6 +10,7 @@ use std::{
         atomic::{AtomicBool, Ordering},
         Arc,
     },
+    time::Duration,
 };
 
 use log::{error, info, warn};
@@ -23,6 +24,7 @@ pub struct WcpServer {
     sender: Sender<WcpCSMessage>,
     receiver: Receiver<WcpSCMessage>,
     stop_signal: Arc<AtomicBool>,
+    running_signal: Arc<AtomicBool>,
     ctx: Option<Arc<Context>>,
 }
 
@@ -32,6 +34,7 @@ impl WcpServer {
         s2c_sender: Sender<WcpCSMessage>,
         c2s_receiver: Receiver<WcpSCMessage>,
         stop_signal: Arc<AtomicBool>,
+        running_signal: Arc<AtomicBool>,
         ctx: Option<Arc<Context>>,
     ) -> Result<Self> {
         let listener = TcpListener::bind(address)?;
@@ -44,6 +47,7 @@ impl WcpServer {
             sender: s2c_sender,
             receiver: c2s_receiver,
             stop_signal,
+            running_signal,
             ctx,
         })
     }
@@ -82,6 +86,9 @@ impl WcpServer {
             match stream {
                 Ok(mut stream) => {
                     info!("WCP New connection: {}", stream.peer_addr().unwrap());
+                    if let Err(error) = stream.set_read_timeout(Some(Duration::from_secs(2))) {
+                        error!("Failed to set timeout: {error:#?}")
+                    }
 
                     //send greeting
                     if let Err(error) = serde_json::to_writer(&stream, &greeting) {
@@ -96,13 +103,28 @@ impl WcpServer {
                         Ok(()) => info!("WCP client disconnected"),
                     }
                 }
+                Err(ref e)
+                    if [std::io::ErrorKind::WouldBlock, std::io::ErrorKind::TimedOut]
+                        .contains(&e.kind()) =>
+                {
+                    continue
+                }
                 Err(e) => warn!("WCP Connection failed: {e}"),
             }
         }
+        info!("WCP shutting down");
+        self.running_signal.store(false, Ordering::Relaxed);
     }
 
     fn handle_client(&mut self, mut stream: TcpStream) -> Result<(), serde_Error> {
         loop {
+            // check if the server should stop
+            if self.stop_signal.load(Ordering::Relaxed) {
+                return Err(serde_Error::io(std::io::Error::new(
+                    std::io::ErrorKind::ConnectionAborted,
+                    "Server terminated",
+                )));
+            }
             //get message from client
             let msg: WcpCSMessage = match self.get_json_message(&stream) {
                 Ok(msg) => msg,
@@ -110,20 +132,25 @@ impl WcpServer {
                     match e.classify() {
                         //error when the client disconnects
                         serde_json::error::Category::Eof => return Err(e),
-                        //if different error get next message and send error
-                        _ => {
-                            warn!("WCP S>C error: {e:?}\n");
+                        _ => match e.io_error_kind() {
+                            Some(std::io::ErrorKind::WouldBlock | std::io::ErrorKind::TimedOut) => {
+                                continue;
+                            }
+                            //if different error get next message and send error
+                            _ => {
+                                warn!("WCP S>C error: {e:?}\n");
 
-                            let _ = serde_json::to_writer(
-                                &stream,
-                                &WcpSCMessage::create_error(
-                                    "parsing error".to_string(),
-                                    vec![],
-                                    "parsing error".to_string(),
-                                ),
-                            );
-                            continue;
-                        }
+                                let _ = serde_json::to_writer(
+                                    &stream,
+                                    &WcpSCMessage::create_error(
+                                        "parsing error".to_string(),
+                                        vec![],
+                                        "parsing error".to_string(),
+                                    ),
+                                );
+                                continue;
+                            }
+                        },
                     }
                 }
             };

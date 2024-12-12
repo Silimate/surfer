@@ -8,12 +8,19 @@ use itertools::Itertools;
 use num::BigInt;
 use serde::Deserialize;
 use serde_json::Error as serde_Error;
+use test_log::test;
 
 use lazy_static::lazy_static;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
-use std::{io::Write, net::TcpStream, thread, time::Duration, vec};
+use std::{
+    io::{Read, Write},
+    net::{Shutdown, TcpStream},
+    thread,
+    time::{Duration, Instant},
+    vec,
+};
 
 struct DebugReader<R: std::io::Read> {
     r: R,
@@ -62,20 +69,30 @@ fn get_json_response(mut stream: &TcpStream) -> Result<WcpSCMessage, serde_Error
     WcpSCMessage::deserialize(&mut de)
 }
 
-async fn run_test_client(port: usize, msgs: Vec<WcpCSMessage>, test_done: Arc<AtomicBool>) {
-    let mut client: TcpStream;
-    let mut connect_attempts = 0;
+fn connect(port: usize) -> TcpStream {
+    let timeout = Duration::from_secs(2);
+    let now = Instant::now();
     loop {
+        assert!(now.elapsed() <= timeout);
         if let Ok(c) = TcpStream::connect(format!("127.0.0.1:{port}")) {
-            client = c;
-            break;
+            return c;
         }
         thread::sleep(Duration::from_millis(100));
-        connect_attempts += 1;
-        if connect_attempts == 10 {
-            panic!("Failed to connect");
+    }
+}
+
+fn expect_disconnect(mut stream: &TcpStream) {
+    loop {
+        let mut buf = [0; 1024];
+        let size = stream.read(&mut buf).unwrap();
+        if size == 0 {
+            break;
         }
     }
+}
+
+async fn run_test_client(port: usize, msgs: Vec<WcpCSMessage>, test_done: Arc<AtomicBool>) {
+    let mut client = connect(port);
 
     // read greeting message
     get_json_response(&mut client).expect("Could not read greeting message");
@@ -211,3 +228,40 @@ wcp_snapshot_with_commands! {set_viewport_to, vec![
     WcpCommand::AddScope{scope: "tb".to_string()},
     WcpCommand::SetViewportTo { timestamp: BigInt::from(710) },
 ]}
+
+#[test]
+fn stop_and_reconnect() {
+    let mut state = State::new_default_config().unwrap();
+    let port = get_test_port();
+    for _ in 0..2 {
+        state.update(Message::StartWcpServer(Some(
+            format!("127.0.0.1:{port}").to_string(),
+        )));
+        let stream = connect(port);
+        get_json_response(&stream).expect("failed to get WCP greeting");
+        state.update(Message::StopWcpServer);
+        expect_disconnect(&stream);
+        loop {
+            if !state.sys.wcp_running_signal.load(Ordering::Relaxed) {
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(100));
+        }
+    }
+}
+
+#[test]
+fn reconnect() {
+    let mut state = State::new_default_config().unwrap();
+    let port = get_test_port();
+    state.update(Message::StartWcpServer(Some(
+        format!("127.0.0.1:{port}").to_string(),
+    )));
+    for _ in 0..2 {
+        let stream = connect(port);
+        get_json_response(&stream).expect("failed to get WCP greeting");
+        stream
+            .shutdown(Shutdown::Both)
+            .expect("failed to shutdown TCP session");
+    }
+}

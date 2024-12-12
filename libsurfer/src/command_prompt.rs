@@ -153,7 +153,11 @@ pub fn get_parser(state: &State) -> Command<Message> {
         BTreeMap::new()
     };
 
-    let wcp_start_or_stop = if state.sys.wcp_server_address.is_some() {
+    let wcp_start_or_stop = if state
+        .sys
+        .wcp_running_signal
+        .load(std::sync::atomic::Ordering::Relaxed)
+    {
         "wcp_server_stop"
     } else {
         "wcp_server_start"
