@@ -629,12 +629,12 @@ impl State {
     pub(crate) fn start_wcp_server(&mut self, address: Option<String>) {
         use std::{sync::mpsc, thread};
 
-        use wcp::wcp_server::WcpHttpServer;
+        use wcp::wcp_server::WcpServer;
 
         use crate::wcp;
 
         if self.sys.wcp_server_thread.as_ref().is_some() {
-            warn!("WCP HTTP server is already running");
+            warn!("WCP server is already running");
             return;
         }
         let (wcp_s2c_sender, wcp_s2c_receiver) = mpsc::channel();
@@ -647,7 +647,7 @@ impl State {
         let address = address.unwrap_or(self.config.wcp.address.clone());
         self.sys.wcp_server_address = Some(address.clone());
         self.sys.wcp_server_thread = Some(thread::spawn(|| {
-            let server = WcpHttpServer::new(
+            let server = WcpServer::new(
                 address,
                 wcp_s2c_sender,
                 wcp_c2s_receiver,
@@ -657,7 +657,7 @@ impl State {
             match server {
                 Ok(mut server) => server.run(),
                 Err(m) => {
-                    error!("Could not start WCP HTTP server. Address already in use. {m:?}")
+                    error!("Could not start WCP server. Address already in use. {m:?}")
                 }
             }
         }));

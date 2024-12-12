@@ -20,7 +20,7 @@ use crate::wcp::wcp_handler::WcpCommand;
 
 use super::wcp_handler::WcpMessage;
 
-pub struct WcpHttpServer {
+pub struct WcpServer {
     listener: TcpListener,
     sender: Sender<WcpMessage>,
     receiver: Receiver<WcpMessage>,
@@ -28,7 +28,7 @@ pub struct WcpHttpServer {
     ctx: Option<Arc<Context>>,
 }
 
-impl WcpHttpServer {
+impl WcpServer {
     pub fn new(
         address: String,
         s2c_sender: Sender<WcpMessage>,
@@ -41,7 +41,7 @@ impl WcpHttpServer {
             "WCP Server listening on port {}",
             listener.local_addr().unwrap()
         );
-        Ok(WcpHttpServer {
+        Ok(WcpServer {
             listener,
             sender: s2c_sender,
             receiver: c2s_receiver,
