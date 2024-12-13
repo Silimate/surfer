@@ -75,7 +75,7 @@ impl State {
         let end_location = pointer_pos_canvas.unwrap();
         let distance = end_location - start_location;
         if distance.length_sq() >= self.config.gesture.deadzone {
-            match gesture_type(start_location, end_location) {
+            match gesture_type(distance) {
                 Some(GestureKind::ZoomToFit) => {
                     msgs.push(Message::ZoomToFit { viewport_idx });
                 }
@@ -131,7 +131,7 @@ impl State {
         let current_location = pointer_pos_canvas.unwrap();
         let distance = current_location - start_location;
         if distance.length_sq() >= self.config.gesture.deadzone {
-            match gesture_type(start_location, current_location) {
+            match gesture_type(distance) {
                 Some(GestureKind::ZoomToFit) => self.draw_gesture_line(
                     start_location,
                     current_location,
@@ -214,38 +214,39 @@ impl State {
             color: self.config.gesture.style.color,
             width: self.config.gesture.style.width,
         };
-        let startx = start_location.x;
-        let starty = start_location.y;
-        let endx = current_location.x;
-        let height = response.rect.size().y;
-        let width = response.rect.size().x;
+        let height = response.rect.height();
+        let width = response.rect.width();
         ctx.painter.line_segment(
             [
-                (ctx.to_screen)(startx, 0.0),
-                (ctx.to_screen)(startx, height),
+                (ctx.to_screen)(start_location.x, 0.0),
+                (ctx.to_screen)(start_location.x, height),
             ],
             stroke,
         );
         ctx.painter.line_segment(
-            [(ctx.to_screen)(endx, 0.0), (ctx.to_screen)(endx, height)],
+            [
+                (ctx.to_screen)(current_location.x, 0.0),
+                (ctx.to_screen)(current_location.x, height),
+            ],
             stroke,
         );
         ctx.painter.line_segment(
             [
                 (ctx.to_screen)(start_location.x, start_location.y),
-                (ctx.to_screen)(endx, starty),
+                (ctx.to_screen)(current_location.x, start_location.y),
             ],
             stroke,
         );
-        let (minx, maxx) = if endx < startx {
-            (endx, startx)
+        let (minx, maxx) = if current_location.x < start_location.x {
+            (current_location.x, start_location.x)
         } else {
-            (startx, endx)
+            (start_location.x, current_location.x)
         };
         let num_timestamps = waves.num_timestamps().unwrap_or(1.into());
         let start_time = waves.viewports[viewport_idx].as_time_bigint(minx, width, &num_timestamps);
         let end_time = waves.viewports[viewport_idx].as_time_bigint(maxx, width, &num_timestamps);
         let diff_time = &end_time - &start_time;
+        let timescale = &waves.inner.metadata().timescale;
         draw_gesture_text(
             ctx,
             (ctx.to_screen)(current_location.x, current_location.y),
@@ -253,19 +254,19 @@ impl State {
                 "Zoom in: {} ({} to {})",
                 time_string(
                     &diff_time,
-                    &waves.inner.metadata().timescale,
+                    timescale,
                     &self.wanted_timeunit,
                     &self.get_time_format()
                 ),
                 time_string(
                     &start_time,
-                    &waves.inner.metadata().timescale,
+                    timescale,
                     &self.wanted_timeunit,
                     &self.get_time_format()
                 ),
                 time_string(
                     &end_time,
-                    &waves.inner.metadata().timescale,
+                    timescale,
                     &self.wanted_timeunit,
                     &self.get_time_format()
                 ),
@@ -310,23 +311,18 @@ impl State {
     ) {
         // Compute sizes and coordinates
         let tan225 = 0.41421357;
-        let rect = response.rect;
-        let halfwidth = rect.width() / 2.0;
-        let halfheight = rect.height() / 2.0;
         let (midx, midy, deltax, deltay) = if let Some(midpoint) = midpoint {
-            (
-                midpoint.x,
-                midpoint.y,
-                self.config.gesture.size / 2.0,
-                self.config.gesture.size / 2.0,
-            )
+            let halfsize = self.config.gesture.size * 0.5;
+            (midpoint.x, midpoint.y, halfsize, halfsize)
         } else {
+            let halfwidth = response.rect.width() * 0.5;
+            let halfheight = response.rect.height() * 0.5;
             (halfwidth, halfheight, halfwidth, halfheight)
         };
 
         let container_rect = Rect::from_min_size(Pos2::ZERO, response.rect.size());
         let to_screen = &|x, y| {
-            RectTransform::from_to(container_rect, rect)
+            RectTransform::from_to(container_rect, response.rect)
                 .transform_pos(Pos2::new(x, y) + Vec2::new(0.5, 0.5))
         };
         let stroke = Stroke {
@@ -382,8 +378,8 @@ impl State {
             stroke,
         );
 
-        let halfwaytexty_upper = top + (deltay - tan225deltax) / 2.0;
-        let halfwaytexty_lower = bottom - (deltay - tan225deltax) / 2.0;
+        let halfwaytexty_upper = top + (deltay - tan225deltax) * 0.5;
+        let halfwaytexty_lower = bottom - (deltay - tan225deltax) * 0.5;
         // Draw commands
         painter.text(
             to_screen(left, midy),
@@ -445,18 +441,18 @@ impl State {
 }
 
 /// Determine which mouse gesture ([`GestureKind`]) is currently drawn.
-fn gesture_type(start_location: Pos2, end_location: Pos2) -> Option<GestureKind> {
+fn gesture_type(delta: Vec2) -> Option<GestureKind> {
     let tan225 = 0.41421357;
-    let delta = end_location - start_location;
-
+    let tan225x = tan225 * delta.x;
+    let tan225y = tan225 * delta.y;
     if delta.x < 0.0 {
-        if delta.y.abs() < -tan225 * delta.x {
+        if delta.y.abs() < -tan225x {
             // West
             Some(GestureKind::ZoomIn)
-        } else if delta.y < 0.0 && delta.x < delta.y * tan225 {
+        } else if delta.y < 0.0 && delta.x < tan225y {
             // North west
             Some(GestureKind::ZoomToFit)
-        } else if delta.y > 0.0 && delta.x < -delta.y * tan225 {
+        } else if delta.y > 0.0 && delta.x < -tan225y {
             // South west
             Some(GestureKind::GoToStart)
         // } else if delta.y < 0.0 {
@@ -466,13 +462,13 @@ fn gesture_type(start_location: Pos2, end_location: Pos2) -> Option<GestureKind>
             // South
             None
         }
-    } else if delta.x * tan225 > delta.y.abs() {
+    } else if tan225x > delta.y.abs() {
         // East
         Some(GestureKind::ZoomIn)
-    } else if delta.y < 0.0 && delta.x > -delta.y * tan225 {
+    } else if delta.y < 0.0 && delta.x > -tan225y {
         // North east
         Some(GestureKind::ZoomOut)
-    } else if delta.y > 0.0 && delta.x > delta.y * tan225 {
+    } else if delta.y > 0.0 && delta.x > tan225y {
         // South east
         Some(GestureKind::GoToEnd)
     // } else if delta.y > 0.0 {
