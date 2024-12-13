@@ -349,6 +349,7 @@ impl WaveData {
     /// Get suitable tick locations for the current view port.
     /// The method is based on guessing the length of the time string and
     /// is inspired by the corresponding code in Matplotlib.
+    #[allow(clippy::too_many_arguments)]
     pub fn get_ticks(
         &self,
         viewport: &Viewport,

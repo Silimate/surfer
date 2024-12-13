@@ -1264,6 +1264,7 @@ impl State {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn draw_variable(
         &self,
         msgs: &mut Vec<Message>,

@@ -20,6 +20,7 @@ enum GestureKind {
 
 impl State {
     /// Draw the mouse gesture widget, i.e., the line(s) and text showing which gesture is being drawn.
+    #[allow(clippy::too_many_arguments)]
     pub fn draw_mouse_gesture_widget(
         &self,
         egui_ctx: &egui::Context,
