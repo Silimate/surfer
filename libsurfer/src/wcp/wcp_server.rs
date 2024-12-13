@@ -8,13 +8,13 @@ use std::{
     net::{TcpListener, TcpStream},
     sync::{
         atomic::{AtomicBool, Ordering},
-        mpsc::{Receiver, Sender},
         Arc,
     },
-    time::Duration,
 };
 
-use log::{info, warn};
+use log::{error, info, warn};
+use tokio::sync::mpsc::Receiver;
+use tokio::sync::mpsc::Sender;
 
 use crate::wcp::wcp_handler::WcpCommand;
 
@@ -130,21 +130,26 @@ impl WcpServer {
                 }
             };
 
+            info!("Got message");
+
             if let WcpMessage::Command(WcpCommand::Shutdown) = msg {
                 return Ok(());
             }
 
-            let _err = self.sender.send(msg);
+            if let Err(e) = self.sender.blocking_send(msg) {
+                error!("Failed to send wcp message into main thread {e}")
+            };
 
             // request repaint of the Surfer UI
             if let Some(ctx) = &self.ctx {
                 ctx.request_repaint();
             }
 
-            let resp = match self.receiver.recv_timeout(Duration::from_secs(10)) {
-                Ok(resp) => resp,
-                err => {
-                    warn!("WCP No response from handler: {err:#?}");
+            // TODO: Handle timeout
+            let resp = match self.receiver.blocking_recv() {
+                Some(resp) => resp,
+                None => {
+                    warn!("WCP No response from handler");
                     WcpMessage::create_error(
                         "No response".to_string(),
                         vec![],

@@ -14,6 +14,37 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::{io::Write, net::TcpStream, thread, time::Duration, vec};
 
+struct DebugReader<R: std::io::Read> {
+    r: R,
+}
+
+impl<R: std::io::Read> std::io::Read for DebugReader<R> {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        let count = self.r.read(buf)?;
+        println!(
+            "Read {} ({:?})",
+            String::from_utf8_lossy(&buf[0..count]),
+            &buf[0..count]
+        );
+        Ok(count)
+    }
+}
+
+struct SkipNullReader<R: std::io::Read> {
+    r: R,
+}
+
+impl<R: std::io::Read> std::io::Read for SkipNullReader<R> {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        let count = self.r.read(&mut buf[0..1])?;
+        if count == 1 && buf[0] == b'\0' {
+            self.r.read(buf)
+        } else {
+            Ok(count)
+        }
+    }
+}
+
 fn get_test_port() -> usize {
     lazy_static! {
         static ref PORT_NUM: Arc<Mutex<usize>> = Arc::new(Mutex::new(54321));
@@ -24,34 +55,44 @@ fn get_test_port() -> usize {
 }
 
 fn get_json_message(mut stream: &TcpStream) -> Result<WcpMessage, serde_Error> {
-    let mut de = serde_json::Deserializer::from_reader(&mut stream);
+    let mut de = serde_json::Deserializer::from_reader(DebugReader {
+        r: SkipNullReader { r: &mut stream },
+    });
     WcpMessage::deserialize(&mut de)
 }
 
 async fn run_test_client(port: usize, msgs: Vec<WcpMessage>, test_done: Arc<AtomicBool>) {
     let mut client: TcpStream;
+    let mut connect_attempts = 0;
     loop {
         if let Ok(c) = TcpStream::connect(format!("127.0.0.1:{port}")) {
             client = c;
             break;
         }
         thread::sleep(Duration::from_millis(100));
+        connect_attempts += 1;
+        if connect_attempts == 10 {
+            panic!("Failed to connect");
+        }
     }
 
     // read greeting message
-    let _ = get_json_message(&mut client).expect("Could not read greeting message");
+    get_json_message(&mut client).expect("Could not read greeting message");
+
     // FIXME check response content
     // clear screen
     let _ = serde_json::to_writer(&client, &WcpMessage::Command(WcpCommand::Clear));
     let _ = client.write(b"\0");
     let _ = client.flush();
     for message in msgs.into_iter() {
+        println!("Writing {message:?}");
         // send message to Surfer
         let _ = serde_json::to_writer(&client, &message);
         let _ = client.write(b"\0");
         let _ = client.flush();
         // read response from Surfer
-        let _ = get_json_message(&mut client);
+        let response = get_json_message(&mut client).unwrap();
+        println!("{response:?}");
         // sleep so that signals get sent in correct order
         thread::sleep(Duration::from_millis(100));
     }

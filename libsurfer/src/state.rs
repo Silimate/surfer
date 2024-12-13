@@ -626,7 +626,7 @@ impl State {
 
     #[cfg_attr(target_arch = "wasm32", allow(dead_code))]
     pub(crate) fn start_wcp_server(&mut self, address: Option<String>) {
-        use std::{sync::mpsc, thread};
+        use std::thread;
 
         use wcp::wcp_server::WcpServer;
 
@@ -636,8 +636,9 @@ impl State {
             warn!("WCP server is already running");
             return;
         }
-        let (wcp_s2c_sender, wcp_s2c_receiver) = mpsc::channel();
-        let (wcp_c2s_sender, wcp_c2s_receiver) = mpsc::channel();
+        // TODO: Consider an unbounded channel?
+        let (wcp_s2c_sender, wcp_s2c_receiver) = tokio::sync::mpsc::channel(100);
+        let (wcp_c2s_sender, wcp_c2s_receiver) = tokio::sync::mpsc::channel(100);
         self.sys.channels.wcp_s2c_receiver = Some(wcp_s2c_receiver);
         self.sys.channels.wcp_c2s_sender = Some(wcp_c2s_sender);
         let stop_signal_copy = self.sys.wcp_stop_signal.clone();

@@ -202,8 +202,8 @@ struct CachedTransactionDrawData {
 pub struct Channels {
     pub msg_sender: Sender<Message>,
     pub msg_receiver: Receiver<Message>,
-    wcp_s2c_receiver: Option<Receiver<WcpMessage>>,
-    wcp_c2s_sender: Option<Sender<WcpMessage>>,
+    wcp_s2c_receiver: Option<tokio::sync::mpsc::Receiver<WcpMessage>>,
+    wcp_c2s_sender: Option<tokio::sync::mpsc::Sender<WcpMessage>>,
 }
 impl Channels {
     fn new() -> Self {
@@ -1086,7 +1086,7 @@ impl State {
                 if self.sys.wcp_server_load_outstanding {
                     self.sys.wcp_server_load_outstanding = false;
                     self.sys.channels.wcp_c2s_sender.as_ref().map(|ch| {
-                        ch.send(WcpMessage::create_response(
+                        ch.blocking_send(WcpMessage::create_response(
                             "load".to_string(),
                             Vecs::Int(vec![]),
                         ))

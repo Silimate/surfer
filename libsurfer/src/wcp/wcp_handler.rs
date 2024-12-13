@@ -13,7 +13,7 @@ use num::BigInt;
 use serde::{Deserialize, Serialize};
 use surfer_translation_types::ScopeRef;
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
 #[serde(tag = "command")]
 pub enum WcpCommand {
     #[serde(rename = "get_item_list")]
@@ -44,7 +44,7 @@ pub enum WcpCommand {
     Shutdown,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
 #[serde(untagged)]
 pub enum Vecs {
     String(Vec<String>),
@@ -53,7 +53,7 @@ pub enum Vecs {
     Tuple(Vec<(String, usize)>),
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct ItemInfo {
     name: String,
     #[serde(rename = "type")]
@@ -61,7 +61,7 @@ pub struct ItemInfo {
     id: usize,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
 #[serde(tag = "type")]
 pub enum WcpMessage {
     #[serde(rename = "greeting")]
@@ -119,8 +119,8 @@ impl State {
                 Ok(command) => {
                     messages.push(command);
                 }
-                Err(std::sync::mpsc::TryRecvError::Empty) => break,
-                Err(std::sync::mpsc::TryRecvError::Disconnected) => {
+                Err(tokio::sync::mpsc::error::TryRecvError::Empty) => break,
+                Err(tokio::sync::mpsc::error::TryRecvError::Disconnected) => {
                     trace!("WCP Command sender disconnected");
                     break;
                 }
@@ -411,12 +411,12 @@ impl State {
             .channels
             .wcp_c2s_sender
             .as_ref()
-            .map(|ch| ch.send(WcpMessage::create_response(command.clone(), result)));
+            .map(|ch| ch.blocking_send(WcpMessage::create_response(command.clone(), result)));
     }
 
     fn send_error(&self, error: &str, arguments: Vec<String>, message: &str) {
         self.sys.channels.wcp_c2s_sender.as_ref().map(|ch| {
-            ch.send(WcpMessage::create_error(
+            ch.blocking_send(WcpMessage::create_error(
                 error.to_string(),
                 arguments,
                 message.to_string(),

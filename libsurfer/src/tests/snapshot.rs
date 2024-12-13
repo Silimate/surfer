@@ -279,7 +279,7 @@ macro_rules! snapshot_ui_with_file_spade_and_msgs {
                     break;
                 }
 
-                if load_start.elapsed().as_secs() > 100 {
+                if load_start.elapsed().as_secs() > 10 {
                     panic!("Timeout")
                 }
             }
@@ -344,7 +344,7 @@ fn render_readme_screenshot() {
                     break;
                 }
 
-                if load_start.elapsed().as_secs() > 100 {
+                if load_start.elapsed().as_secs() > 10 {
                     panic!("Timeout")
                 }
             }
