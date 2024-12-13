@@ -1,6 +1,9 @@
-use tokio::sync::mpsc::{
-    self,
-    error::{SendError, TryRecvError},
+use tokio::sync::{
+    mpsc::{
+        self,
+        error::{SendError, TryRecvError},
+    },
+    RwLock,
 };
 
 use crate::{EGUI_CONTEXT, OUTSTANDING_TRANSACTIONS};
@@ -52,5 +55,21 @@ impl SCSender {
             ctx.request_repaint();
         }
         result
+    }
+}
+
+#[cfg_attr(not(target_arch = "wasm32"), allow(dead_code))]
+pub(crate) struct SCHandler {
+    pub tx: SCSender,
+    pub rx: RwLock<Option<mpsc::Receiver<String>>>,
+}
+impl SCHandler {
+    #[cfg_attr(not(target_arch = "wasm32"), allow(dead_code))]
+    pub fn new() -> Self {
+        let (tx, rx) = mpsc::channel(100);
+        Self {
+            tx: SCSender::new(tx),
+            rx: RwLock::new(Some(rx)),
+        }
     }
 }

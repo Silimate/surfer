@@ -639,8 +639,8 @@ impl State {
         // TODO: Consider an unbounded channel?
         let (wcp_s2c_sender, wcp_s2c_receiver) = tokio::sync::mpsc::channel(100);
         let (wcp_c2s_sender, wcp_c2s_receiver) = tokio::sync::mpsc::channel(100);
-        self.sys.channels.wcp_s2c_receiver = Some(wcp_s2c_receiver);
-        self.sys.channels.wcp_c2s_sender = Some(wcp_c2s_sender);
+        self.sys.channels.wcp_c2s_receiver = Some(wcp_s2c_receiver);
+        self.sys.channels.wcp_s2c_sender = Some(wcp_c2s_sender);
         let stop_signal_copy = self.sys.wcp_stop_signal.clone();
 
         let ctx = self.sys.context.clone();
@@ -679,8 +679,8 @@ impl State {
 
                 self.sys.wcp_server_thread = None;
                 self.sys.wcp_server_address = None;
-                self.sys.channels.wcp_c2s_sender = None;
-                self.sys.channels.wcp_s2c_receiver = None;
+                self.sys.channels.wcp_s2c_sender = None;
+                self.sys.channels.wcp_c2s_receiver = None;
                 info!("Stopped WCP server");
             }
         }

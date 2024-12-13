@@ -9,40 +9,13 @@ use crate::{
 
 use itertools::Itertools;
 use log::{trace, warn};
-use num::BigInt;
 use serde::{Deserialize, Serialize};
 use surfer_translation_types::ScopeRef;
 
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
-#[serde(tag = "command")]
-pub enum WcpCommand {
-    #[serde(rename = "get_item_list")]
-    GetItemList,
-    #[serde(rename = "get_item_info")]
-    GetItemInfo { ids: Vec<String> },
-    #[serde(rename = "set_item_color")]
-    SetItemColor { id: String, color: String },
-    #[serde(rename = "add_variables")]
-    AddVariables { names: Vec<String> },
-    #[serde(rename = "add_scope")]
-    AddScope { scope: String },
-    #[serde(rename = "reload")]
-    Reload,
-    #[serde(rename = "set_viewport_to")]
-    SetViewportTo { timestamp: BigInt },
-    #[serde(rename = "remove_items")]
-    RemoveItems { ids: Vec<String> },
-    #[serde(rename = "focus_item")]
-    FocusItem { id: String },
-    #[serde(rename = "clear")]
-    Clear,
-    #[serde(rename = "load")]
-    Load { source: String },
-    #[serde(rename = "zoom_to_fit")]
-    ZoomToFit { viewport_idx: usize },
-    #[serde(rename = "shutdown")]
-    Shutdown,
-}
+pub use super::{
+    cs_message::{WcpCSMessage, WcpCommand},
+    WcpSCMessage,
+};
 
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
 #[serde(untagged)]
@@ -61,55 +34,9 @@ pub struct ItemInfo {
     id: usize,
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
-#[serde(tag = "type")]
-pub enum WcpMessage {
-    #[serde(rename = "greeting")]
-    Greeting {
-        version: String,
-        commands: Vec<String>,
-    },
-    #[serde(rename = "command")]
-    Command(WcpCommand),
-    #[serde(rename = "response")]
-    Response { command: String, arguments: Vecs },
-    #[serde(rename = "error")]
-    Error {
-        error: String,
-        arguments: Vec<String>,
-        message: String,
-    },
-    #[serde(rename = "event")]
-    Event {
-        event: String,
-        arguments: Vec<String>,
-    },
-}
-impl WcpMessage {
-    pub fn create_greeting(version: usize, commands: Vec<String>) -> Self {
-        Self::Greeting {
-            version: version.to_string(),
-            commands,
-        }
-    }
-    pub fn create_response(command: String, arguments: Vecs) -> Self {
-        Self::Response { command, arguments }
-    }
-    pub fn create_error(error: String, arguments: Vec<String>, message: String) -> Self {
-        Self::Error {
-            error,
-            arguments,
-            message,
-        }
-    }
-    pub fn _create_event(event: String, arguments: Vec<String>) -> Self {
-        Self::Event { event, arguments }
-    }
-}
-
 impl State {
     pub fn handle_wcp_commands(&mut self) {
-        let Some(receiver) = &mut self.sys.channels.wcp_s2c_receiver else {
+        let Some(receiver) = &mut self.sys.channels.wcp_c2s_receiver else {
             return;
         };
 
@@ -127,13 +54,13 @@ impl State {
             }
         }
         for message in messages {
-            self.handle_wcp_message(&message);
+            self.handle_wcp_cs_message(&message);
         }
     }
 
-    fn handle_wcp_message(&mut self, message: &WcpMessage) {
+    fn handle_wcp_cs_message(&mut self, message: &WcpCSMessage) {
         match message {
-            WcpMessage::Command(command) => {
+            WcpCSMessage::Command(command) => {
                 match command {
                     WcpCommand::GetItemList => {
                         if let Some(waves) = &self.waves {
@@ -409,14 +336,14 @@ impl State {
 
         self.sys
             .channels
-            .wcp_c2s_sender
+            .wcp_s2c_sender
             .as_ref()
-            .map(|ch| ch.blocking_send(WcpMessage::create_response(command.clone(), result)));
+            .map(|ch| ch.blocking_send(WcpSCMessage::create_response(command.clone(), result)));
     }
 
     fn send_error(&self, error: &str, arguments: Vec<String>, message: &str) {
-        self.sys.channels.wcp_c2s_sender.as_ref().map(|ch| {
-            ch.blocking_send(WcpMessage::create_error(
+        self.sys.channels.wcp_s2c_sender.as_ref().map(|ch| {
+            ch.blocking_send(WcpSCMessage::create_error(
                 error.to_string(),
                 arguments,
                 message.to_string(),

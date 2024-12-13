@@ -296,6 +296,9 @@ pub enum Message {
     /// WCP Server
     StartWcpServer(Option<String>),
     StopWcpServer,
+    /// Configures the WCP system to listen for messages over wasm
+    #[cfg(target_arch = "wasm32")]
+    SetupWasmWCP,
     /// Exit the application. This has no effect on wasm and closes the window
     /// on other platforms
     Exit,

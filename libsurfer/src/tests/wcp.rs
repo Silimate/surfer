@@ -1,6 +1,7 @@
 use crate::message::Message;
 use crate::tests::snapshot::render_and_compare;
-use crate::wcp::wcp_handler::{WcpCommand, WcpMessage};
+use crate::wcp::wcp_handler::{WcpCSMessage, WcpCommand};
+use crate::wcp::WcpSCMessage;
 use crate::State;
 
 use itertools::Itertools;
@@ -54,14 +55,14 @@ fn get_test_port() -> usize {
     *port
 }
 
-fn get_json_message(mut stream: &TcpStream) -> Result<WcpMessage, serde_Error> {
+fn get_json_response(mut stream: &TcpStream) -> Result<WcpSCMessage, serde_Error> {
     let mut de = serde_json::Deserializer::from_reader(DebugReader {
         r: SkipNullReader { r: &mut stream },
     });
-    WcpMessage::deserialize(&mut de)
+    WcpSCMessage::deserialize(&mut de)
 }
 
-async fn run_test_client(port: usize, msgs: Vec<WcpMessage>, test_done: Arc<AtomicBool>) {
+async fn run_test_client(port: usize, msgs: Vec<WcpCSMessage>, test_done: Arc<AtomicBool>) {
     let mut client: TcpStream;
     let mut connect_attempts = 0;
     loop {
@@ -77,11 +78,11 @@ async fn run_test_client(port: usize, msgs: Vec<WcpMessage>, test_done: Arc<Atom
     }
 
     // read greeting message
-    get_json_message(&mut client).expect("Could not read greeting message");
+    get_json_response(&mut client).expect("Could not read greeting message");
 
     // FIXME check response content
     // clear screen
-    let _ = serde_json::to_writer(&client, &WcpMessage::Command(WcpCommand::Clear));
+    let _ = serde_json::to_writer(&client, &WcpCSMessage::Command(WcpCommand::Clear));
     let _ = client.write(b"\0");
     let _ = client.flush();
     for message in msgs.into_iter() {
@@ -91,7 +92,7 @@ async fn run_test_client(port: usize, msgs: Vec<WcpMessage>, test_done: Arc<Atom
         let _ = client.write(b"\0");
         let _ = client.flush();
         // read response from Surfer
-        let response = get_json_message(&mut client).unwrap();
+        let response = get_json_response(&mut client).unwrap();
         println!("{response:?}");
         // sleep so that signals get sent in correct order
         thread::sleep(Duration::from_millis(100));
@@ -101,7 +102,7 @@ async fn run_test_client(port: usize, msgs: Vec<WcpMessage>, test_done: Arc<Atom
     test_done.store(true, Ordering::SeqCst);
 }
 
-fn start_test_client(port: usize, msgs: Vec<WcpMessage>, test_done: Arc<AtomicBool>) {
+fn start_test_client(port: usize, msgs: Vec<WcpCSMessage>, test_done: Arc<AtomicBool>) {
     std::thread::spawn(move || {
         let runtime = tokio::runtime::Builder::new_current_thread()
             .worker_threads(1)
@@ -143,9 +144,9 @@ macro_rules! wcp_snapshot_with_commands {
     ($name:ident, $msgs:expr) => {
         #[test]
         fn $name() {
-            let msgs: Vec<WcpMessage> = $msgs
+            let msgs: Vec<WcpCSMessage> = $msgs
                 .into_iter()
-                .map(|message| WcpMessage::Command(message))
+                .map(|message| WcpCSMessage::Command(message))
                 .collect();
 
             let port = get_test_port();

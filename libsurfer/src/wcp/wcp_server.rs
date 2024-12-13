@@ -16,14 +16,12 @@ use log::{error, info, warn};
 use tokio::sync::mpsc::Receiver;
 use tokio::sync::mpsc::Sender;
 
-use crate::wcp::wcp_handler::WcpCommand;
-
-use super::wcp_handler::WcpMessage;
+use super::{cs_message::WcpCommand, WcpCSMessage, WcpSCMessage};
 
 pub struct WcpServer {
     listener: TcpListener,
-    sender: Sender<WcpMessage>,
-    receiver: Receiver<WcpMessage>,
+    sender: Sender<WcpCSMessage>,
+    receiver: Receiver<WcpSCMessage>,
     stop_signal: Arc<AtomicBool>,
     ctx: Option<Arc<Context>>,
 }
@@ -31,8 +29,8 @@ pub struct WcpServer {
 impl WcpServer {
     pub fn new(
         address: String,
-        s2c_sender: Sender<WcpMessage>,
-        c2s_receiver: Receiver<WcpMessage>,
+        s2c_sender: Sender<WcpCSMessage>,
+        c2s_receiver: Receiver<WcpSCMessage>,
         stop_signal: Arc<AtomicBool>,
         ctx: Option<Arc<Context>>,
     ) -> Result<Self> {
@@ -70,7 +68,7 @@ impl WcpServer {
         .map(str::to_string)
         .collect_vec();
 
-        let greeting = WcpMessage::create_greeting(0, commands);
+        let greeting = WcpSCMessage::create_greeting(0, commands);
 
         info!("WCP Listening on Port {:#?}", self.listener);
         let listener = self.listener.try_clone().unwrap();
@@ -106,7 +104,7 @@ impl WcpServer {
     fn handle_client(&mut self, mut stream: TcpStream) -> Result<(), serde_Error> {
         loop {
             //get message from client
-            let msg: WcpMessage = match self.get_json_message(&stream) {
+            let msg: WcpCSMessage = match self.get_json_message(&stream) {
                 Ok(msg) => msg,
                 Err(e) => {
                     match e.classify() {
@@ -118,7 +116,7 @@ impl WcpServer {
 
                             let _ = serde_json::to_writer(
                                 &stream,
-                                &WcpMessage::create_error(
+                                &WcpSCMessage::create_error(
                                     "parsing error".to_string(),
                                     vec![],
                                     "parsing error".to_string(),
@@ -130,9 +128,7 @@ impl WcpServer {
                 }
             };
 
-            info!("Got message");
-
-            if let WcpMessage::Command(WcpCommand::Shutdown) = msg {
+            if let WcpCSMessage::Command(WcpCommand::Shutdown) = msg {
                 return Ok(());
             }
 
@@ -145,12 +141,12 @@ impl WcpServer {
                 ctx.request_repaint();
             }
 
-            // TODO: Handle timeout
+            // FIXME: Handle timeout
             let resp = match self.receiver.blocking_recv() {
                 Some(resp) => resp,
                 None => {
                     warn!("WCP No response from handler");
-                    WcpMessage::create_error(
+                    WcpSCMessage::create_error(
                         "No response".to_string(),
                         vec![],
                         "No response from handler".to_string(),
@@ -164,12 +160,12 @@ impl WcpServer {
         }
     }
 
-    fn get_json_message(&mut self, mut stream: &TcpStream) -> Result<WcpMessage, serde_Error> {
+    fn get_json_message(&mut self, mut stream: &TcpStream) -> Result<WcpCSMessage, serde_Error> {
         let mut de = serde_json::Deserializer::from_reader(&mut stream);
-        let cmd = WcpMessage::deserialize(&mut de);
+        let cmd = WcpCSMessage::deserialize(&mut de);
         let mut buffer = [0; 1];
         if let Ok(0) = stream.read(&mut buffer) {
-            return Ok(WcpMessage::Command(WcpCommand::Shutdown));
+            return Ok(WcpCSMessage::Command(WcpCommand::Shutdown));
         }
         if buffer[0] != 0 {
             warn!(
