@@ -1825,10 +1825,11 @@ dependencies = [
 
 [[package]]
 name = "ftr_parser"
-version = "0.1.0"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2c8909e98a576214ade8cf80131eb4910a7d4033c8f7a47764698a53c5e35c8c"
 dependencies = [
  "color-eyre",
- "half",
  "lz4_flex",
  "num-bigint",
  "serde",

@@ -1,6 +1,6 @@
 use color_eyre::eyre::WrapErr;
 use ecolor::Color32;
-use egui::{PointerButton, Response, Rgba, Sense, Ui};
+use egui::{PointerButton, Response, Sense, Ui};
 use egui_extras::{Column, TableBuilder};
 use emath::{Align2, Pos2, Rect, RectTransform, Vec2};
 use epaint::{CubicBezierShape, FontId, PathShape, PathStroke, RectShape, Rounding, Shape, Stroke};
@@ -423,6 +423,13 @@ impl State {
             })
             .collect::<Vec<_>>();
 
+        let first_visible_timestamp = viewport
+            .curr_left
+            .absolute(&num_timestamps)
+            .0
+            .to_biguint()
+            .unwrap_or(BigUint::ZERO);
+
         for displayed_stream in displayed_streams {
             let tx_stream_ref = &displayed_stream.transaction_stream_ref;
 
@@ -458,66 +465,76 @@ impl State {
                 );
             }
 
-            let mut last_times_on_row = vec![(BigUint::ZERO, BigUint::ZERO)];
             for gen in &generators {
-                for tx in &gen.transactions {
-                    let mut curr_row = 0;
+                // find first visible transaction
+                let first_visible_transaction_index = match gen
+                    .transactions
+                    .binary_search_by_key(&first_visible_timestamp, |tx| tx.get_end_time())
+                {
+                    Ok(i) => i,
+                    Err(i) => i,
+                }
+                .saturating_sub(1);
+                let transactions = gen
+                    .transactions
+                    .iter()
+                    .skip(first_visible_transaction_index);
+
+                let mut last_px = f32::NAN;
+
+                for tx in transactions {
                     let start_time = tx.get_start_time();
                     let end_time = tx.get_end_time();
                     let curr_tx_id = tx.get_tx_id();
 
-                    while start_time > last_times_on_row[curr_row].0
-                        && start_time < last_times_on_row[curr_row].1
+                    // stop drawing after last visible transaction
+                    if start_time.to_f64().unwrap()
+                        > viewport.curr_right.absolute(&num_timestamps).0
                     {
-                        curr_row += 1;
-                        if last_times_on_row.len() <= curr_row {
-                            last_times_on_row.push((BigUint::ZERO, BigUint::ZERO));
+                        break;
+                    }
+
+                    if let Some(focused_tx_ref) = focused_tx_ref {
+                        if curr_tx_id == focused_tx_ref.id {
+                            new_focused_tx = Some(tx);
                         }
                     }
-                    last_times_on_row[curr_row] = (start_time.clone(), end_time.clone());
 
-                    if end_time.to_f64().unwrap() > viewport.curr_left.absolute(&num_timestamps).0
-                        && start_time.to_f64().unwrap()
-                            < viewport.curr_right.absolute(&num_timestamps).0
-                    {
-                        if let Some(focused_tx_ref) = focused_tx_ref {
-                            if curr_tx_id == focused_tx_ref.id {
-                                new_focused_tx = Some(tx);
-                            }
-                        }
+                    let min_px = viewport.pixel_from_time(
+                        &start_time.to_bigint().unwrap(),
+                        frame_width - 1.,
+                        &num_timestamps,
+                    );
+                    let max_px = viewport.pixel_from_time(
+                        &end_time.to_bigint().unwrap(),
+                        frame_width - 1.,
+                        &num_timestamps,
+                    );
 
-                        displayed_transactions.push(TransactionRef { id: curr_tx_id });
-                        let min = Pos2::new(
-                            viewport.pixel_from_time(
-                                &start_time.to_bigint().unwrap(),
-                                frame_width - 1.,
-                                &num_timestamps,
-                            ),
-                            cfg.line_height * curr_row as f32 + 4.0,
-                        );
-                        let max = Pos2::new(
-                            viewport.pixel_from_time(
-                                &end_time.to_bigint().unwrap(),
-                                frame_width - 1.,
-                                &num_timestamps,
-                            ),
-                            cfg.line_height * (curr_row + 1) as f32 - 4.0,
-                        );
-
-                        let tx_ref = TransactionRef { id: curr_tx_id };
-                        draw_commands.insert(
-                            tx_ref,
-                            TxDrawingCommands {
-                                min,
-                                max,
-                                gen_ref: TransactionStreamRef::new_gen(
-                                    tx_stream_ref.stream_id,
-                                    gen.id,
-                                    gen.name.clone(),
-                                ),
-                            },
-                        );
+                    // skip transactions that are rendered completely in the previous pixel
+                    if (min_px == max_px) && (min_px == last_px) {
+                        last_px = max_px;
+                        continue;
                     }
+                    last_px = max_px;
+
+                    displayed_transactions.push(TransactionRef { id: curr_tx_id });
+                    let min = Pos2::new(min_px, cfg.line_height * tx.row as f32 + 4.0);
+                    let max = Pos2::new(max_px, cfg.line_height * (tx.row + 1) as f32 - 4.0);
+
+                    let tx_ref = TransactionRef { id: curr_tx_id };
+                    draw_commands.insert(
+                        tx_ref,
+                        TxDrawingCommands {
+                            min,
+                            max,
+                            gen_ref: TransactionStreamRef::new_gen(
+                                tx_stream_ref.stream_id,
+                                gen.id,
+                                gen.name.clone(),
+                            ),
+                        },
+                    );
                 }
             }
             stream_to_displayed_txs.insert(tx_stream_ref.clone(), displayed_transactions);
@@ -834,7 +851,6 @@ impl State {
                 let stream_to_displayed_txs = &draw_data.stream_to_displayed_txs;
                 let inc_relation_tx_ids = &draw_data.inc_relation_tx_ids;
                 let out_relation_tx_ids = &draw_data.out_relation_tx_ids;
-                let highlight_rgba = Rgba::from(self.config.theme.transaction_highlight);
 
                 let mut inc_relation_starts = vec![];
                 let mut out_relation_starts = vec![];
@@ -872,6 +888,9 @@ impl State {
                     let color = displayed_item
                         .and_then(super::displayed_item::DisplayedItem::color)
                         .and_then(|color| self.config.theme.get_color(&color));
+                    // Draws the surrounding border of the stream
+                    let border_stroke =
+                        Stroke::new(self.config.theme.linewidth, self.config.theme.foreground);
 
                     match drawing_info {
                         ItemDrawingInfo::Stream(stream) => {
@@ -906,60 +925,66 @@ impl State {
                                         }
 
                                         let transaction_rect = Rect { min, max };
-                                        let mut response =
-                                            ui.allocate_rect(transaction_rect, Sense::click());
+                                        if (max.x - min.x) > 1.0 {
+                                            let mut response =
+                                                ui.allocate_rect(transaction_rect, Sense::click());
 
-                                        response = handle_transaction_tooltip(
-                                            response,
-                                            waves,
-                                            &tx_draw_command.gen_ref,
-                                            tx_ref,
-                                        );
+                                            response = handle_transaction_tooltip(
+                                                response,
+                                                waves,
+                                                &tx_draw_command.gen_ref,
+                                                tx_ref,
+                                            );
 
-                                        if response.clicked() {
-                                            msgs.push(Message::FocusTransaction(
-                                                Some(tx_ref.clone()),
-                                                None,
-                                            ));
-                                        }
-                                        let tx_fill_color = if is_transaction_focused {
-                                            Color32::from(
-                                                Rgba::from(
-                                                    color
-                                                        .unwrap_or(
-                                                            &self.config.theme.transaction_default,
-                                                        )
-                                                        .additive(),
-                                                ) + highlight_rgba,
-                                            )
+                                            if response.clicked() {
+                                                msgs.push(Message::FocusTransaction(
+                                                    Some(tx_ref.clone()),
+                                                    None,
+                                                ));
+                                            }
+
+                                            let tx_fill_color = if is_transaction_focused {
+                                                let c = color.unwrap_or(
+                                                    &self.config.theme.transaction_default,
+                                                );
+                                                Color32::from_rgb(
+                                                    255 - c.r(),
+                                                    255 - c.g(),
+                                                    255 - c.b(),
+                                                )
+                                            } else {
+                                                *color.unwrap_or(
+                                                    &self.config.theme.transaction_default,
+                                                )
+                                            };
+
+                                            let stroke =
+                                                Stroke::new(1.5, tx_fill_color.gamma_multiply(1.2));
+                                            ctx.painter.rect(
+                                                transaction_rect,
+                                                Rounding::same(5.0),
+                                                tx_fill_color,
+                                                stroke,
+                                            );
                                         } else {
-                                            color
+                                            let tx_fill_color = color
                                                 .unwrap_or(&self.config.theme.transaction_default)
-                                                .gamma_multiply(0.6)
-                                        };
-                                        let stroke = Stroke::new(1.5, tx_fill_color.additive());
-                                        ctx.painter.rect(
-                                            transaction_rect,
-                                            Rounding::same(5.0),
-                                            tx_fill_color,
-                                            stroke,
-                                        );
+                                                .gamma_multiply(1.2);
+
+                                            let stroke = Stroke::new(1.5, tx_fill_color);
+                                            ctx.painter.rect(
+                                                transaction_rect,
+                                                Rounding::ZERO,
+                                                tx_fill_color,
+                                                stroke,
+                                            );
+                                        }
                                     }
                                 }
-                                // Draws the surrounding border of the stream
-                                let stroke = Stroke::new(1.5, Color32::LIGHT_YELLOW);
-                                ctx.painter.rect_stroke(
-                                    Rect {
-                                        min: (ctx.to_screen)(container_rect.min.x, y_offset + 1.),
-                                        max: (ctx.to_screen)(
-                                            frame_width,
-                                            (drawing_info.bottom()
-                                                - to_screen.transform_pos(Pos2::ZERO).y)
-                                                - 2.,
-                                        ),
-                                    },
-                                    Rounding::ZERO,
-                                    stroke,
+                                ctx.painter.hline(
+                                    0.0..=((ctx.to_screen)(frame_width, 0.0).x),
+                                    drawing_info.bottom(),
+                                    border_stroke,
                                 );
                             }
                         }

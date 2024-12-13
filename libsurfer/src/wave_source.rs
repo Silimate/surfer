@@ -365,7 +365,7 @@ impl State {
     ) {
         let sender = self.sys.channels.msg_sender.clone();
 
-        let result = parse::read_from_bytes(bytes);
+        let result = parse::parse_ftr_from_bytes(bytes);
 
         info!("Done with loading ftr file");
 
