@@ -34,6 +34,10 @@ impl Relative {
     pub fn min(&self, other: &Relative) -> Self {
         Self(self.0.min(other.0))
     }
+
+    pub fn max(&self, other: &Relative) -> Self {
+        Self(self.0.max(other.0))
+    }
 }
 
 impl std::ops::Div for Relative {
@@ -88,6 +92,7 @@ pub struct Viewport {
     // Number of seconds since the the last time a movement happened
     move_duration: Option<f32>,
     pub move_strategy: ViewportStrategy,
+    edge_space: f64,
 }
 
 impl Default for Viewport {
@@ -101,6 +106,7 @@ impl Default for Viewport {
             move_start_right: Relative(1.0),
             move_duration: None,
             move_strategy: ViewportStrategy::Instant,
+            edge_space: 0.2,
         }
     }
 }
@@ -200,68 +206,54 @@ impl Viewport {
             as f32
     }
 
+    /// Return new viewport for a different file length
+    ///
+    /// Tries to keep the current zoom level and position. If zoom is not possible it
+    /// will zoom in as much as needed to keep border margins. If the new waveform is
+    /// too short, the viewport will be moved to the left as much as needed for the zoom level.
     pub fn clip_to(&self, old_num_timestamps: &BigInt, new_num_timestamps: &BigInt) -> Viewport {
-        let resize_factor =
-            (Absolute::from(new_num_timestamps) / Absolute::from(old_num_timestamps)).0;
-        let curr_range = self.width();
-        let valid_range = self.width() * resize_factor;
+        let left_timestamp = self.curr_left.absolute(old_num_timestamps);
+        let right_timestamp = self.curr_right.absolute(old_num_timestamps);
+        let absolute_width = right_timestamp - left_timestamp;
 
-        // first fix the zoom if less than 10% of the screen are filled
-        // do this first so that if the user had the waveform at a side
-        // it stays there when moving, if centered it stays centered
-        let fill_limit = Relative(0.1);
-        let corr_zoom = fill_limit / (valid_range / curr_range);
-        let zoom_fixed = if corr_zoom > Relative(1.0) {
-            let left = self.curr_left / corr_zoom;
-            let right = self.curr_right / corr_zoom;
-            Viewport {
-                curr_left: left,
-                curr_right: right,
-                target_left: left,
-                target_right: right,
-                move_start_left: left,
-                move_start_right: right,
-                move_duration: None,
-                move_strategy: self.move_strategy,
-            }
+        let new_absolute_width = new_num_timestamps
+            .to_f64()
+            .expect("Failed to convert timestamp to f64")
+            * (2.0 * self.edge_space);
+        let (left, right) = if absolute_width.0 > new_absolute_width {
+            // is the new waveform so short that we can't keep the current zoom level?
+            (Relative(-self.edge_space), Relative(1.0 + self.edge_space))
         } else {
-            *self
+            // our zoom level is achievable but we don't know the waveform is long enough
+
+            let unmoved_right = Relative(
+                (left_timestamp + absolute_width).0.to_f64().unwrap()
+                    / new_num_timestamps.to_f64().unwrap(),
+            );
+            if unmoved_right <= Relative(1.0 + self.edge_space) {
+                // waveform is long enough, keep current view as-is
+                (self.curr_left, unmoved_right)
+            } else {
+                // waveform is too short, clip end to the right edge (including empty space)
+                // since we checked above for zoom level, we know that there must be enough
+                // waveform to the left to keep the current zoom level
+                (
+                    Relative(1.0 + self.edge_space - absolute_width.0),
+                    Relative(1.0 + self.edge_space),
+                )
+            }
         };
 
-        // scroll waveform less than 10% of the screen to the left & right
-        // contain actual wave data, keep zoom as it was
-        let overlap_limit = 0.1;
-        let min_overlap = curr_range.min(&valid_range) * overlap_limit;
-        let corr_right = ((self.curr_left * resize_factor) + min_overlap) - zoom_fixed.curr_right;
-        let corr_left = ((self.curr_right * resize_factor) - min_overlap) - zoom_fixed.curr_left;
-        if corr_right > Relative(0.0) {
-            let left = zoom_fixed.curr_left + corr_right;
-            let right = zoom_fixed.curr_right + corr_right;
-            Viewport {
-                curr_left: left,
-                curr_right: right,
-                target_left: left,
-                target_right: right,
-                move_start_left: left,
-                move_start_right: right,
-                move_duration: None,
-                move_strategy: self.move_strategy,
-            }
-        } else if corr_left < Relative(0.0) {
-            let left = zoom_fixed.curr_left + corr_left;
-            let right = zoom_fixed.curr_right + corr_left;
-            Viewport {
-                curr_left: left,
-                curr_right: right,
-                target_left: left,
-                target_right: right,
-                move_start_left: left,
-                move_start_right: right,
-                move_duration: None,
-                move_strategy: self.move_strategy,
-            }
-        } else {
-            zoom_fixed
+        Viewport {
+            curr_left: left,
+            curr_right: right,
+            target_left: left,
+            target_right: right,
+            move_start_left: left,
+            move_start_right: right,
+            move_duration: None,
+            move_strategy: self.move_strategy,
+            edge_space: self.edge_space,
         }
     }
 
@@ -279,8 +271,9 @@ impl Viewport {
         let center_point: Absolute = center.into();
         let half_width = self.half_width_absolute(num_timestamps);
 
-        self.set_target_left((center_point - half_width).relative(num_timestamps));
-        self.set_target_right((center_point + half_width).relative(num_timestamps));
+        let target_left = (center_point - half_width).relative(num_timestamps);
+        let target_right = (center_point + half_width).relative(num_timestamps);
+        self.set_viewport_to_clipped(target_left, target_right);
     }
 
     pub fn zoom_to_fit(&mut self) {
@@ -326,8 +319,7 @@ impl Viewport {
                 }
             };
 
-        self.set_target_left(target_left);
-        self.set_target_right(target_right);
+        self.set_viewport_to_clipped(target_left, target_right);
     }
 
     pub fn handle_canvas_scroll(&mut self, deltay: f64) {
@@ -335,9 +327,33 @@ impl Viewport {
         // One scroll event yields 50
         let scroll_step = -self.width() / Relative(50. * 20.);
         let scaled_deltay = scroll_step * deltay;
+        self.set_viewport_to_clipped(
+            self.curr_left + scaled_deltay,
+            self.curr_right + scaled_deltay,
+        );
+    }
 
-        self.curr_left += scaled_deltay;
-        self.curr_right += scaled_deltay;
+    fn set_viewport_to_clipped(&mut self, target_left: Relative, target_right: Relative) {
+        let width = target_right - target_left;
+
+        let abs_min = Relative(-self.edge_space);
+        let abs_max = Relative(1.0 + self.edge_space);
+
+        let max_right = Relative(1.0) + width * self.edge_space;
+        let min_left = -width * self.edge_space;
+        if width > (abs_max - abs_min) {
+            self.set_target_left(abs_min);
+            self.set_target_right(abs_max);
+        } else if target_left < min_left {
+            self.set_target_left(min_left);
+            self.set_target_right(min_left + width);
+        } else if target_right > max_right {
+            self.set_target_left(max_right - width);
+            self.set_target_right(max_right);
+        } else {
+            self.set_target_left(target_left);
+            self.set_target_right(target_right);
+        }
     }
 
     #[inline]
@@ -356,8 +372,10 @@ impl Viewport {
     }
 
     pub fn zoom_to_range(&mut self, left: &BigInt, right: &BigInt, num_timestamps: &BigInt) {
-        self.set_target_left(Absolute::from(left).relative(num_timestamps));
-        self.set_target_right(Absolute::from(right).relative(num_timestamps));
+        self.set_viewport_to_clipped(
+            Absolute::from(left).relative(num_timestamps),
+            Absolute::from(right).relative(num_timestamps),
+        );
     }
 
     pub fn go_to_cursor_if_not_in_view(
@@ -381,11 +399,13 @@ impl Viewport {
             - self.curr_left.absolute(num_timestamps))
             / 2.;
 
-        self.set_target_left((center - half_width).relative(num_timestamps));
-        self.set_target_right((center + half_width).relative(num_timestamps));
+        self.set_viewport_to_clipped(
+            (center - half_width).relative(num_timestamps),
+            (center + half_width).relative(num_timestamps),
+        );
     }
 
-    pub fn set_target_left(&mut self, target_left: Relative) {
+    fn set_target_left(&mut self, target_left: Relative) {
         if let ViewportStrategy::Instant = self.move_strategy {
             self.curr_left = target_left
         } else {
@@ -394,7 +414,7 @@ impl Viewport {
             self.move_duration = Some(0.);
         }
     }
-    pub fn set_target_right(&mut self, target_right: Relative) {
+    fn set_target_right(&mut self, target_right: Relative) {
         if let ViewportStrategy::Instant = self.move_strategy {
             self.curr_right = target_right
         } else {

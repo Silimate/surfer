@@ -631,7 +631,9 @@ impl State {
                 viewport_idx,
             } => {
                 if let Some(waves) = self.waves.as_mut() {
-                    let num_timestamps = waves.num_timestamps();
+                    let num_timestamps = waves
+                        .num_timestamps()
+                        .expect("No timestamps count event though waveforms should be loaded");
                     waves.viewports[viewport_idx].handle_canvas_zoom(
                         mouse_ptr,
                         delta as f64,
@@ -661,7 +663,9 @@ impl State {
             Message::GoToTime(time, viewport_idx) => {
                 if let Some(waves) = self.waves.as_mut() {
                     if let Some(time) = time {
-                        let num_timestamps = waves.num_timestamps();
+                        let num_timestamps = waves
+                            .num_timestamps()
+                            .expect("No timestamps count event though waveforms should be loaded");
                         waves.viewports[viewport_idx].go_to_time(&time.clone(), &num_timestamps);
                         self.invalidate_draw_commands();
                     }
@@ -681,7 +685,9 @@ impl State {
                 viewport_idx,
             } => {
                 if let Some(waves) = &mut self.waves {
-                    let num_timestamps = waves.num_timestamps();
+                    let num_timestamps = waves
+                        .num_timestamps()
+                        .expect("No timestamps count event though waveforms should be loaded");
                     waves.viewports[viewport_idx].zoom_to_range(&start, &end, &num_timestamps);
                     self.invalidate_draw_commands();
                 }
@@ -843,7 +849,9 @@ impl State {
                     // end of visible area for previous transition
                     if waves.cursor.is_none() && waves.focused_item.is_some() {
                         if let Some(vp) = waves.viewports.first() {
-                            let num_timestamps = waves.num_timestamps();
+                            let num_timestamps = waves.num_timestamps().expect(
+                                "No timestamps count event though waveforms should be loaded",
+                            );
                             waves.cursor = if next {
                                 Some(vp.left_edge_time(&num_timestamps))
                             } else {
@@ -1340,7 +1348,9 @@ impl State {
             Message::GoToMarkerPosition(idx, viewport_idx) => {
                 if let Some(waves) = self.waves.as_mut() {
                     if let Some(cursor) = waves.markers.get(&idx) {
-                        let num_timestamps = waves.num_timestamps();
+                        let num_timestamps = waves
+                            .num_timestamps()
+                            .expect("No timestamps count event though waveforms should be loaded");
                         waves.viewports[viewport_idx].go_to_time(cursor, &num_timestamps);
                         self.invalidate_draw_commands();
                     }

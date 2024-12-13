@@ -26,7 +26,8 @@ impl WaveData {
         viewport: &Viewport,
     ) {
         if let Some(marker) = &self.cursor {
-            let x = viewport.pixel_from_time(marker, size.x, &self.num_timestamps());
+            let num_timestamps = self.num_timestamps().unwrap_or(1.into());
+            let x = viewport.pixel_from_time(marker, size.x, &num_timestamps);
 
             let stroke = Stroke {
                 color: theme.cursor.color,
@@ -49,6 +50,7 @@ impl WaveData {
         size: Vec2,
         viewport: &Viewport,
     ) {
+        let num_timestamps = self.num_timestamps().unwrap_or(1.into());
         for (idx, marker) in &self.markers {
             let color = self
                 .displayed_items_order
@@ -71,7 +73,7 @@ impl WaveData {
                 color: *color,
                 width: theme.cursor.width,
             };
-            let x = viewport.pixel_from_time(marker, size.x, &self.num_timestamps());
+            let x = viewport.pixel_from_time(marker, size.x, &num_timestamps);
             ctx.painter.line_segment(
                 [
                     (ctx.to_screen)(x + 0.5, -0.5),

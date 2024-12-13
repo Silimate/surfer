@@ -90,6 +90,7 @@ impl WaveData {
         theme: &SurferTheme,
     ) {
         let color = theme.variable_dontcare;
+        let num_timestamps = self.num_timestamps().unwrap_or(1.into());
         for g in self.graphics.values() {
             match g {
                 Graphic::TextArrow {
@@ -97,12 +98,10 @@ impl WaveData {
                     to: (to_point, to_dir),
                     text,
                 } => {
-                    let from_x =
-                        viewport.pixel_from_time(&from_point.x, size.x, &self.num_timestamps());
+                    let from_x = viewport.pixel_from_time(&from_point.x, size.x, &num_timestamps);
                     let from_y = self.get_item_y(&from_point.y);
 
-                    let to_x =
-                        viewport.pixel_from_time(&to_point.x, size.x, &self.num_timestamps());
+                    let to_x = viewport.pixel_from_time(&to_point.x, size.x, &num_timestamps);
                     let to_y = self.get_item_y(&to_point.y);
 
                     if let (Some(from_y), Some(to_y)) = (from_y, to_y) {
@@ -139,7 +138,7 @@ impl WaveData {
                     pos: (pos, dir),
                     text,
                 } => {
-                    let to_x = viewport.pixel_from_time(&pos.x, size.x, &self.num_timestamps());
+                    let to_x = viewport.pixel_from_time(&pos.x, size.x, &num_timestamps);
                     let to_y = self.get_item_y(&pos.y);
                     if let Some(to_y) = to_y {
                         ctx.painter.text(

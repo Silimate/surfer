@@ -124,6 +124,7 @@ fn variable_draw_commands(
     let translator = waves.variable_translator(&displayed_field_ref, translators);
     // we need to get the variable info here to get the correct info for aliases
     let info = translator.variable_info(&meta).unwrap();
+    let num_timestamps = waves.num_timestamps().unwrap_or(1.into());
 
     let mut local_commands: HashMap<Vec<_>, _> = HashMap::new();
 
@@ -158,7 +159,7 @@ fn variable_draw_commands(
             })) => waves.viewports[viewport_idx].pixel_from_time(
                 &timestamp.to_bigint().unwrap(),
                 view_width,
-                &waves.num_timestamps(),
+                &num_timestamps,
             ),
             // If we don't have a next timestamp, we don't need to recheck until the last time
             // step
@@ -312,7 +313,7 @@ impl State {
     ) -> Option<CachedDrawData> {
         let mut draw_commands = HashMap::new();
 
-        let num_timestamps = waves.num_timestamps().clone();
+        let num_timestamps = waves.num_timestamps().unwrap_or(1.into());
         let max_time = num_timestamps.to_f64().unwrap_or(f64::MAX);
         let mut clock_edges = vec![];
         // Compute which timestamp to draw in each pixel. We'll draw from -transition_width to
@@ -410,6 +411,7 @@ impl State {
         let mut new_focused_tx: Option<&Transaction> = None;
 
         let viewport = waves.viewports[viewport_idx];
+        let num_timestamps = waves.num_timestamps().unwrap_or(1.into());
 
         let displayed_streams = waves
             .displayed_items_order
@@ -474,10 +476,9 @@ impl State {
                     }
                     last_times_on_row[curr_row] = (start_time.clone(), end_time.clone());
 
-                    if end_time.to_f64().unwrap()
-                        > viewport.curr_left.absolute(&waves.num_timestamps()).0
+                    if end_time.to_f64().unwrap() > viewport.curr_left.absolute(&num_timestamps).0
                         && start_time.to_f64().unwrap()
-                            < viewport.curr_right.absolute(&waves.num_timestamps()).0
+                            < viewport.curr_right.absolute(&num_timestamps).0
                     {
                         if let Some(focused_tx_ref) = focused_tx_ref {
                             if curr_tx_id == focused_tx_ref.id {
@@ -490,7 +491,7 @@ impl State {
                             viewport.pixel_from_time(
                                 &start_time.to_bigint().unwrap(),
                                 frame_width - 1.,
-                                &waves.num_timestamps(),
+                                &num_timestamps,
                             ),
                             cfg.line_height * curr_row as f32 + 4.0,
                         );
@@ -498,7 +499,7 @@ impl State {
                             viewport.pixel_from_time(
                                 &end_time.to_bigint().unwrap(),
                                 frame_width - 1.,
-                                &waves.num_timestamps(),
+                                &num_timestamps,
                             ),
                             cfg.line_height * (curr_row + 1) as f32 - 4.0,
                         );
@@ -584,6 +585,7 @@ impl State {
         let frame_width = response.rect.width();
         let pointer_pos_global = ui.input(|i| i.pointer.interact_pos());
         let pointer_pos_canvas = pointer_pos_global.map(|p| to_screen.inverse().transform_pos(p));
+        let num_timestamps = waves.num_timestamps().unwrap_or(1.into());
 
         if ui.ui_contains_pointer() {
             let pointer_pos = pointer_pos_global.unwrap();
@@ -600,7 +602,7 @@ impl State {
                 let mouse_ptr = Some(waves.viewports[viewport_idx].as_time_bigint(
                     mouse_ptr_pos.x,
                     frame_width,
-                    &waves.num_timestamps(),
+                    &num_timestamps,
                 ));
 
                 msgs.push(Message::CanvasZoom {
@@ -1333,7 +1335,8 @@ impl State {
     ) -> Option<BigInt> {
         let pos = pointer_pos_canvas?;
         let viewport = &waves.viewports[viewport_idx];
-        let timestamp = viewport.as_time_bigint(pos.x, frame_width, &waves.num_timestamps());
+        let num_timestamps = waves.num_timestamps().unwrap_or(1.into());
+        let timestamp = viewport.as_time_bigint(pos.x, frame_width, &num_timestamps);
         if let Some(utimestamp) = timestamp.to_biguint() {
             if let Some(vidx) = waves.get_item_at_y(pos.y) {
                 if let Some(id) = waves.displayed_items_order.get(vidx) {
@@ -1350,16 +1353,10 @@ impl State {
                                 BigInt::ZERO
                             };
                             let next_time = &res.next.unwrap_or_default().to_bigint().unwrap();
-                            let prev = viewport.pixel_from_time(
-                                &prev_time,
-                                frame_width,
-                                &waves.num_timestamps(),
-                            );
-                            let next = viewport.pixel_from_time(
-                                next_time,
-                                frame_width,
-                                &waves.num_timestamps(),
-                            );
+                            let prev =
+                                viewport.pixel_from_time(&prev_time, frame_width, &num_timestamps);
+                            let next =
+                                viewport.pixel_from_time(next_time, frame_width, &num_timestamps);
                             if (prev - pos.x).abs() < (next - pos.x).abs() {
                                 if (prev - pos.x).abs() <= self.config.snap_distance {
                                     return Some(prev_time.clone());
@@ -1383,7 +1380,7 @@ impl State {
         viewport: &Viewport,
         waves: &WaveData,
     ) {
-        let x = viewport.pixel_from_time(time, size.x, &waves.num_timestamps());
+        let x = viewport.pixel_from_time(time, size.x, &waves.num_timestamps().unwrap_or(1.into()));
 
         let stroke = Stroke {
             color: self.config.theme.cursor.color,

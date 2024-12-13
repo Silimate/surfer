@@ -359,17 +359,18 @@ impl WaveData {
         time_format: &TimeFormat,
         config: &SurferConfig,
     ) -> Vec<(String, f32)> {
+        let num_timestamps = self.num_timestamps().unwrap_or(1.into());
         let char_width = text_size * (20. / 31.);
         let rightexp = viewport
             .curr_right
-            .absolute(&self.num_timestamps())
+            .absolute(&num_timestamps)
             .0
             .abs()
             .log10()
             .round() as i16;
         let leftexp = viewport
             .curr_left
-            .absolute(&self.num_timestamps())
+            .absolute(&num_timestamps)
             .0
             .abs()
             .log10()
@@ -378,7 +379,7 @@ impl WaveData {
         let max_labels = ((frame_width * config.theme.ticks.density) / max_labelwidth).floor() + 2.;
         let scale = 10.0f64.powf(
             ((viewport.curr_right - viewport.curr_left)
-                .absolute(&self.num_timestamps())
+                .absolute(&num_timestamps)
                 .0
                 / max_labels as f64)
                 .log10()
@@ -390,10 +391,9 @@ impl WaveData {
         for step in steps {
             let scaled_step = scale * step;
             let rounded_min_label_time =
-                (viewport.curr_left.absolute(&self.num_timestamps()).0 / scaled_step).floor()
+                (viewport.curr_left.absolute(&num_timestamps).0 / scaled_step).floor()
                     * scaled_step;
-            let high = ((viewport.curr_right.absolute(&self.num_timestamps()).0
-                - rounded_min_label_time)
+            let high = ((viewport.curr_right.absolute(&num_timestamps).0 - rounded_min_label_time)
                 / scaled_step)
                 .ceil() as f32
                 + 1.;
@@ -407,7 +407,7 @@ impl WaveData {
                         (
                             // Time string
                             time_string(&tick, timescale, wanted_timeunit, time_format),
-                            viewport.pixel_from_time(&tick, frame_width, &self.num_timestamps()),
+                            viewport.pixel_from_time(&tick, frame_width, &num_timestamps),
                         )
                     })
                     .collect::<Vec<(String, f32)>>();

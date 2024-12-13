@@ -171,7 +171,7 @@ impl WaveData {
             translators,
         );
 
-        let old_num_timestamps = Some(self.num_timestamps());
+        let old_num_timestamps = self.num_timestamps();
         let mut new_wavedata = WaveData {
             inner: DataContainer::Waves(*new_waves),
             source,
@@ -635,7 +635,7 @@ impl WaveData {
 
     pub fn go_to_cursor_if_not_in_view(&mut self) -> bool {
         if let Some(cursor) = &self.cursor {
-            let num_timestamps = self.num_timestamps();
+            let num_timestamps = self.num_timestamps().unwrap_or(1.into());
             self.viewports[0].go_to_cursor_if_not_in_view(cursor, &num_timestamps)
         } else {
             false
@@ -647,7 +647,7 @@ impl WaveData {
         viewport.pixel_from_time(
             self.numbered_marker_time(idx),
             view_width,
-            &self.num_timestamps(),
+            &self.num_timestamps().unwrap_or(1.into()),
         )
     }
 
@@ -750,7 +750,9 @@ impl WaveData {
                                 }
                             } else {
                                 // No next transition, go to end
-                                self.cursor = Some(self.num_timestamps().clone());
+                                self.cursor = Some(self.num_timestamps().expect(
+                                    "No timestamp count even though waveforms should be loaded",
+                                ));
                             }
                         } else if let Some(stime) = res.current.unwrap().0.to_bigint() {
                             let bigone = BigInt::from(1);
@@ -808,15 +810,12 @@ impl WaveData {
 
     /// Returns the number of timestamps in the current waves. For now, this adjusts the
     /// number of timestamps as returned by wave sources if they specify 0 timestamps. This is
-    /// done to avoid having to consider what happens with the viewport. In the future,
-    /// we should probably make this an [`Option<BigInt>`].
-    pub fn num_timestamps(&self) -> BigInt {
+    /// done to avoid having to consider what happens with the viewport.
+    pub fn num_timestamps(&self) -> Option<BigInt> {
         self.inner
             .max_timestamp()
             .and_then(|r| if r == BigUint::zero() { None } else { Some(r) })
-            .unwrap_or(BigUint::from(1u32))
-            .to_bigint()
-            .unwrap()
+            .and_then(|r| r.to_bigint())
     }
 }
 

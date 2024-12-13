@@ -70,6 +70,7 @@ impl State {
         waves: &WaveData,
         frame_width: f32,
     ) {
+        let num_timestamps = waves.num_timestamps().unwrap_or(1.into());
         let end_location = pointer_pos_canvas.unwrap();
         let distance = end_location - start_location;
         if distance.length_sq() >= self.config.gesture.deadzone {
@@ -88,12 +89,12 @@ impl State {
                         start: waves.viewports[viewport_idx].as_time_bigint(
                             minx,
                             frame_width,
-                            &waves.num_timestamps(),
+                            &num_timestamps,
                         ),
                         end: waves.viewports[viewport_idx].as_time_bigint(
                             maxx,
                             frame_width,
-                            &waves.num_timestamps(),
+                            &num_timestamps,
                         ),
                         viewport_idx,
                     });
@@ -240,10 +241,9 @@ impl State {
         } else {
             (startx, endx)
         };
-        let start_time =
-            waves.viewports[viewport_idx].as_time_bigint(minx, width, &waves.num_timestamps());
-        let end_time =
-            waves.viewports[viewport_idx].as_time_bigint(maxx, width, &waves.num_timestamps());
+        let num_timestamps = waves.num_timestamps().unwrap_or(1.into());
+        let start_time = waves.viewports[viewport_idx].as_time_bigint(minx, width, &num_timestamps);
+        let end_time = waves.viewports[viewport_idx].as_time_bigint(maxx, width, &num_timestamps);
         let diff_time = &end_time - &start_time;
         draw_gesture_text(
             ctx,

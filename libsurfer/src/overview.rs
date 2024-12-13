@@ -39,21 +39,18 @@ impl State {
             theme: &self.config.theme,
         };
 
+        let num_timestamps = waves.num_timestamps().unwrap_or(1.into());
         let viewport_all = waves.viewport_all();
         for vidx in 0..waves.viewports.len() {
             let minx = viewport_all.pixel_from_absolute_time(
-                waves.viewports[vidx]
-                    .curr_left
-                    .absolute(&waves.num_timestamps()),
+                waves.viewports[vidx].curr_left.absolute(&num_timestamps),
                 frame_width,
-                &waves.num_timestamps(),
+                &num_timestamps,
             );
             let maxx = viewport_all.pixel_from_absolute_time(
-                waves.viewports[vidx]
-                    .curr_right
-                    .absolute(&waves.num_timestamps()),
+                waves.viewports[vidx].curr_right.absolute(&num_timestamps),
                 frame_width,
-                &waves.num_timestamps(),
+                &num_timestamps,
             );
             let min = (ctx.to_screen)(minx, 0.);
             let max = (ctx.to_screen)(maxx, container_rect.max.y);
@@ -115,8 +112,7 @@ impl State {
             let pointer_pos_global = ui.input(|i| i.pointer.interact_pos());
             let pos = pointer_pos_global.map(|p| to_screen.inverse().transform_pos(p));
             if let Some(pos) = pos {
-                let timestamp =
-                    viewport_all.as_time_bigint(pos.x, frame_width, &waves.num_timestamps());
+                let timestamp = viewport_all.as_time_bigint(pos.x, frame_width, &num_timestamps);
                 msgs.push(Message::GoToTime(Some(timestamp), 0));
             }
         });
