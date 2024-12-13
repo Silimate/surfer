@@ -78,6 +78,10 @@ impl From<&BigInt> for Absolute {
     }
 }
 
+fn default_edge_space() -> f64 {
+    0.2
+}
+
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct Viewport {
     pub curr_left: Relative,
@@ -92,6 +96,7 @@ pub struct Viewport {
     // Number of seconds since the the last time a movement happened
     move_duration: Option<f32>,
     pub move_strategy: ViewportStrategy,
+    #[serde(skip, default = "default_edge_space")]
     edge_space: f64,
 }
 
@@ -106,7 +111,7 @@ impl Default for Viewport {
             move_start_right: Relative(1.0),
             move_duration: None,
             move_strategy: ViewportStrategy::Instant,
-            edge_space: 0.2,
+            edge_space: default_edge_space(),
         }
     }
 }
