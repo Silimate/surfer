@@ -360,12 +360,8 @@ impl State {
                                 ));
                             }
                             WaveSource::File(file) => {
-                                let msg = match file.extension().unwrap() {
-                                    // "ftr" => {
-                                    // Message::LoadTransactionFile(file, LoadOptions::clean())
-                                    // }
-                                    _ => Message::LoadFile(file, LoadOptions::clean()),
-                                };
+                                // FIXME add support for loading transaction files via Message::LoadTransactionFile
+                                let msg = Message::LoadFile(file, LoadOptions::clean());
                                 self.update(msg);
                             }
                             _ => {
