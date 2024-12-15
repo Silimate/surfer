@@ -738,6 +738,25 @@ snapshot_ui_with_file_and_msgs! {markers_dialog_work, "examples/counter.vcd", [
     Message::SetCursorWindowVisible(true)
 ]}
 
+snapshot_ui_with_file_and_msgs! {add_move_delete_marker, "examples/counter.vcd", [
+    Message::AddVariables(vec![VariableRef::from_hierarchy_string("tb.dut.counter")]),
+    // Add marker with name
+    Message::AddMarker{time: 200.into(), name:Some("Test".to_string())},
+    // Add marker w/o name and move it
+    Message::AddMarker{time: 200.into(), name: None},
+    Message::SetMarker{id: 1, time: 250.into()},
+    // Add marker by moving it to cursor, must create one bec. of ID
+    Message::CursorSet(300.into()),
+    Message::MoveMarkerToCursor(10),
+    // Setting non-existing marker must create one (10)
+    Message::SetMarker{id: 11, time: 400.into()},
+    // Add and remove a marker again
+    Message::AddMarker{time: 350.into(), name: None},
+    Message::RemoveMarker(2),
+    // Removing a non-existing marker must not crash
+    Message::RemoveMarker(100),
+]}
+
 snapshot_ui_with_file_and_msgs! {goto_markers, "examples/counter.vcd", [
     Message::AddScope(ScopeRef::from_strs(&["tb"]), false),
     Message::CursorSet(BigInt::from(600)),
@@ -745,12 +764,9 @@ snapshot_ui_with_file_and_msgs! {goto_markers, "examples/counter.vcd", [
     Message::GoToMarkerPosition(2, 0)
 ]}
 
-snapshot_ui_with_file_and_msgs! {delete_markers, "examples/counter.vcd", [
+snapshot_ui_with_file_and_msgs! {delete_markers_via_item, "examples/counter.vcd", [
     Message::AddVariables(vec![VariableRef::from_hierarchy_string("tb.dut.counter")]),
-    Message::CursorSet(BigInt::from(200)),
-    Message::MoveMarkerToCursor(2),
-    Message::CursorSet(BigInt::from(400)),
-    Message::MoveMarkerToCursor(3),
+    Message::AddMarker{time: 200.into(), name: None},
     Message::RemoveItemByIndex(DisplayedItemIndex(1)),
     Message::RemoveItemByIndex(DisplayedItemIndex(1)),
 ]}

@@ -132,16 +132,14 @@ impl WaveData {
                 None,
             );
         }
-        self.markers
-            .entry(idx)
-            .and_modify(|e| *e = location.clone());
+        self.markers.insert(idx, location.clone());
     }
 
     pub fn move_marker_to_cursor(&mut self, idx: u8) {
-        let Some(location) = &self.cursor.clone() else {
+        let Some(location) = self.cursor.clone() else {
             return;
         };
-        self.set_marker_position(idx, location);
+        self.set_marker_position(idx, &location);
     }
 
     pub fn draw_marker_number_boxes(

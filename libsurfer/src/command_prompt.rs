@@ -4,6 +4,7 @@ use std::{fs, str::FromStr};
 
 use crate::config::{ArrowKeyBindings, HierarchyStyle};
 use crate::displayed_item::DisplayedItemIndex;
+use crate::lazy_static;
 use crate::transaction_container::StreamScopeRef;
 use crate::wave_container::{ScopeRef, ScopeRefExt, VariableRef, VariableRefExt};
 use crate::wave_data::ScopeType;
@@ -26,6 +27,26 @@ use itertools::Itertools;
 use log::warn;
 
 type RestCommand = Box<dyn Fn(&str) -> Option<Command<Message>>>;
+
+/// Split part of a query at whitespace
+///
+/// fzcmd splits at regex "words" which does not include special characters
+/// like '#'. This function can be used instead via `ParamGreed::Custom(&separate_at_space)`
+fn separate_at_space(query: &str) -> (String, String, String, String) {
+    use regex::Regex;
+    lazy_static! {
+        static ref RE: Regex = Regex::new(r#"(\s*)(\S*)(\s?)(.*)"#).unwrap();
+    }
+
+    let captures = RE.captures_iter(query).next().unwrap();
+
+    (
+        captures[1].into(),
+        captures[2].into(),
+        captures[3].into(),
+        captures[4].into(),
+    )
+}
 
 pub fn get_parser(state: &State) -> Command<Message> {
     fn single_word(
@@ -247,6 +268,9 @@ pub fn get_parser(state: &State) -> Command<Message> {
             "save_state",
             "save_state_as",
             "timeline_add",
+            "cursor_set",
+            "marker_set",
+            "marker_remove",
             "show_marker_window",
             "viewport_add",
             "viewport_remove",
@@ -635,6 +659,51 @@ pub fn get_parser(state: &State) -> Command<Message> {
                         }
                     }),
                 ),
+                "cursor_set" => single_word(
+                    vec![],
+                    Box::new(|time_str| match time_str.parse() {
+                        Ok(time) => Some(Command::Terminal(Message::Batch(vec![
+                            Message::CursorSet(time),
+                            Message::GoToCursorIfNotInView,
+                        ]))),
+                        _ => None,
+                    }),
+                ),
+                "marker_set" => Some(Command::NonTerminal(
+                    ParamGreed::Custom(&separate_at_space),
+                    // FIXME use once fzcmd does not enforce suggestion match, as of now we couldn't add a marker (except the first)
+                    // marker_suggestions(&markers),
+                    vec![],
+                    Box::new(move |name, _| {
+                        let marker_id = parse_marker(name, &markers);
+                        let name = name.to_owned();
+
+                        Some(Command::NonTerminal(
+                            ParamGreed::Word,
+                            vec![],
+                            Box::new(move |time_str, _| {
+                                let time = time_str.parse().ok()?;
+                                match marker_id {
+                                    Some(id) => {
+                                        Some(Command::Terminal(Message::SetMarker { id, time }))
+                                    }
+                                    None => Some(Command::Terminal(Message::AddMarker {
+                                        time,
+                                        name: Some(name.clone()),
+                                    })),
+                                }
+                            }),
+                        ))
+                    }),
+                )),
+                "marker_remove" => Some(Command::NonTerminal(
+                    ParamGreed::Rest,
+                    marker_suggestions(&markers),
+                    Box::new(move |name, _| {
+                        let marker_id = parse_marker(name, &markers)?;
+                        Some(Command::Terminal(Message::RemoveMarker(marker_id)))
+                    }),
+                )),
                 "show_marker_window" => {
                     Some(Command::Terminal(Message::SetCursorWindowVisible(true)))
                 }
