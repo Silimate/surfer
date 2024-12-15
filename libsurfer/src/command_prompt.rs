@@ -242,6 +242,7 @@ pub fn get_parser(state: &State) -> Command<Message> {
             "preference_set_clock_highlight",
             "preference_set_hierarchy_style",
             "preference_set_arrow_key_bindings",
+            "goto_cursor",
             "goto_marker",
             "save_state",
             "save_state_as",
@@ -607,6 +608,7 @@ pub fn get_parser(state: &State) -> Command<Message> {
                     }),
                 ),
                 "timeline_add" => Some(Command::Terminal(Message::AddTimeLine(None))),
+                "goto_cursor" => Some(Command::Terminal(Message::GoToCursorIfNotInView)),
                 "goto_marker" => single_word(
                     marker_suggestions(&markers),
                     Box::new(move |name| {

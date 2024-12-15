@@ -247,6 +247,7 @@ pub enum Message {
         time: BigInt,
     },
     MoveMarkerToCursor(u8),
+    GoToCursorIfNotInView,
     GoToMarkerPosition(u8, usize),
     MoveCursorToTransition {
         next: bool,

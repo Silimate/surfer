@@ -955,9 +955,9 @@ impl State {
                     self.invalidate_draw_commands();
                 }
             }
-            Message::CursorSet(new) => {
+            Message::CursorSet(time) => {
                 if let Some(waves) = self.waves.as_mut() {
-                    waves.cursor = Some(new);
+                    waves.cursor = Some(time);
                 }
             }
             Message::LoadFile(filename, load_options) => {
@@ -1349,6 +1349,13 @@ impl State {
                 if let Some(waves) = self.waves.as_mut() {
                     waves.move_marker_to_cursor(idx);
                 };
+            }
+            Message::GoToCursorIfNotInView => {
+                if let Some(waves) = self.waves.as_mut() {
+                    if waves.go_to_cursor_if_not_in_view() {
+                        self.invalidate_draw_commands();
+                    }
+                }
             }
             Message::GoToMarkerPosition(idx, viewport_idx) => {
                 if let Some(waves) = self.waves.as_mut() {
