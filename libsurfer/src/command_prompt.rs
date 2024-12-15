@@ -1,5 +1,4 @@
 //! Command prompt handling.
-use std::collections::BTreeMap;
 use std::iter::zip;
 use std::{fs, str::FromStr};
 
@@ -143,15 +142,44 @@ pub fn get_parser(state: &State) -> Command<Message> {
         waves
             .displayed_items_order
             .iter()
-            .map(|id| waves.displayed_items.get(id))
+            .map(|id| {
+                let x = waves.displayed_items.get(id);
+                x
+            })
             .filter_map(|item| match item {
-                Some(DisplayedItem::Marker(marker)) => Some((item.unwrap().name(), marker.idx)),
+                Some(DisplayedItem::Marker(marker)) => Some((marker.name.clone(), marker.idx)),
                 _ => None,
             })
-            .collect::<BTreeMap<_, _>>()
+            .collect::<Vec<_>>()
     } else {
-        BTreeMap::new()
+        Vec::new()
     };
+
+    fn parse_marker(query: &str, markers: &[(Option<String>, u8)]) -> Option<u8> {
+        if let Some(id_str) = query.strip_prefix("#") {
+            let id = id_str.parse::<u8>().ok()?;
+            Some(id)
+        } else {
+            markers.iter().find_map(|(name, idx)| {
+                if name.is_some() && name.as_ref().unwrap() == query {
+                    Some(*idx)
+                } else {
+                    None
+                }
+            })
+        }
+    }
+
+    fn marker_suggestions(markers: &[(Option<String>, u8)]) -> Vec<String> {
+        markers
+            .iter()
+            .flat_map(|(name, idx)| {
+                [name.clone(), Some(format!("#{idx}"))]
+                    .into_iter()
+                    .flatten()
+            })
+            .collect()
+    }
 
     let wcp_start_or_stop = if state
         .sys
@@ -580,11 +608,10 @@ pub fn get_parser(state: &State) -> Command<Message> {
                 ),
                 "timeline_add" => Some(Command::Terminal(Message::AddTimeLine(None))),
                 "goto_marker" => single_word(
-                    markers.keys().cloned().collect(),
+                    marker_suggestions(&markers),
                     Box::new(move |name| {
-                        markers
-                            .get(name)
-                            .map(|idx| Command::Terminal(Message::GoToMarkerPosition(*idx, 0)))
+                        parse_marker(name, &markers)
+                            .map(|idx| Command::Terminal(Message::GoToMarkerPosition(idx, 0)))
                     }),
                 ),
                 "show_controls" => Some(Command::Terminal(Message::SetKeyHelpVisible(true))),
