@@ -171,8 +171,8 @@ impl DisplayedMarker {
     fn marker_name(&self) -> String {
         self.name
             .as_ref()
-            .unwrap_or(&DEFAULT_MARKER_NAME.to_string())
-            .clone()
+            .cloned()
+            .unwrap_or_else(|| DEFAULT_MARKER_NAME.to_string())
     }
 }
 

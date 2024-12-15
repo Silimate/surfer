@@ -84,25 +84,44 @@ impl WaveData {
         }
     }
 
+    pub fn can_add_marker(&self) -> bool {
+        self.markers.len() < 255
+    }
+
+    pub fn add_marker(&mut self, location: &BigInt, name: Option<String>) {
+        if !self.can_add_marker() {
+            return;
+        }
+
+        let idx = (0..=254)
+            .find(|idx| !self.markers.contains_key(idx))
+            .unwrap();
+
+        self.insert_item(
+            DisplayedItem::Marker(DisplayedMarker {
+                color: None,
+                background_color: None,
+                name,
+                idx,
+            }),
+            None,
+        );
+        self.markers.insert(idx, location.clone());
+    }
+
+    pub fn remove_marker(&mut self, idx: u8) {
+        self.markers.remove(&idx);
+        self.displayed_items_order
+            .retain(|id| match self.displayed_items.get(id) {
+                Some(DisplayedItem::Marker(marker)) => marker.idx != idx,
+                _ => true,
+            });
+    }
+
     /// Set the marker with the specified id to the location. If the marker doesn't exist already,
     /// it will be created
     pub fn set_marker_position(&mut self, idx: u8, location: &BigInt) {
-        if self
-            .displayed_items_order
-            .iter()
-            .map(|id| self.displayed_items.get(id))
-            .find_map(|item| match item {
-                Some(DisplayedItem::Marker(marker)) => {
-                    if marker.idx == idx {
-                        Some(marker)
-                    } else {
-                        None
-                    }
-                }
-                _ => None,
-            })
-            .is_none()
-        {
+        if !self.markers.contains_key(&idx) {
             self.insert_item(
                 DisplayedItem::Marker(DisplayedMarker {
                     color: None,
@@ -113,7 +132,9 @@ impl WaveData {
                 None,
             );
         }
-        self.markers.insert(idx, location.clone());
+        self.markers
+            .entry(idx)
+            .and_modify(|e| *e = location.clone());
     }
 
     pub fn move_marker_to_cursor(&mut self, idx: u8) {

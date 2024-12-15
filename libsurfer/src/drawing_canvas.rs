@@ -1334,11 +1334,9 @@ impl State {
                         });
                     }
                     // At the moment we only support 255 markers, and the cursor is the 255th
-                    if waves.markers.len() < 254 {
+                    if waves.can_add_marker() {
                         ui.button("New").clicked().then(|| {
-                            // NOTE: Safe unwrap, we have at least one empty slot
-                            let id = (0..254).find(|id| !waves.markers.contains_key(id)).unwrap();
-                            msgs.push(Message::SetMarker { id, time });
+                            msgs.push(Message::AddMarker { time, name: None });
                             close_menu!();
                         });
                     }

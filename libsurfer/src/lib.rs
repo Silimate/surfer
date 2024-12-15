@@ -1338,11 +1338,26 @@ impl State {
             Message::SetClockHighlightType(new_type) => {
                 self.config.default_clock_highlight_type = new_type;
             }
+            Message::AddMarker { time, name } => {
+                if let Some(name) = &name {
+                    self.save_current_canvas(format!("Add marker {name} at {time}"));
+                } else {
+                    self.save_current_canvas(format!("Add marker at {time}"));
+                }
+                if let Some(waves) = self.waves.as_mut() {
+                    waves.add_marker(&time, name);
+                }
+            }
             Message::SetMarker { id, time } => {
-                self.save_current_canvas(format!("Set marker to {time}"));
+                self.save_current_canvas(format!("Set marker {id} to {time}"));
                 if let Some(waves) = self.waves.as_mut() {
                     waves.set_marker_position(id, &time);
                 };
+            }
+            Message::RemoveMarker(id) => {
+                if let Some(waves) = self.waves.as_mut() {
+                    waves.remove_marker(id);
+                }
             }
             Message::MoveMarkerToCursor(idx) => {
                 self.save_current_canvas("Move marker".into());

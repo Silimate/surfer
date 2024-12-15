@@ -241,11 +241,16 @@ pub enum Message {
     AddTimeLine(Option<DisplayedItemIndex>),
     ToggleTickLines,
     ToggleVariableTooltip,
+    AddMarker {
+        time: BigInt,
+        name: Option<String>,
+    },
     /// Set a marker at a specific position. If it doesn't exist, it will be created
     SetMarker {
         id: u8,
         time: BigInt,
     },
+    RemoveMarker(u8),
     MoveMarkerToCursor(u8),
     GoToCursorIfNotInView,
     GoToMarkerPosition(u8, usize),
