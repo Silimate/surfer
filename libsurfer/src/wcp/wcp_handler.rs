@@ -9,30 +9,9 @@ use crate::{
 
 use itertools::Itertools;
 use log::{trace, warn};
-use serde::{Deserialize, Serialize};
 use surfer_translation_types::ScopeRef;
 
-pub use super::{
-    cs_message::{WcpCSMessage, WcpCommand},
-    WcpSCMessage,
-};
-
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
-#[serde(untagged)]
-pub enum Vecs {
-    String(Vec<String>),
-    Info(Vec<ItemInfo>),
-    Int(Vec<usize>),
-    Tuple(Vec<(String, usize)>),
-}
-
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
-pub struct ItemInfo {
-    name: String,
-    #[serde(rename = "type")]
-    t: String,
-    id: usize,
-}
+use super::proto::{self, ItemInfo, WcpCSMessage, WcpCommand, WcpResponse, WcpSCMessage};
 
 impl State {
     pub fn handle_wcp_commands(&mut self) {
@@ -60,21 +39,21 @@ impl State {
 
     fn handle_wcp_cs_message(&mut self, message: &WcpCSMessage) {
         match message {
-            WcpCSMessage::Command(command) => {
+            WcpCSMessage::command(command) => {
                 match command {
-                    WcpCommand::GetItemList => {
+                    WcpCommand::get_item_list => {
                         if let Some(waves) = &self.waves {
                             let ids = self
                                 .get_displayed_items(waves)
                                 .iter()
                                 .map(|i| format!("{}", i.0))
                                 .collect_vec();
-                            self.send_response(command, Vecs::String(ids));
+                            self.send_response(WcpResponse::get_item_list(ids));
                         } else {
                             self.send_error("No waveform loaded", vec![], "No waveform loaded");
                         }
                     }
-                    WcpCommand::GetItemInfo { ids } => {
+                    WcpCommand::get_item_info { ids } => {
                         let mut items: Vec<ItemInfo> = Vec::new();
                         for id in ids {
                             if let Ok(id) = id.parse::<usize>() {
@@ -132,9 +111,9 @@ impl State {
                                 }
                             }
                         }
-                        self.send_response(command, Vecs::Info(items));
+                        self.send_response(WcpResponse::get_item_info(items));
                     }
-                    WcpCommand::AddVariables { names } => {
+                    WcpCommand::add_variables { names } => {
                         if self.waves.is_some() {
                             self.save_current_canvas(format!("Add {} variables", names.len()));
                         }
@@ -148,12 +127,11 @@ impl State {
                             if let Some(cmd) = cmd {
                                 self.load_variables(cmd);
                             }
-                            self.send_response(
-                                command,
-                                Vecs::String(
-                                    ids.iter().map(|id| format!("{}", id.0)).collect_vec(),
-                                ),
-                            );
+                            self.send_response(WcpResponse::add_variables(
+                                ids.into_iter()
+                                    .map(|id| proto::DisplayedItemRef(id.0))
+                                    .collect_vec(),
+                            ));
                             self.invalidate_draw_commands();
                         } else {
                             self.send_error(
@@ -163,7 +141,7 @@ impl State {
                             )
                         }
                     }
-                    WcpCommand::AddScope { scope } => {
+                    WcpCommand::add_scope { scope } => {
                         if self.waves.is_some() {
                             self.save_current_canvas(format!("Add scope {}", scope));
                         }
@@ -176,108 +154,83 @@ impl State {
                             if let Some(cmd) = cmd {
                                 self.load_variables(cmd);
                             }
-                            self.send_response(
-                                command,
-                                Vecs::String(
-                                    ids.iter().map(|id| format!("{}", id.0)).collect_vec(),
-                                ),
-                            );
+                            self.send_response(WcpResponse::add_scope(
+                                ids.into_iter()
+                                    .map(|id| proto::DisplayedItemRef(id.0))
+                                    .collect_vec(),
+                            ));
                             self.invalidate_draw_commands();
                         } else {
                             self.send_error("scope_add", vec![], "No waveform loaded");
                         }
                     }
-                    WcpCommand::Reload => {
+                    WcpCommand::reload => {
                         self.update(Message::ReloadWaveform(false));
-                        self.send_response(command, Vecs::String(vec![]));
+                        self.send_response(WcpResponse::ack);
                     }
-                    WcpCommand::SetViewportTo { timestamp } => {
+                    WcpCommand::set_viewport_to { timestamp } => {
                         self.update(Message::GoToTime(Some(timestamp.clone()), 0));
-                        self.send_response(command, Vecs::String(vec![]));
+                        self.send_response(WcpResponse::ack);
                     }
-                    WcpCommand::SetItemColor { id, color } => {
+                    WcpCommand::set_item_color { id, color } => {
                         let Some(waves) = &self.waves else {
                             self.send_error("set_item_color", vec![], "No waveform loaded");
                             return;
                         };
-                        if let Ok(id) = id.parse::<usize>() {
-                            if let Some(idx) = waves
-                                .displayed_items_order
-                                .iter()
-                                .find_position(|&list_id| list_id.0 == id)
-                            {
-                                self.update(Message::ItemColorChange(
-                                    Some(DisplayedItemIndex(idx.0)),
-                                    Some(color.clone()),
-                                ));
-                                self.send_response(command, Vecs::String(vec![]))
-                            } else {
-                                self.send_error(
-                                    "set_item_color",
-                                    vec![],
-                                    format!("Item {id} not found").as_str(),
-                                );
-                            }
+
+                        let dref = DisplayedItemRef(id.0);
+
+                        if let Some(idx) = waves.get_displayed_item_index(&dref) {
+                            self.update(Message::ItemColorChange(Some(idx), Some(color.clone())));
+                            self.send_response(WcpResponse::ack);
                         } else {
                             self.send_error(
                                 "set_item_color",
                                 vec![],
-                                format!("{id} is not valid Surfer id").as_str(),
+                                format!("Item {id:?} not found").as_str(),
                             );
                         }
                     }
-                    WcpCommand::RemoveItems { ids } => {
-                        let Some(waves) = self.waves.as_mut() else {
+                    WcpCommand::remove_items { ids } => {
+                        let Some(_) = self.waves.as_mut() else {
                             self.send_error("remove_items", vec![], "No waveform loaded");
                             return;
                         };
                         let mut msgs = vec![];
-                        for id in ids {
-                            if let Ok(id) = id.parse::<usize>() {
-                                if let Some(idx) = waves
-                                    .displayed_items_order
-                                    .iter()
-                                    .find_position(|&list_id| list_id.0 == id)
-                                {
-                                    msgs.push(Message::RemoveItems(vec![*idx.1]));
-                                }
-                            }
-                        }
+                        msgs.push(Message::RemoveItems(
+                            ids.into_iter().map(|d| DisplayedItemRef(d.0)).collect(),
+                        ));
                         self.update(Message::Batch(msgs));
 
-                        self.send_response(command, Vecs::Int(vec![]));
+                        self.send_response(WcpResponse::ack);
                     }
-                    WcpCommand::FocusItem { id } => {
+                    WcpCommand::focus_item { id } => {
                         let Some(waves) = &self.waves else {
                             self.send_error("remove_items", vec![], "No waveform loaded");
                             return;
                         };
-                        if let Ok(id) = id.parse::<usize>() {
-                            if let Some(idx) = waves
-                                .displayed_items_order
-                                .iter()
-                                .find_position(|&list_id| list_id.0 == id)
-                            {
-                                self.update(Message::FocusItem(DisplayedItemIndex(idx.0)));
+                        // TODO: Create a `.into` function here instead of unwraping and wrapping
+                        // it to prevent future type errors
+                        if let Some(idx) = waves.get_displayed_item_index(&DisplayedItemRef(id.0)) {
+                            self.update(Message::FocusItem(DisplayedItemIndex(idx.0)));
 
-                                self.send_response(command, Vecs::Int(vec![]));
-                            } else {
-                                self.send_error(
-                                    "focus_item",
-                                    vec![],
-                                    format!("No item with ID {id}").as_str(),
-                                );
-                            }
+                            self.send_response(WcpResponse::ack);
+                        } else {
+                            self.send_error(
+                                "focus_item",
+                                vec![],
+                                format!("No item with ID {id:?}").as_str(),
+                            );
                         }
                     }
-                    WcpCommand::Clear => {
+                    WcpCommand::clear => {
                         if let Some(wave) = &self.waves {
                             self.update(Message::RemoveItems(self.get_displayed_items(wave)))
                         }
 
-                        self.send_response(command, Vecs::Int(vec![]));
+                        self.send_response(WcpResponse::ack);
                     }
-                    WcpCommand::Load { source } => {
+                    WcpCommand::load { source } => {
                         self.sys.wcp_server_load_outstanding = true;
                         match string_to_wavesource(source) {
                             WaveSource::Url(url) => {
@@ -300,13 +253,13 @@ impl State {
                             }
                         }
                     }
-                    WcpCommand::ZoomToFit { viewport_idx } => {
+                    WcpCommand::zoom_to_fit { viewport_idx } => {
                         self.update(Message::ZoomToFit {
                             viewport_idx: *viewport_idx,
                         });
-                        self.send_response(command, Vecs::Int(vec![]));
+                        self.send_response(WcpResponse::ack);
                     }
-                    WcpCommand::Shutdown => {
+                    WcpCommand::shutdowmn => {
                         warn!("WCP Shutdown message should not reach this place")
                     }
                 };
@@ -316,29 +269,13 @@ impl State {
             }
         }
     }
-    fn send_response(&self, command: &WcpCommand, result: Vecs) {
-        let serde_json::Value::Object(tag) = serde_json::to_value(command).unwrap() else {
-            self.send_error(
-                "Could not serialize command",
-                vec![],
-                "try sending a valid command",
-            );
-            return;
-        };
-        let Some(serde_json::Value::String(command)) = tag.get("command") else {
-            self.send_error(
-                "Command tag does not have a value",
-                vec![],
-                "try sending a valid command",
-            );
-            return;
-        };
 
+    fn send_response(&self, result: WcpResponse) {
         self.sys
             .channels
             .wcp_s2c_sender
             .as_ref()
-            .map(|ch| ch.blocking_send(WcpSCMessage::create_response(command.clone(), result)));
+            .map(|ch| ch.blocking_send(WcpSCMessage::response(result)));
     }
 
     fn send_error(&self, error: &str, arguments: Vec<String>, message: &str) {

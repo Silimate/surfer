@@ -71,8 +71,7 @@ use num::BigInt;
 use serde::Deserialize;
 pub use state::State;
 use surfer_translation_types::Translator;
-use wcp::wcp_handler::Vecs;
-use wcp::{WcpCSMessage, WcpSCMessage};
+use wcp::{proto::WcpCSMessage, proto::WcpEvent, proto::WcpSCMessage};
 
 #[cfg(feature = "performance_plot")]
 use crate::config::{SurferConfig, SurferTheme};
@@ -1085,13 +1084,11 @@ impl State {
                         None
                     });
 
+                // TODO: Change this to emit an event
                 if self.sys.wcp_server_load_outstanding {
                     self.sys.wcp_server_load_outstanding = false;
                     self.sys.channels.wcp_s2c_sender.as_ref().map(|ch| {
-                        ch.blocking_send(WcpSCMessage::create_response(
-                            "load".to_string(),
-                            Vecs::Int(vec![]),
-                        ))
+                        ch.blocking_send(WcpSCMessage::event(WcpEvent::waveforms_loaded))
                     });
                 }
 

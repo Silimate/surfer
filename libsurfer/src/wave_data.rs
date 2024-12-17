@@ -817,6 +817,19 @@ impl WaveData {
             .and_then(|r| if r == BigUint::zero() { None } else { Some(r) })
             .and_then(|r| r.to_bigint())
     }
+
+    pub fn get_displayed_item_index(&self, item: &DisplayedItemRef) -> Option<DisplayedItemIndex> {
+        self.displayed_items_order
+            .iter()
+            .enumerate()
+            .find_map(|(idx, x)| {
+                if x == item {
+                    Some(DisplayedItemIndex(idx))
+                } else {
+                    None
+                }
+            })
+    }
 }
 
 fn calculate_rows_of_stream(

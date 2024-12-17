@@ -17,7 +17,7 @@ use log::{error, info, warn};
 use tokio::sync::mpsc::Receiver;
 use tokio::sync::mpsc::Sender;
 
-use super::{cs_message::WcpCommand, WcpCSMessage, WcpSCMessage};
+use super::{proto::WcpCSMessage, proto::WcpCommand, proto::WcpSCMessage};
 
 pub struct WcpServer {
     listener: TcpListener,
@@ -155,7 +155,7 @@ impl WcpServer {
                 }
             };
 
-            if let WcpCSMessage::Command(WcpCommand::Shutdown) = msg {
+            if let WcpCSMessage::command(WcpCommand::shutdowmn) = msg {
                 return Ok(());
             }
 
@@ -192,7 +192,7 @@ impl WcpServer {
         let cmd = WcpCSMessage::deserialize(&mut de);
         let mut buffer = [0; 1];
         if let Ok(0) = stream.read(&mut buffer) {
-            return Ok(WcpCSMessage::Command(WcpCommand::Shutdown));
+            return Ok(WcpCSMessage::command(WcpCommand::shutdowmn));
         }
         if buffer[0] != 0 {
             warn!(
