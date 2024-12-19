@@ -210,7 +210,7 @@ impl State {
                             self.send_error("remove_items", vec![], "No waveform loaded");
                             return;
                         };
-                        // TODO: Create a `.into` function here instead of unwraping and wrapping
+                        // TODO: Create a `.into` function here instead of unwrapping and wrapping
                         // it to prevent future type errors
                         if let Some(idx) = waves.get_displayed_item_index(&DisplayedItemRef(id.0)) {
                             self.update(Message::FocusItem(DisplayedItemIndex(idx.0)));
@@ -239,11 +239,13 @@ impl State {
                                     url,
                                     LoadOptions::clean(),
                                 ));
+                                self.send_response(WcpResponse::ack)
                             }
                             WaveSource::File(file) => {
                                 // FIXME add support for loading transaction files via Message::LoadTransactionFile
                                 let msg = Message::LoadFile(file, LoadOptions::clean());
                                 self.update(msg);
+                                self.send_response(WcpResponse::ack)
                             }
                             _ => {
                                 self.send_error(
@@ -265,7 +267,11 @@ impl State {
                     }
                 };
             }
-            WcpCSMessage::greeting { version, commands } => {
+            // FIXME: We should actually check the supported commands here
+            WcpCSMessage::greeting {
+                version,
+                commands: _,
+            } => {
                 if version != "0" {
                     self.send_error(
                         "greeting",
@@ -316,7 +322,7 @@ impl State {
             .channels
             .wcp_s2c_sender
             .as_ref()
-            .map(|ch| ch.blocking_send(WcpSCMessage::response(result)));
+            .map(|ch| block_on(ch.send(WcpSCMessage::response(result))));
     }
 
     fn send_error(&self, error: &str, arguments: Vec<String>, message: &str) {

@@ -1,6 +1,5 @@
 use color_eyre::eyre::Result;
 use eframe::egui::Context;
-use itertools::Itertools;
 use serde::Deserialize;
 use serde_json::Error as serde_Error;
 use std::{

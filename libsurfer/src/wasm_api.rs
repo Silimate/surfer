@@ -32,6 +32,8 @@ use crate::Message;
 use crate::StartupParams;
 use crate::State;
 use crate::EGUI_CONTEXT;
+use crate::WCP_CS_HANDLER;
+use crate::WCP_SC_HANDLER;
 
 lazy_static! {
     pub(crate) static ref MESSAGE_QUEUE: Mutex<Vec<Message>> = Mutex::new(vec![]);
