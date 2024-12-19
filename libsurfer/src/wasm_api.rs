@@ -9,13 +9,11 @@ use lazy_static::lazy_static;
 use log::info;
 use log::{error, warn};
 use num::BigInt;
-use tokio::sync::mpsc;
 use tokio::sync::Mutex;
-use tokio::sync::RwLock;
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
 
-use crate::cxxrtl::channels::SCHandler;
+use crate::channels::{GlobalChannelTx, SCHandler};
 use crate::displayed_item::DisplayedItemRef;
 use crate::graphics::Anchor;
 use crate::graphics::Direction;
@@ -29,7 +27,6 @@ use crate::wasm_panic;
 use crate::wasm_util;
 use crate::wave_container::VariableRefExt;
 use crate::wave_source::CxxrtlKind;
-use crate::wcp::{WcpCSMessage, WcpSCMessage};
 use crate::DisplayedItem;
 use crate::Message;
 use crate::StartupParams;
@@ -40,38 +37,8 @@ lazy_static! {
     pub(crate) static ref MESSAGE_QUEUE: Mutex<Vec<Message>> = Mutex::new(vec![]);
     static ref QUERY_QUEUE: tokio::sync::Mutex<VecDeque<Callback>> =
         tokio::sync::Mutex::new(VecDeque::new());
-    pub(crate) static ref WCP_CS_HANDLER: WasmRx<WcpCSMessage> = WasmRx::new();
-    pub(crate) static ref WCP_SC_HANDLER: WasmTx<WcpSCMessage> = WasmTx::new();
     pub(crate) static ref CXXRTL_SC_HANDLER: SCHandler = SCHandler::new();
-    pub(crate) static ref CXXRTL_CS_HANDLER: WasmTx<String> = WasmTx::new();
-}
-
-pub(crate) struct WasmTx<T> {
-    pub tx: mpsc::Sender<T>,
-    pub rx: RwLock<mpsc::Receiver<T>>,
-}
-impl<T> WasmTx<T> {
-    pub fn new() -> Self {
-        let (tx, rx) = mpsc::channel(100);
-        Self {
-            tx,
-            rx: RwLock::new(rx),
-        }
-    }
-}
-
-pub(crate) struct WasmRx<T> {
-    pub tx: mpsc::Sender<T>,
-    pub rx: RwLock<Option<mpsc::Receiver<T>>>,
-}
-impl<T> WasmRx<T> {
-    pub fn new() -> Self {
-        let (tx, rx) = mpsc::channel(100);
-        Self {
-            tx,
-            rx: RwLock::new(Some(rx)),
-        }
-    }
+    pub(crate) static ref CXXRTL_CS_HANDLER: GlobalChannelTx<String> = GlobalChannelTx::new();
 }
 
 struct Callback {
@@ -328,7 +295,7 @@ pub async fn on_cxxrtl_sc_message(message: String) {
 
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen)]
 pub async fn start_wcp() {
-    MESSAGE_QUEUE.lock().await.push(Message::SetupWasmWCP);
+    MESSAGE_QUEUE.lock().await.push(Message::SetupChannelWCP);
 }
 
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen)]

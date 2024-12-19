@@ -2,6 +2,7 @@
 
 #[cfg(feature = "performance_plot")]
 pub mod benchmark;
+mod channels;
 pub mod clock_highlighting;
 pub mod command_prompt;
 pub mod config;
@@ -57,6 +58,7 @@ use std::sync::mpsc::{self, Receiver, Sender};
 use std::sync::{Arc, RwLock};
 
 use camino::Utf8PathBuf;
+use channels::{GlobalChannelRx, GlobalChannelTx};
 use color_eyre::eyre::Context;
 use color_eyre::Result;
 use derive_more::Display;
@@ -104,6 +106,8 @@ lazy_static! {
     /// things until program exit
     pub(crate) static ref OUTSTANDING_TRANSACTIONS: AtomicU32 = AtomicU32::new(0);
 
+    pub(crate) static ref WCP_CS_HANDLER: GlobalChannelRx<WcpCSMessage> = GlobalChannelRx::new();
+    pub(crate) static ref WCP_SC_HANDLER: GlobalChannelTx<WcpSCMessage> = GlobalChannelTx::new();
 }
 
 pub struct StartupParams {
@@ -1700,15 +1704,13 @@ impl State {
             Message::StopWcpServer => {
                 self.stop_wcp_server();
             }
-            #[cfg(target_arch = "wasm32")]
-            Message::SetupWasmWCP => {
+            Message::SetupChannelWCP => {
                 use futures::executor::block_on;
-                self.sys.channels.wcp_c2s_receiver =
-                    block_on(wasm_api::WCP_CS_HANDLER.rx.write()).take();
+                self.sys.channels.wcp_c2s_receiver = block_on(WCP_CS_HANDLER.rx.write()).take();
                 if self.sys.channels.wcp_c2s_receiver.is_none() {
                     error!("Failed to claim wasm tx, was SetupWasmWCP executed twice?");
                 }
-                self.sys.channels.wcp_s2c_sender = Some(wasm_api::WCP_SC_HANDLER.tx.clone());
+                self.sys.channels.wcp_s2c_sender = Some(WCP_SC_HANDLER.tx.clone());
             }
             Message::Exit | Message::ToggleFullscreen => {} // Handled in eframe::update
             Message::AddViewport => {

@@ -16,8 +16,8 @@ use surfer_translation_types::VariableEncoding;
 
 use crate::wave_container::ScopeRefExt;
 use crate::{
+    channels::SCReceiver,
     cxxrtl::{
-        channels::SCReceiver,
         command::CxxrtlCommand,
         cs_message::CSMessage,
         query_container::QueryContainer,
@@ -235,7 +235,8 @@ impl CxxrtlContainer {
     ) -> Result<Self> {
         use color_eyre::eyre::Context;
 
-        use crate::cxxrtl::{channels::SCSender, io_worker};
+        use crate::channels::SCSender;
+        use crate::cxxrtl::io_worker;
 
         let stream = tokio::net::TcpStream::connect(addr)
             .await

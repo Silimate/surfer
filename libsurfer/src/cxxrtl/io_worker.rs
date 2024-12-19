@@ -7,7 +7,7 @@ use tokio::{
     sync::mpsc,
 };
 
-use super::channels::SCSender;
+use crate::channels::SCSender;
 
 pub struct CxxrtlWorker<W, R> {
     write: W,

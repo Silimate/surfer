@@ -53,27 +53,6 @@ impl WcpServer {
     }
 
     pub fn run(&mut self) {
-        let commands = vec![
-            "add_variables",
-            "set_viewport_to",
-            "cursor_set",
-            "reload",
-            "add_scopes",
-            "get_item_list",
-            "set_item_color",
-            "get_item_info",
-            "clear_item",
-            "focus_item",
-            "clear",
-            "load",
-            "zoom_to_fit",
-        ]
-        .into_iter()
-        .map(str::to_string)
-        .collect_vec();
-
-        let greeting = WcpSCMessage::create_greeting(0, commands);
-
         info!("WCP Listening on Port {:#?}", self.listener);
         let listener = self.listener.try_clone().unwrap();
 
@@ -84,18 +63,11 @@ impl WcpServer {
             }
 
             match stream {
-                Ok(mut stream) => {
+                Ok(stream) => {
                     info!("WCP New connection: {}", stream.peer_addr().unwrap());
                     if let Err(error) = stream.set_read_timeout(Some(Duration::from_secs(2))) {
                         error!("Failed to set timeout: {error:#?}")
                     }
-
-                    //send greeting
-                    if let Err(error) = serde_json::to_writer(&stream, &greeting) {
-                        warn!("WCP Sending of greeting failed: {error:#?}")
-                    }
-                    let _ = stream.write(b"\0");
-                    stream.flush().unwrap();
 
                     //handle connection from client
                     match self.handle_client(stream) {

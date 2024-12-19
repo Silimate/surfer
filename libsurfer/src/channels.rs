@@ -73,3 +73,31 @@ impl SCHandler {
         }
     }
 }
+
+pub(crate) struct GlobalChannelTx<T> {
+    pub tx: mpsc::Sender<T>,
+    pub rx: RwLock<mpsc::Receiver<T>>,
+}
+impl<T> GlobalChannelTx<T> {
+    pub fn new() -> Self {
+        let (tx, rx) = mpsc::channel(100);
+        Self {
+            tx,
+            rx: RwLock::new(rx),
+        }
+    }
+}
+
+pub(crate) struct GlobalChannelRx<T> {
+    pub tx: mpsc::Sender<T>,
+    pub rx: RwLock<Option<mpsc::Receiver<T>>>,
+}
+impl<T> GlobalChannelRx<T> {
+    pub fn new() -> Self {
+        let (tx, rx) = mpsc::channel(100);
+        Self {
+            tx,
+            rx: RwLock::new(Some(rx)),
+        }
+    }
+}

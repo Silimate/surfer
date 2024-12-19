@@ -7,6 +7,7 @@ use crate::{
     State,
 };
 
+use futures::executor::block_on;
 use itertools::Itertools;
 use log::{trace, warn};
 use surfer_translation_types::ScopeRef;
@@ -264,10 +265,50 @@ impl State {
                     }
                 };
             }
-            _ => {
-                self.send_error("Illegal command", vec![], "Illegal command");
+            WcpCSMessage::greeting { version, commands } => {
+                if version != "0" {
+                    self.send_error(
+                        "greeting",
+                        vec![],
+                        &format!(
+                            "Surfer only supports WCP version 0, client requested {}",
+                            version
+                        ),
+                    )
+                } else {
+                    self.send_greeting()
+                }
             }
         }
+    }
+
+    fn send_greeting(&self) {
+        let commands = vec![
+            "add_variables",
+            "set_viewport_to",
+            "cursor_set",
+            "reload",
+            "add_scopes",
+            "get_item_list",
+            "set_item_color",
+            "get_item_info",
+            "clear_item",
+            "focus_item",
+            "clear",
+            "load",
+            "zoom_to_fit",
+        ]
+        .into_iter()
+        .map(str::to_string)
+        .collect_vec();
+
+        let greeting = WcpSCMessage::create_greeting(0, commands);
+
+        self.sys
+            .channels
+            .wcp_s2c_sender
+            .as_ref()
+            .map(|ch| block_on(ch.send(greeting)));
     }
 
     fn send_response(&self, result: WcpResponse) {

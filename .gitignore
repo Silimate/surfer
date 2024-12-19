@@ -1,5 +1,6 @@
 /.vscode/
 /.idea/
+/.helix/
 /target
 /surfer/dist
 trunk
