@@ -105,7 +105,7 @@ test-no-default-features:
 
 test-oldest-supported:
     # This version should match rust-version in Cargo.toml
-    image: rust:1.76
+    image: rust:1.82
     stage: test
     extends: .snapshots
     script:
@@ -146,8 +146,8 @@ test-macos-aarch64:
     before_script:
         - brew install rustup-init
         - ulimit -n 1000
-        - rustup install 1.77
-        - rustup override set 1.77
+        - rustup install 1.82
+        - rustup override set 1.82
     script:
         - rustc -V
         - cargo -V
@@ -302,8 +302,8 @@ macos-aarch64_build:
     image: macos-14-xcode-15
     before_script:
         - brew install rustup-init
-        - rustup install 1.77
-        - rustup override set 1.77
+        - rustup install 1.82
+        - rustup override set 1.82
         - cargo -V
         - rustc -V
         - git fetch --tags

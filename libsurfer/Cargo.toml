@@ -25,11 +25,11 @@ ecolor.workspace = true
 eframe.workspace = true
 egui.workspace = true
 egui-remixicon = { version = "0.29.1", default-features = false }
-egui_extras = { version = "0.29.1", default-features = false }
-egui_plot = { version = "0.29", optional = true }
+egui_extras = { version = "0.30", default-features = false }
+egui_plot = { version = "0.30", optional = true }
 emath.workspace = true
 enum-iterator = "2.0"
-epaint = "0.29.1"
+epaint.workspace = true
 f128 = { path = "../f128", optional = true }
 fern.workspace = true
 ftr_parser = "0.1.2"
@@ -93,11 +93,11 @@ futures = "0.3.30"
 tokio = {workspace = true, features = ["sync"]}
 
 [dev-dependencies]
-egui_skia_renderer = { git = "https://gitlab.com/sornas/egui_skia_renderer", rev = "a45332b332e8c6b3fa9587dc8438cebec7dc3b0e" }
+egui_skia_renderer = { git = "https://gitlab.com/sornas/egui_skia_renderer", rev = "3dab1450627f1368b2639c9c6c3f438dbd5db507" }
 image = { version = "0.25", default-features = false, features = ["png"] }
 image-compare = "0.4.1"
 project-root = "0.2.2"
-skia-safe = "0.78.0"
+skia-safe = "0.80"
 tempfile = "3.12.0"
 test-log = "0.2.15"
 
