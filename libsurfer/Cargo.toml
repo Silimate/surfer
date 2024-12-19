@@ -17,7 +17,7 @@ bincode.workspace = true
 bytes = "1.7.1"
 bytesize.workspace = true
 camino.workspace = true
-chrono = "0.4.31"
+chrono = {version = "0.4.31", default-features = false}
 color-eyre.workspace = true
 config = { version = "0.15", default-features = false, features = ["toml"] }
 derive_more.workspace = true
@@ -64,7 +64,7 @@ spade-types = { git = "https://gitlab.com/spade-lang/spade", rev = "84f6e75016f4
 surfer-translation-types = { path = "../surfer-translation-types" }
 surver.workspace = true
 sys-locale = "0.3.1"
-toml = "0.8.12"
+toml = {version = "0.8.12", default-features = false, features = ["parse"] }
 web-time.workspace = true
 wellen.workspace = true
 
@@ -85,7 +85,6 @@ directories = "5.0"
 futures = { version = "0.3.30", features = ["executor"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-toml = "0.8.12"
 wasm-bindgen = "0.2.91"
 wasm-bindgen-futures = "0.4"
 web-sys = { version = "= 0.3.72", features = ["Location", "UrlSearchParams"] }
