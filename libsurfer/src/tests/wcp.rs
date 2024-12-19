@@ -183,9 +183,9 @@ wcp_snapshot_with_commands! {add_scope, vec![
 wcp_snapshot_with_commands! {color_variables, vec![
     WcpCommand::Load{source:  "../examples/counter.vcd".to_string()},
     WcpCommand::AddScope{scope: "tb".to_string()},
-    WcpCommand::SetItemColor{id:"3".to_string(), color:"GRAY".to_string()},
-    WcpCommand::SetItemColor{id:"1".to_string(), color:"BLUE".to_string()},
-    WcpCommand::SetItemColor{id:"2".to_string(), color:"YELLOW".to_string()}
+    WcpCommand::SetItemColor{id:"3".to_string(), color:"Gray".to_string()},
+    WcpCommand::SetItemColor{id:"1".to_string(), color:"Blue".to_string()},
+    WcpCommand::SetItemColor{id:"2".to_string(), color:"Yellow".to_string()}
 ]}
 
 wcp_snapshot_with_commands! {remove_2_variables, vec![

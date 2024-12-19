@@ -315,16 +315,7 @@ fn get_luminance(color: &Color32) -> f32 {
 
 impl SurferTheme {
     pub fn get_color(&self, color: &String) -> Option<&Color32> {
-        let case_sensitive = self.colors.get(color);
-        if case_sensitive.is_some() {
-            return case_sensitive;
-        }
-        // Hack to handle issue with config 0.14
-        let case_insensitive = self.colors.get(&color.to_lowercase());
-        if case_insensitive.is_some() {
-            return case_insensitive;
-        }
-        None
+        self.colors.get(color)
     }
 
     pub fn get_best_text_color(&self, backgroundcolor: &Color32) -> &Color32 {
