@@ -66,6 +66,14 @@ clippy:
             codequality: gl-code-quality-report.json
         expire_in: 1 week
 
+cargo_about:
+    stage: test
+    extends: .build-dependencies
+    before_script:
+        - cargo install --locked cargo-about
+    script:
+        - cargo about generate about.hbs -o /dev/null
+
 test:
     stage: test
     extends: .snapshots
