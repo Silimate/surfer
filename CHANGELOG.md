@@ -9,6 +9,65 @@ released as a new version.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.3.0] - 2024-12-20
+
+## Added
+
+- Bumped backend to Wellen 0.13.6
+- MIPS translator.
+- RV32 and RV64 translators support all unprivileged instructions.
+- Parameters now have an icon in the variable list and are drawn in a separate color, `variable_parameter` in the config.
+- Custom instruction decoders can be loaded from the config directory.
+- It is possible to press tab to expand text in the command prompt.
+- Loading and saving states from within the ui has been added/improved.
+- Separate server binary, `surver`.
+- A number of color-blind friendly themes.
+- [FTR](https://github.com/Minres/LWTR4SC) transaction streams are now supported.
+- It is now possible to configure the possible UI zoom levels, `zoom_factors` and the default choice, `default_zoom_factor`.
+- A link to a web page with all licenses to dependencies is added in the License information dialog.
+- Initial [user](https://docs.surfer-project.org/book/) and [API](https://docs.surfer-project.org/surfer/) documentation.
+- New configuration parameters `waveforms_line_height` and `waveforms_text_size` to control the height and text size of waveforms, respectively.
+- It is now possible to add variables by dragging scopes and variables from the sidebar.
+- Add `waves_loaded`, `index_of_name` and `spade_loaded`  to the wasm API
+- Add `ViewportStrategy` which allows programmatic smooth scroll when scripting Surfer
+- Add `ExpandItem` message which expands the fields of a viewed variable.
+- Add `SetConfigFromString` which allows setting a configuration when Surfer is embedded in a webpage.
+- `scope_add_recursive` command.
+- Dialog will show up when a file is changed on disk, asking for reload. Not yet working on Windows.
+- Translators for number of ones, leading/trailing ones/zeros and identical MSBs (sign-bits).
+- The mouse gestures can be accessed through ctrl/cmd and primary mouse button (for use, e.g., when no middle mouse button is available).
+- Show start and end time of mouse gesture zoom
+- Allow mouse gesture zoom with ctrl+left click
+- Add a timeline by default
+
+## Changed
+
+- Limit scrolling to always show some of the waveform
+- Text color is (often) selected based on highest contrast vs background color. It is selected as one of the two config values `foreground` and `alt_text_color`.
+- BREAKING: the `ticks` settings are moved from config to theme.
+- Respect direction of arrows in `DrawTextArrow`
+- Empty scopes are not shown by default, can be enabled by setting `show_empty_scopes` to `true` or using the menu entry.
+- Parameters are shown in the scope list rather than among the variables, can be moved to variables by setting `show_parameters_in_scopes` to `false` or using the menu entry.
+- The zoom in mouse gesture now shows the duration of the zoomed region.
+- Variables are now sorted when added with `scope_add`
+
+## Fixed
+
+- Crash related to signals not being assigned values at time zero and snapping.
+- Loading VCD files with errors more rarely crashes Surfer. In addition, the log window now pops up in case of an error.
+- Empty scopes are no longer expandable in the tree hierarchy.
+- The server can now be accessed in the web/WASM version.
+- Translator selection is now deterministic. Earlier, different translators may be selected if more than one was preferred, notably this happened for single-bit enums.
+- When variables are added using the `scope_add` command, they are sorted so that the result is identical to selecting the scope and pressing the `+` button.
+- Variables with negative indices are now correctly sorted.
+- Remove lingering marker line when deleting a marker
+
+## Removed
+
+## Other
+
+- egui 0.30 is now used. This changes the shadowing in the UI and fixes an issue with scaling the UI in web browsers.
+
 ## [0.2.0] - 2024-05-31
 
 ## Added
@@ -71,6 +130,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 Initial numbered version
 
 
-[Unreleased]: https://gitlab.com/surfer-project/surfer/-/compare/v0.2.0...main
+[Unreleased]: https://gitlab.com/surfer-project/surfer/-/compare/v0.3.0...main
+[0.3.0]: https://gitlab.com/surfer-project/surfer/-/tree/v0.3.0
 [0.2.0]: https://gitlab.com/surfer-project/surfer/-/tree/v0.2.0
 [0.1.0]: https://gitlab.com/surfer-project/surfer/-/tree/v0.1.0
