@@ -14,7 +14,7 @@ A waveform viewer with a focus on a snappy usable interface, and extensibility.
 Contributions are more than welcome! The easiest way is to just create an issue
 to discuss a change, or just make merge request with your changes directly. If
 you want more in-depth discussion we have bi-weekly meetings to coordinate
-development, see https://hackmd.io/nN6Q4WJORYmko_Uf0mQM5w for more details. You
+development, see https://hackmd.io/k_C-F7CdS9KVSRJu08tKGg for more details. You
 can also hop in our matrix channel at
 https://matrix.to/#/#surfer-project:matrix.org for asynchronous discussions.
 
