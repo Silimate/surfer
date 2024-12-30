@@ -5,6 +5,7 @@ license.workspace = true
 categories.workspace = true
 edition.workspace = true
 rust-version.workspace = true
+repository.workspace = true
 
 [dependencies]
 clap.workspace = true
@@ -19,7 +20,7 @@ ron.workspace=true
 surver.path = "../surver"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-wasm-bindgen-futures = "0.4"
+wasm-bindgen-futures.workspace = true
 
 
 [features]
