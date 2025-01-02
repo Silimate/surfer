@@ -572,10 +572,12 @@ impl State {
         ui: &mut Ui,
         viewport_idx: usize,
     ) {
+        let Some(waves) = &self.waves else { return };
+
         let (response, mut painter) =
             ui.allocate_painter(ui.available_size(), Sense::click_and_drag());
 
-        let cfg = match self.waves.as_ref().unwrap().inner {
+        let cfg = match waves.inner {
             DataContainer::Waves(_) => DrawConfig::new(
                 response.rect.size().y,
                 self.config.layout.waveforms_line_height,
@@ -718,316 +720,19 @@ impl State {
 
         match &self.sys.draw_data.borrow()[viewport_idx] {
             Some(CachedDrawData::WaveDrawData(draw_data)) => {
-                let clock_edges = &draw_data.clock_edges;
-                let draw_commands = &draw_data.draw_commands;
-                let draw_clock_edges = match clock_edges.as_slice() {
-                    [] => false,
-                    [_single] => true,
-                    [first, second, ..] => second - first > 20.,
-                };
-                let draw_clock_rising_marker =
-                    draw_clock_edges && self.config.theme.clock_rising_marker;
-                let ticks = &draw_data.ticks;
-                if !ticks.is_empty() && self.show_ticks() {
-                    let stroke = Stroke {
-                        color: self.config.theme.ticks.style.color,
-                        width: self.config.theme.ticks.style.width,
-                    };
-
-                    for (_, x) in ticks {
-                        waves.draw_tick_line(*x, &mut ctx, &stroke);
-                    }
-                }
-
-                if draw_clock_edges {
-                    let mut last_edge = 0.0;
-                    let mut cycle = false;
-                    for current_edge in clock_edges {
-                        draw_clock_edge(last_edge, *current_edge, cycle, &mut ctx, &self.config);
-                        cycle = !cycle;
-                        last_edge = *current_edge;
-                    }
-                }
-                let zero_y = to_screen.transform_pos(Pos2::ZERO).y;
-                for (idx, drawing_info) in waves.drawing_infos.iter().enumerate() {
-                    // We draw in absolute coords, but the variable offset in the y
-                    // direction is also in absolute coordinates, so we need to
-                    // compensate for that
-                    let y_offset = drawing_info.top() - zero_y;
-
-                    let displayed_item = waves
-                        .displayed_items_order
-                        .get(drawing_info.item_list_idx())
-                        .and_then(|id| waves.displayed_items.get(id));
-                    let color = displayed_item
-                        .and_then(super::displayed_item::DisplayedItem::color)
-                        .and_then(|color| self.config.theme.get_color(&color));
-
-                    match drawing_info {
-                        ItemDrawingInfo::Variable(variable_info) => {
-                            if let Some(commands) =
-                                draw_commands.get(&variable_info.displayed_field_ref)
-                            {
-                                // Get background color and determine best text color
-                                let background_color = self.get_background_color(
-                                    waves,
-                                    drawing_info,
-                                    DisplayedItemIndex(idx),
-                                );
-                                let text_color =
-                                    self.config.theme.get_best_text_color(&background_color);
-
-                                let color = *color.unwrap_or_else(|| {
-                                    if let Some(DisplayedItem::Variable(variable)) = displayed_item
-                                    {
-                                        waves
-                                            .inner
-                                            .as_waves()
-                                            .unwrap()
-                                            .variable_meta(&variable.variable_ref)
-                                            .ok()
-                                            .and_then(|meta| meta.variable_type)
-                                            .and_then(|var_type| {
-                                                if var_type == VariableType::VCDParameter {
-                                                    Some(&self.config.theme.variable_parameter)
-                                                } else {
-                                                    None
-                                                }
-                                            })
-                                            .unwrap_or(&self.config.theme.variable_default)
-                                    } else {
-                                        &self.config.theme.variable_default
-                                    }
-                                });
-                                for (old, new) in
-                                    commands.values.iter().zip(commands.values.iter().skip(1))
-                                {
-                                    if commands.is_bool {
-                                        self.draw_bool_transition(
-                                            (old, new),
-                                            new.1.force_anti_alias,
-                                            color,
-                                            y_offset,
-                                            commands.is_clock && draw_clock_rising_marker,
-                                            &mut ctx,
-                                        );
-                                    } else {
-                                        self.draw_region(
-                                            (old, new),
-                                            color,
-                                            y_offset,
-                                            &mut ctx,
-                                            *text_color,
-                                        );
-                                    }
-                                }
-                            }
-                        }
-                        ItemDrawingInfo::Divider(_) => {}
-                        ItemDrawingInfo::Marker(_) => {}
-                        ItemDrawingInfo::TimeLine(_) => {
-                            let text_color = color.unwrap_or(
-                                // Get background color and determine best text color
-                                self.config
-                                    .theme
-                                    .get_best_text_color(&self.get_background_color(
-                                        waves,
-                                        drawing_info,
-                                        DisplayedItemIndex(idx),
-                                    )),
-                            );
-                            waves.draw_ticks(
-                                Some(text_color),
-                                ticks,
-                                &ctx,
-                                y_offset,
-                                Align2::CENTER_TOP,
-                                &self.config,
-                            );
-                        }
-                        ItemDrawingInfo::Stream(_) => {}
-                    }
-                }
+                self.draw_wave_data(waves, draw_data, &mut ctx);
             }
             Some(CachedDrawData::TransactionDrawData(draw_data)) => {
-                let draw_commands = &draw_data.draw_commands;
-                let stream_to_displayed_txs = &draw_data.stream_to_displayed_txs;
-                let inc_relation_tx_ids = &draw_data.inc_relation_tx_ids;
-                let out_relation_tx_ids = &draw_data.out_relation_tx_ids;
-
-                let mut inc_relation_starts = vec![];
-                let mut out_relation_starts = vec![];
-                let mut focused_transaction_start: Option<Pos2> = None;
-
-                let ticks = &waves.get_ticks(
-                    &waves.viewports[viewport_idx],
-                    &waves.inner.metadata().timescale,
+                self.draw_transaction_data(
+                    waves,
+                    draw_data,
+                    viewport_idx,
                     frame_width,
-                    cfg.text_size,
-                    &self.wanted_timeunit,
-                    &self.get_time_format(),
-                    &self.config,
+                    &cfg,
+                    ui,
+                    msgs,
+                    &mut ctx,
                 );
-
-                if !ticks.is_empty() && self.show_ticks() {
-                    let stroke = Stroke {
-                        color: self.config.theme.ticks.style.color,
-                        width: self.config.theme.ticks.style.width,
-                    };
-
-                    for (_, x) in ticks {
-                        waves.draw_tick_line(*x, &mut ctx, &stroke);
-                    }
-                }
-
-                let zero_y = to_screen.transform_pos(Pos2::ZERO).y;
-                for (idx, drawing_info) in waves.drawing_infos.iter().enumerate() {
-                    let y_offset = drawing_info.top() - zero_y;
-
-                    let displayed_item = waves
-                        .displayed_items_order
-                        .get(drawing_info.item_list_idx())
-                        .and_then(|id| waves.displayed_items.get(id));
-                    let color = displayed_item
-                        .and_then(super::displayed_item::DisplayedItem::color)
-                        .and_then(|color| self.config.theme.get_color(&color));
-                    // Draws the surrounding border of the stream
-                    let border_stroke =
-                        Stroke::new(self.config.theme.linewidth, self.config.theme.foreground);
-
-                    match drawing_info {
-                        ItemDrawingInfo::Stream(stream) => {
-                            if let Some(tx_refs) =
-                                stream_to_displayed_txs.get(&stream.transaction_stream_ref)
-                            {
-                                for tx_ref in tx_refs {
-                                    if let Some(tx_draw_command) = draw_commands.get(tx_ref) {
-                                        let mut min = tx_draw_command.min;
-                                        let mut max = tx_draw_command.max;
-
-                                        min.x = min.x.max(0.);
-                                        max.x = max.x.min(frame_width - 1.);
-
-                                        let min = (ctx.to_screen)(min.x, y_offset + min.y);
-                                        let max = (ctx.to_screen)(max.x, y_offset + max.y);
-
-                                        let start = Pos2::new(min.x, (min.y + max.y) / 2.);
-
-                                        let is_transaction_focused = waves
-                                            .focused_transaction
-                                            .0
-                                            .as_ref()
-                                            .is_some_and(|t| t == tx_ref);
-
-                                        if inc_relation_tx_ids.contains(tx_ref) {
-                                            inc_relation_starts.push(start);
-                                        } else if out_relation_tx_ids.contains(tx_ref) {
-                                            out_relation_starts.push(start);
-                                        } else if is_transaction_focused {
-                                            focused_transaction_start = Some(start);
-                                        }
-
-                                        let transaction_rect = Rect { min, max };
-                                        if (max.x - min.x) > 1.0 {
-                                            let mut response =
-                                                ui.allocate_rect(transaction_rect, Sense::click());
-
-                                            response = handle_transaction_tooltip(
-                                                response,
-                                                waves,
-                                                &tx_draw_command.gen_ref,
-                                                tx_ref,
-                                            );
-
-                                            if response.clicked() {
-                                                msgs.push(Message::FocusTransaction(
-                                                    Some(tx_ref.clone()),
-                                                    None,
-                                                ));
-                                            }
-
-                                            let tx_fill_color = if is_transaction_focused {
-                                                let c = color.unwrap_or(
-                                                    &self.config.theme.transaction_default,
-                                                );
-                                                Color32::from_rgb(
-                                                    255 - c.r(),
-                                                    255 - c.g(),
-                                                    255 - c.b(),
-                                                )
-                                            } else {
-                                                *color.unwrap_or(
-                                                    &self.config.theme.transaction_default,
-                                                )
-                                            };
-
-                                            let stroke =
-                                                Stroke::new(1.5, tx_fill_color.gamma_multiply(1.2));
-                                            ctx.painter.rect(
-                                                transaction_rect,
-                                                Rounding::same(5.0),
-                                                tx_fill_color,
-                                                stroke,
-                                            );
-                                        } else {
-                                            let tx_fill_color = color
-                                                .unwrap_or(&self.config.theme.transaction_default)
-                                                .gamma_multiply(1.2);
-
-                                            let stroke = Stroke::new(1.5, tx_fill_color);
-                                            ctx.painter.rect(
-                                                transaction_rect,
-                                                Rounding::ZERO,
-                                                tx_fill_color,
-                                                stroke,
-                                            );
-                                        }
-                                    }
-                                }
-                                ctx.painter.hline(
-                                    0.0..=((ctx.to_screen)(frame_width, 0.0).x),
-                                    drawing_info.bottom(),
-                                    border_stroke,
-                                );
-                            }
-                        }
-                        ItemDrawingInfo::TimeLine(_) => {
-                            let text_color = color.unwrap_or(
-                                // Get background color and determine best text color
-                                self.config
-                                    .theme
-                                    .get_best_text_color(&self.get_background_color(
-                                        waves,
-                                        drawing_info,
-                                        DisplayedItemIndex(idx),
-                                    )),
-                            );
-                            waves.draw_ticks(
-                                Some(text_color),
-                                ticks,
-                                &ctx,
-                                y_offset,
-                                Align2::CENTER_TOP,
-                                &self.config,
-                            );
-                        }
-                        ItemDrawingInfo::Variable(_) => {}
-                        ItemDrawingInfo::Divider(_) => {}
-                        ItemDrawingInfo::Marker(_) => {}
-                    }
-                }
-
-                // Draws the relations of the focused transaction
-                if let Some(focused_pos) = focused_transaction_start {
-                    let arrow_color = self.config.theme.relation_arrow;
-                    for start_pos in inc_relation_starts {
-                        self.draw_arrow(start_pos, focused_pos, 25., arrow_color, &ctx);
-                    }
-
-                    for end_pos in out_relation_starts {
-                        self.draw_arrow(focused_pos, end_pos, 25., arrow_color, &ctx);
-                    }
-                }
             }
             None => {}
         }
@@ -1087,6 +792,313 @@ impl State {
             viewport_idx,
         );
         self.handle_canvas_context_menu(response, waves, to_screen, &mut ctx, msgs, viewport_idx);
+    }
+
+    fn draw_wave_data(
+        &self,
+        waves: &WaveData,
+        draw_data: &CachedWaveDrawData,
+        ctx: &mut DrawingContext,
+    ) {
+        let clock_edges = &draw_data.clock_edges;
+        let draw_commands = &draw_data.draw_commands;
+        let draw_clock_edges = match clock_edges.as_slice() {
+            [] => false,
+            [_single] => true,
+            [first, second, ..] => second - first > 20.,
+        };
+        let draw_clock_rising_marker = draw_clock_edges && self.config.theme.clock_rising_marker;
+        let ticks = &draw_data.ticks;
+        if !ticks.is_empty() && self.show_ticks() {
+            let stroke = Stroke {
+                color: self.config.theme.ticks.style.color,
+                width: self.config.theme.ticks.style.width,
+            };
+
+            for (_, x) in ticks {
+                waves.draw_tick_line(*x, ctx, &stroke);
+            }
+        }
+
+        if draw_clock_edges {
+            let mut last_edge = 0.0;
+            let mut cycle = false;
+            for current_edge in clock_edges {
+                draw_clock_edge(last_edge, *current_edge, cycle, ctx, &self.config);
+                cycle = !cycle;
+                last_edge = *current_edge;
+            }
+        }
+        let zero_y = (ctx.to_screen)(0., 0.).y;
+        for (idx, drawing_info) in waves.drawing_infos.iter().enumerate() {
+            // We draw in absolute coords, but the variable offset in the y
+            // direction is also in absolute coordinates, so we need to
+            // compensate for that
+            let y_offset = drawing_info.top() - zero_y;
+
+            let displayed_item = waves
+                .displayed_items_order
+                .get(drawing_info.item_list_idx())
+                .and_then(|id| waves.displayed_items.get(id));
+            let color = displayed_item
+                .and_then(super::displayed_item::DisplayedItem::color)
+                .and_then(|color| self.config.theme.get_color(&color));
+
+            match drawing_info {
+                ItemDrawingInfo::Variable(variable_info) => {
+                    if let Some(commands) = draw_commands.get(&variable_info.displayed_field_ref) {
+                        // Get background color and determine best text color
+                        let background_color =
+                            self.get_background_color(waves, drawing_info, DisplayedItemIndex(idx));
+                        let text_color = self.config.theme.get_best_text_color(&background_color);
+
+                        let color = *color.unwrap_or_else(|| {
+                            if let Some(DisplayedItem::Variable(variable)) = displayed_item {
+                                waves
+                                    .inner
+                                    .as_waves()
+                                    .unwrap()
+                                    .variable_meta(&variable.variable_ref)
+                                    .ok()
+                                    .and_then(|meta| meta.variable_type)
+                                    .and_then(|var_type| {
+                                        if var_type == VariableType::VCDParameter {
+                                            Some(&self.config.theme.variable_parameter)
+                                        } else {
+                                            None
+                                        }
+                                    })
+                                    .unwrap_or(&self.config.theme.variable_default)
+                            } else {
+                                &self.config.theme.variable_default
+                            }
+                        });
+                        for (old, new) in commands.values.iter().zip(commands.values.iter().skip(1))
+                        {
+                            if commands.is_bool {
+                                self.draw_bool_transition(
+                                    (old, new),
+                                    new.1.force_anti_alias,
+                                    color,
+                                    y_offset,
+                                    commands.is_clock && draw_clock_rising_marker,
+                                    ctx,
+                                );
+                            } else {
+                                self.draw_region((old, new), color, y_offset, ctx, *text_color);
+                            }
+                        }
+                    }
+                }
+                ItemDrawingInfo::Divider(_) => {}
+                ItemDrawingInfo::Marker(_) => {}
+                ItemDrawingInfo::TimeLine(_) => {
+                    let text_color = color.unwrap_or(
+                        // Get background color and determine best text color
+                        self.config
+                            .theme
+                            .get_best_text_color(&self.get_background_color(
+                                waves,
+                                drawing_info,
+                                DisplayedItemIndex(idx),
+                            )),
+                    );
+                    waves.draw_ticks(
+                        Some(text_color),
+                        ticks,
+                        ctx,
+                        y_offset,
+                        Align2::CENTER_TOP,
+                        &self.config,
+                    );
+                }
+                ItemDrawingInfo::Stream(_) => {}
+            }
+        }
+    }
+
+    fn draw_transaction_data(
+        &self,
+        waves: &WaveData,
+        draw_data: &CachedTransactionDrawData,
+        viewport_idx: usize,
+        frame_width: f32,
+        cfg: &DrawConfig,
+        ui: &mut Ui,
+        msgs: &mut Vec<Message>,
+        ctx: &mut DrawingContext,
+    ) {
+        let draw_commands = &draw_data.draw_commands;
+        let stream_to_displayed_txs = &draw_data.stream_to_displayed_txs;
+        let inc_relation_tx_ids = &draw_data.inc_relation_tx_ids;
+        let out_relation_tx_ids = &draw_data.out_relation_tx_ids;
+
+        let mut inc_relation_starts = vec![];
+        let mut out_relation_starts = vec![];
+        let mut focused_transaction_start: Option<Pos2> = None;
+
+        let ticks = &waves.get_ticks(
+            &waves.viewports[viewport_idx],
+            &waves.inner.metadata().timescale,
+            frame_width,
+            cfg.text_size,
+            &self.wanted_timeunit,
+            &self.get_time_format(),
+            &self.config,
+        );
+
+        if !ticks.is_empty() && self.show_ticks() {
+            let stroke = Stroke {
+                color: self.config.theme.ticks.style.color,
+                width: self.config.theme.ticks.style.width,
+            };
+
+            for (_, x) in ticks {
+                waves.draw_tick_line(*x, ctx, &stroke);
+            }
+        }
+
+        let zero_y = (ctx.to_screen)(0., 0.).y;
+        for (idx, drawing_info) in waves.drawing_infos.iter().enumerate() {
+            let y_offset = drawing_info.top() - zero_y;
+
+            let displayed_item = waves
+                .displayed_items_order
+                .get(drawing_info.item_list_idx())
+                .and_then(|id| waves.displayed_items.get(id));
+            let color = displayed_item
+                .and_then(super::displayed_item::DisplayedItem::color)
+                .and_then(|color| self.config.theme.get_color(&color));
+            // Draws the surrounding border of the stream
+            let border_stroke =
+                Stroke::new(self.config.theme.linewidth, self.config.theme.foreground);
+
+            match drawing_info {
+                ItemDrawingInfo::Stream(stream) => {
+                    if let Some(tx_refs) =
+                        stream_to_displayed_txs.get(&stream.transaction_stream_ref)
+                    {
+                        for tx_ref in tx_refs {
+                            if let Some(tx_draw_command) = draw_commands.get(tx_ref) {
+                                let mut min = tx_draw_command.min;
+                                let mut max = tx_draw_command.max;
+
+                                min.x = min.x.max(0.);
+                                max.x = max.x.min(frame_width - 1.);
+
+                                let min = (ctx.to_screen)(min.x, y_offset + min.y);
+                                let max = (ctx.to_screen)(max.x, y_offset + max.y);
+
+                                let start = Pos2::new(min.x, (min.y + max.y) / 2.);
+
+                                let is_transaction_focused = waves
+                                    .focused_transaction
+                                    .0
+                                    .as_ref()
+                                    .is_some_and(|t| t == tx_ref);
+
+                                if inc_relation_tx_ids.contains(tx_ref) {
+                                    inc_relation_starts.push(start);
+                                } else if out_relation_tx_ids.contains(tx_ref) {
+                                    out_relation_starts.push(start);
+                                } else if is_transaction_focused {
+                                    focused_transaction_start = Some(start);
+                                }
+
+                                let transaction_rect = Rect { min, max };
+                                if (max.x - min.x) > 1.0 {
+                                    let mut response =
+                                        ui.allocate_rect(transaction_rect, Sense::click());
+
+                                    response = handle_transaction_tooltip(
+                                        response,
+                                        waves,
+                                        &tx_draw_command.gen_ref,
+                                        tx_ref,
+                                    );
+
+                                    if response.clicked() {
+                                        msgs.push(Message::FocusTransaction(
+                                            Some(tx_ref.clone()),
+                                            None,
+                                        ));
+                                    }
+
+                                    let tx_fill_color = if is_transaction_focused {
+                                        let c =
+                                            color.unwrap_or(&self.config.theme.transaction_default);
+                                        Color32::from_rgb(255 - c.r(), 255 - c.g(), 255 - c.b())
+                                    } else {
+                                        *color.unwrap_or(&self.config.theme.transaction_default)
+                                    };
+
+                                    let stroke =
+                                        Stroke::new(1.5, tx_fill_color.gamma_multiply(1.2));
+                                    ctx.painter.rect(
+                                        transaction_rect,
+                                        Rounding::same(5.0),
+                                        tx_fill_color,
+                                        stroke,
+                                    );
+                                } else {
+                                    let tx_fill_color = color
+                                        .unwrap_or(&self.config.theme.transaction_default)
+                                        .gamma_multiply(1.2);
+
+                                    let stroke = Stroke::new(1.5, tx_fill_color);
+                                    ctx.painter.rect(
+                                        transaction_rect,
+                                        Rounding::ZERO,
+                                        tx_fill_color,
+                                        stroke,
+                                    );
+                                }
+                            }
+                        }
+                        ctx.painter.hline(
+                            0.0..=((ctx.to_screen)(frame_width, 0.0).x),
+                            drawing_info.bottom(),
+                            border_stroke,
+                        );
+                    }
+                }
+                ItemDrawingInfo::TimeLine(_) => {
+                    let text_color = color.unwrap_or(
+                        // Get background color and determine best text color
+                        self.config
+                            .theme
+                            .get_best_text_color(&self.get_background_color(
+                                waves,
+                                drawing_info,
+                                DisplayedItemIndex(idx),
+                            )),
+                    );
+                    waves.draw_ticks(
+                        Some(text_color),
+                        ticks,
+                        ctx,
+                        y_offset,
+                        Align2::CENTER_TOP,
+                        &self.config,
+                    );
+                }
+                ItemDrawingInfo::Variable(_) => {}
+                ItemDrawingInfo::Divider(_) => {}
+                ItemDrawingInfo::Marker(_) => {}
+            }
+        }
+
+        // Draws the relations of the focused transaction
+        if let Some(focused_pos) = focused_transaction_start {
+            let arrow_color = self.config.theme.relation_arrow;
+            for start_pos in inc_relation_starts {
+                self.draw_arrow(start_pos, focused_pos, 25., arrow_color, ctx);
+            }
+
+            for end_pos in out_relation_starts {
+                self.draw_arrow(focused_pos, end_pos, 25., arrow_color, ctx);
+            }
+        }
     }
 
     fn draw_region(
