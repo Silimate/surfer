@@ -637,7 +637,9 @@ impl State {
 
         ui.input(|i| {
             // If we have a single touch, we'll interpret that as a pan
-            if i.any_touches() && i.multi_touch().is_none() {
+            let touch = i.any_touches() && i.multi_touch().is_none();
+            let right_mouse = i.pointer.button_down(PointerButton::Secondary);
+            if touch || right_mouse {
                 msgs.push(Message::CanvasScroll {
                     delta: Vec2 {
                         x: i.pointer.delta().y,
