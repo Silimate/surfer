@@ -12,7 +12,7 @@ use itertools::Itertools;
 use log::{trace, warn};
 use surfer_translation_types::ScopeRef;
 
-use super::proto::{self, ItemInfo, WcpCSMessage, WcpCommand, WcpResponse, WcpSCMessage};
+use super::proto::{ItemInfo, WcpCSMessage, WcpCommand, WcpResponse, WcpSCMessage};
 
 impl State {
     pub fn handle_wcp_commands(&mut self) {
@@ -55,61 +55,55 @@ impl State {
                         }
                     }
                     WcpCommand::get_item_info { ids } => {
+                        let Some(waves) = &self.waves else {
+                            self.send_error("remove_items", vec![], "No waveform loaded");
+                            return;
+                        };
                         let mut items: Vec<ItemInfo> = Vec::new();
                         for id in ids {
-                            if let Ok(id) = id.parse::<usize>() {
-                                let item = self
-                                    .waves
-                                    .as_ref()
-                                    .unwrap()
-                                    .displayed_items
-                                    .get(&DisplayedItemRef(id));
-
-                                if let Some(item) = item {
-                                    let (name, item_type) = match item {
-                                        DisplayedItem::Variable(var) => (
-                                            var.manual_name
-                                                .clone()
-                                                .unwrap_or(var.display_name.clone()),
-                                            "Variable".to_string(),
-                                        ),
-                                        DisplayedItem::Divider(item) => (
-                                            item.name
-                                                .clone()
-                                                .unwrap_or("Name not found!".to_string()),
-                                            "Divider".to_string(),
-                                        ),
-                                        DisplayedItem::Marker(item) => (
-                                            item.name
-                                                .clone()
-                                                .unwrap_or("Name not found!".to_string()),
-                                            "Marker".to_string(),
-                                        ),
-                                        DisplayedItem::TimeLine(item) => (
-                                            item.name
-                                                .clone()
-                                                .unwrap_or("Name not found!".to_string()),
-                                            "TimeLine".to_string(),
-                                        ),
-                                        DisplayedItem::Placeholder(item) => (
-                                            item.manual_name
-                                                .clone()
-                                                .unwrap_or("Name not found!".to_string()),
-                                            "Placeholder".to_string(),
-                                        ),
-                                        DisplayedItem::Stream(item) => (
-                                            item.manual_name
-                                                .clone()
-                                                .unwrap_or(item.display_name.clone()),
-                                            "Stream".to_string(),
-                                        ),
-                                    };
-                                    items.push(ItemInfo {
-                                        name,
-                                        t: item_type,
-                                        id,
-                                    });
-                                }
+                            if let Some(item) = waves.displayed_items.get(&id.into()) {
+                                let (name, item_type) = match item {
+                                    DisplayedItem::Variable(var) => (
+                                        var.manual_name.clone().unwrap_or(var.display_name.clone()),
+                                        "Variable".to_string(),
+                                    ),
+                                    DisplayedItem::Divider(item) => (
+                                        item.name.clone().unwrap_or("Name not found!".to_string()),
+                                        "Divider".to_string(),
+                                    ),
+                                    DisplayedItem::Marker(item) => (
+                                        item.name.clone().unwrap_or("Name not found!".to_string()),
+                                        "Marker".to_string(),
+                                    ),
+                                    DisplayedItem::TimeLine(item) => (
+                                        item.name.clone().unwrap_or("Name not found!".to_string()),
+                                        "TimeLine".to_string(),
+                                    ),
+                                    DisplayedItem::Placeholder(item) => (
+                                        item.manual_name
+                                            .clone()
+                                            .unwrap_or("Name not found!".to_string()),
+                                        "Placeholder".to_string(),
+                                    ),
+                                    DisplayedItem::Stream(item) => (
+                                        item.manual_name
+                                            .clone()
+                                            .unwrap_or(item.display_name.clone()),
+                                        "Stream".to_string(),
+                                    ),
+                                };
+                                items.push(ItemInfo {
+                                    name,
+                                    t: item_type,
+                                    id: *id,
+                                });
+                            } else {
+                                self.send_error(
+                                    "get_item_info",
+                                    vec![],
+                                    &format!("No item with id {:?}", id),
+                                );
+                                return;
                             }
                         }
                         self.send_response(WcpResponse::get_item_info(items));
@@ -129,9 +123,7 @@ impl State {
                                 self.load_variables(cmd);
                             }
                             self.send_response(WcpResponse::add_variables(
-                                ids.into_iter()
-                                    .map(|id| proto::DisplayedItemRef(id.0))
-                                    .collect_vec(),
+                                ids.into_iter().map(|id| id.into()).collect_vec(),
                             ));
                             self.invalidate_draw_commands();
                         } else {
@@ -156,9 +148,7 @@ impl State {
                                 self.load_variables(cmd);
                             }
                             self.send_response(WcpResponse::add_scope(
-                                ids.into_iter()
-                                    .map(|id| proto::DisplayedItemRef(id.0))
-                                    .collect_vec(),
+                                ids.into_iter().map(|id| id.into()).collect_vec(),
                             ));
                             self.invalidate_draw_commands();
                         } else {
@@ -179,9 +169,7 @@ impl State {
                             return;
                         };
 
-                        let dref = DisplayedItemRef(id.0);
-
-                        if let Some(idx) = waves.get_displayed_item_index(&dref) {
+                        if let Some(idx) = waves.get_displayed_item_index(&id.into()) {
                             self.update(Message::ItemColorChange(Some(idx), Some(color.clone())));
                             self.send_response(WcpResponse::ack);
                         } else {
@@ -199,7 +187,7 @@ impl State {
                         };
                         let mut msgs = vec![];
                         msgs.push(Message::RemoveItems(
-                            ids.into_iter().map(|d| DisplayedItemRef(d.0)).collect(),
+                            ids.into_iter().map(|d| d.into()).collect(),
                         ));
                         self.update(Message::Batch(msgs));
 
@@ -212,7 +200,7 @@ impl State {
                         };
                         // TODO: Create a `.into` function here instead of unwrapping and wrapping
                         // it to prevent future type errors
-                        if let Some(idx) = waves.get_displayed_item_index(&DisplayedItemRef(id.0)) {
+                        if let Some(idx) = waves.get_displayed_item_index(&id.into()) {
                             self.update(Message::FocusItem(DisplayedItemIndex(idx.0)));
 
                             self.send_response(WcpResponse::ack);
@@ -327,11 +315,11 @@ impl State {
 
     fn send_error(&self, error: &str, arguments: Vec<String>, message: &str) {
         self.sys.channels.wcp_s2c_sender.as_ref().map(|ch| {
-            ch.blocking_send(WcpSCMessage::create_error(
+            block_on(ch.send(WcpSCMessage::create_error(
                 error.to_string(),
                 arguments,
                 message.to_string(),
-            ))
+            )))
         });
     }
 

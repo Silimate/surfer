@@ -1,16 +1,42 @@
 use num::BigInt;
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+/// A reference to a currently displayed item. From the protocol perspective,
+/// This can be any integer or a string and what it is is decided by the server,
+/// in this case surfer.
+/// Since the representation is up to the server, clients cannot generate these on its
+/// own, it can only use the ones it has received from the server.
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Copy)]
 #[serde(transparent)]
 pub struct DisplayedItemRef(pub usize);
+
+impl From<&DisplayedItemRef> for crate::DisplayedItemRef {
+    fn from(value: &DisplayedItemRef) -> Self {
+        crate::DisplayedItemRef(value.0)
+    }
+}
+impl From<DisplayedItemRef> for crate::DisplayedItemRef {
+    fn from(value: DisplayedItemRef) -> Self {
+        crate::DisplayedItemRef(value.0)
+    }
+}
+impl From<&crate::DisplayedItemRef> for DisplayedItemRef {
+    fn from(value: &crate::DisplayedItemRef) -> Self {
+        DisplayedItemRef(value.0)
+    }
+}
+impl From<crate::DisplayedItemRef> for DisplayedItemRef {
+    fn from(value: crate::DisplayedItemRef) -> Self {
+        DisplayedItemRef(value.0)
+    }
+}
 
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct ItemInfo {
     pub name: String,
     #[serde(rename = "type")]
     pub t: String,
-    pub id: usize,
+    pub id: DisplayedItemRef,
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
@@ -20,15 +46,14 @@ pub enum WcpResponse {
     get_item_list(Vec<String>),
     get_item_info(Vec<ItemInfo>),
     add_variables(Vec<DisplayedItemRef>),
-    // FIXME: Looks like this adds multiple scopes
     add_scope(Vec<DisplayedItemRef>),
     ack,
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
 #[serde(tag = "event")]
+#[allow(non_camel_case_types)]
 pub enum WcpEvent {
-    #[allow(non_camel_case_types)]
     waveforms_loaded,
 }
 
@@ -77,9 +102,7 @@ pub enum WcpCommand {
     /// each item specified in `ids` in the same order as in the `ids` array.
     /// Responds with an error if any of the specified IDs are not items in the currently loaded
     /// waveform.
-    // TODO: This should actually respond with an error in that case
-    // TODO: Use DisplayedItemRef here
-    get_item_info { ids: Vec<String> },
+    get_item_info { ids: Vec<DisplayedItemRef> },
     /// Changes the color of the specified item to the specified color.
     /// Responds with [WcpResponse::ack]
     /// Responds with an error if the `id` does not exist in the currently loaded waveform.
@@ -125,7 +148,7 @@ pub enum WcpCommand {
     /// Responds instantly with [WcpResponse::ack]
     zoom_to_fit { viewport_idx: usize },
     /// Shut down the WCP server.
-    // TODO: What does this mean? Does it kill the server, the current connection or surfer itself?
+    // FIXME: What does this mean? Does it kill the server, the current connection or surfer itself?
     shutdowmn,
 }
 

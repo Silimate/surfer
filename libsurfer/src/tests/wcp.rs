@@ -251,7 +251,7 @@ wcp_test! {
 
         for (i, c) in [(1, "Gray"), (2, "Yellow"), (3, "Blue")] {
             tx.send(WcpCSMessage::command(
-                proto::WcpCommand::set_item_color { id: refs[i].clone(), color: c.to_string() }
+                proto::WcpCommand::set_item_color { id: refs[i], color: c.to_string() }
             )).await?;
             expect_ack(&mut rx).await?;
         }
@@ -271,7 +271,7 @@ wcp_test! {
         expect_response!(rx, WcpSCMessage::response(WcpResponse::add_scope(refs)));
 
         send_commands(&tx, vec![
-            WcpCommand::remove_items { ids: vec![refs[1].clone(), refs[2].clone()] }
+            WcpCommand::remove_items { ids: vec![refs[1], refs[2]] }
         ]).await?;
 
         expect_ack(&mut rx).await?;
@@ -291,7 +291,7 @@ wcp_test! {
         expect_response!(rx, WcpSCMessage::response(WcpResponse::add_scope(refs)));
 
         send_commands(&tx, vec![
-            WcpCommand::focus_item { id: refs[1].clone() }
+            WcpCommand::focus_item { id: refs[1] }
         ]).await?;
         expect_ack(&mut rx).await
     }
@@ -339,6 +339,67 @@ wcp_test! {
         expect_response!(rx, WcpSCMessage::response(WcpResponse::add_scope(_)));
         expect_ack(&mut rx).await?;
         expect_ack(&mut rx).await?;
+
+        Ok(())
+    }
+}
+
+wcp_test! {
+    get_item_info,
+    (tx, rx) {
+        load_file(&tx, &mut rx, "../examples/counter.vcd").await?;
+
+        send_commands(&tx, vec![
+            WcpCommand::add_scope {scope: "tb".to_string()},
+        ]).await?;
+        expect_response!(rx, WcpSCMessage::response(WcpResponse::add_scope(items)));
+
+        send_commands(&tx, vec![
+            WcpCommand::get_item_info { ids: items }
+        ]).await?;
+
+        expect_response!(rx, WcpSCMessage::response(WcpResponse::get_item_info(info)));
+        let expected = vec![
+            proto::ItemInfo { name: "overflow".to_string(),
+                 t: "Variable".to_string(),
+                 id: proto::DisplayedItemRef(1)
+             },
+             proto::ItemInfo { name: "clk".to_string(),
+                 t: "Variable".to_string(),
+                 id: proto::DisplayedItemRef(2)
+             },
+             proto::ItemInfo { name: "reset".to_string(),
+                 t: "Variable".to_string(),
+                 id: proto::DisplayedItemRef(3)
+             },
+             proto::ItemInfo { name: "_tmp".to_string(),
+                 t: "Variable".to_string(),
+                 id: proto::DisplayedItemRef(4)
+             }
+        ];
+        assert_eq!(info, expected);
+
+        Ok(())
+    }
+}
+
+wcp_test! {
+    get_item_info_invalid_id,
+    (tx, rx) {
+        load_file(&tx, &mut rx, "../examples/counter.vcd").await?;
+
+        send_commands(&tx, vec![
+            WcpCommand::add_scope {scope: "tb".to_string()},
+        ]).await?;
+        expect_response!(rx, WcpSCMessage::response(WcpResponse::add_scope(_)));
+
+        send_commands(&tx, vec![
+            WcpCommand::get_item_info { ids: vec![proto::DisplayedItemRef(usize::MAX)] }
+        ]).await?;
+
+        expect_response!(rx, WcpSCMessage::error{error, arguments: _, message});
+        assert_eq!(error, "get_item_info");
+        assert_eq!(message, "No item with id DisplayedItemRef(18446744073709551615)");
 
         Ok(())
     }
