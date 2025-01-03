@@ -76,7 +76,6 @@ pub use state::State;
 use surfer_translation_types::Translator;
 use wcp::{proto::WcpCSMessage, proto::WcpEvent, proto::WcpSCMessage};
 
-#[cfg(feature = "performance_plot")]
 use crate::config::{SurferConfig, SurferTheme};
 use crate::dialog::ReloadWaveformDialog;
 use crate::displayed_item::{

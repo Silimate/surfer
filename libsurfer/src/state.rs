@@ -4,6 +4,8 @@ use std::{
     path::PathBuf,
 };
 
+#[cfg(feature = "spade")]
+use crate::translation::spade::SpadeTranslator;
 use crate::{
     command_prompt::get_parser,
     config,
@@ -14,7 +16,6 @@ use crate::{
     system_state::SystemState,
     time::{TimeStringFormatting, TimeUnit},
     transaction_container::TransactionContainer,
-    translation::spade::SpadeTranslator,
     variable_name_filter::VariableNameFilterType,
     viewport::Viewport,
     wasm_util::perform_work,

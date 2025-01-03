@@ -19,6 +19,7 @@ mod instruction_translators;
 pub mod numeric_translators;
 #[cfg(feature = "python")]
 mod python_translators;
+#[cfg(feature = "spade")]
 pub mod spade;
 
 pub use basic_translators::*;

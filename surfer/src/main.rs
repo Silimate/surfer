@@ -35,9 +35,13 @@ mod main_impl {
     struct Args {
         /// Waveform file in VCD, FST, or GHW format.
         wave_file: Option<String>,
+        #[cfg(feature = "spade")]
         #[clap(long)]
+        /// Load Spade state file
         spade_state: Option<Utf8PathBuf>,
+        #[cfg(feature = "spade")]
         #[clap(long)]
+        /// Specify Spade top-level entity
         spade_top: Option<String>,
         /// Path to a file containing 'commands' to run after a waveform has been loaded.
         /// The commands are the same as those used in the command line interface inside the program.
@@ -47,11 +51,12 @@ mod main_impl {
         /// is implemented.
         #[clap(long, short, verbatim_doc_comment)]
         command_file: Option<Utf8PathBuf>,
-        /// Alias for --command_file to mimic GTKWave and support VUnit
+        /// Alias for --command_file to support VUnit
         #[clap(long)]
         script: Option<Utf8PathBuf>,
 
         #[clap(long, short)]
+        /// Load previously saved state file
         state_file: Option<Utf8PathBuf>,
 
         #[command(subcommand)]
@@ -89,8 +94,14 @@ mod main_impl {
             vec![]
         };
         StartupParams {
+            #[cfg(feature = "spade")]
             spade_state: args.spade_state,
+            #[cfg(feature = "spade")]
             spade_top: args.spade_top,
+            #[cfg(not(feature = "spade"))]
+            spade_state: None,
+            #[cfg(not(feature = "spade"))]
+            spade_top: None,
             waves: args.wave_file.map(|s| string_to_wavesource(&s)),
             startup_commands,
         }

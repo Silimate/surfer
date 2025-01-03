@@ -8,7 +8,6 @@ use std::{
 use egui::{Pos2, Rect};
 
 use crate::{
-    benchmark::Timing,
     command_prompt,
     displayed_item::DisplayedItemRef,
     message::Message,
@@ -16,6 +15,9 @@ use crate::{
     wave_source::LoadProgress,
     CachedDrawData, CanvasState, Channels,
 };
+
+#[cfg(feature = "performance_plot")]
+use crate::benchmark::Timing;
 
 pub struct SystemState {
     /// Which translator to use for each variable

@@ -284,7 +284,9 @@ impl State {
             .resizable(true)
             .show(ctx, |ui| {
                 ui.vertical_centered(|ui| {
-                    ui.label(RichText::new("Press middle mouse button and drag"));
+                    ui.label(RichText::new(
+                        "Press middle mouse button (or ctrl+primary mouse button) and drag",
+                    ));
                     ui.add_space(20.);
                     let (response, painter) =
                         ui.allocate_painter(Vec2 { x: 300.0, y: 300.0 }, Sense::click());

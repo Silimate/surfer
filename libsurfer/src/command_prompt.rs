@@ -215,9 +215,12 @@ pub fn get_parser(state: &State) -> Command<Message> {
     let _ = wcp_start_or_stop;
 
     let keep_during_reload = state.config.behavior.keep_during_reload;
-    let mut commands = if state.waves.is_some() {
+    let commands = if state.waves.is_some() {
         vec![
             "load_file",
+            "load_url",
+            #[cfg(not(target_arch = "wasm32"))]
+            "load_state",
             "switch_file",
             "variable_add",
             "generator_add",
@@ -245,7 +248,8 @@ pub fn get_parser(state: &State) -> Command<Message> {
             "show_mouse_gestures",
             "show_quick_start",
             "show_logs",
-            "load_url",
+            #[cfg(feature = "performance_plot")]
+            "show_performance",
             "scroll_to_start",
             "scroll_to_end",
             "goto_start",
@@ -285,12 +289,15 @@ pub fn get_parser(state: &State) -> Command<Message> {
             "redo",
             #[cfg(not(target_arch = "wasm32"))]
             wcp_start_or_stop,
+            #[cfg(not(target_arch = "wasm32"))]
             "exit",
         ]
     } else {
         vec![
             "load_file",
             "load_url",
+            #[cfg(not(target_arch = "wasm32"))]
+            "load_state",
             "config_reload",
             "theme_select",
             "toggle_menu",
@@ -300,15 +307,14 @@ pub fn get_parser(state: &State) -> Command<Message> {
             "show_mouse_gestures",
             "show_quick_start",
             "show_logs",
+            #[cfg(feature = "performance_plot")]
+            "show_performance",
             #[cfg(not(target_arch = "wasm32"))]
             wcp_start_or_stop,
+            #[cfg(not(target_arch = "wasm32"))]
             "exit",
         ]
     };
-    #[cfg(feature = "performance_plot")]
-    commands.push("show_performance");
-    #[cfg(not(target_arch = "wasm32"))]
-    commands.push("load_state");
     let mut theme_names = state.config.theme.theme_names.clone();
     let state_file = state.state_file.clone();
     theme_names.insert(0, "default".to_string());

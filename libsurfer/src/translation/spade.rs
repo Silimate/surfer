@@ -1,4 +1,3 @@
-#![cfg(feature = "spade")]
 use std::{collections::HashMap, sync::mpsc::Sender};
 
 use camino::{Utf8Path, Utf8PathBuf};
