@@ -597,6 +597,9 @@ impl State {
         }
 
         let Some(waves) = &self.waves else { return };
+        if response.rect.size().x < 1. {
+            return;
+        }
         let container_rect = Rect::from_min_size(Pos2::ZERO, response.rect.size());
         let to_screen = RectTransform::from_to(container_rect, response.rect);
         let frame_width = response.rect.width();
