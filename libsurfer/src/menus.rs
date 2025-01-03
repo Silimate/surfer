@@ -287,6 +287,13 @@ impl State {
                     msgs.push(Message::ToggleVariableTooltip);
                 });
 
+            ui.radio(self.show_scope_tooltip(), "Show scope tooltip")
+                .clicked()
+                .then(|| {
+                    ui.close_menu();
+                    msgs.push(Message::ToggleScopeTooltip);
+                });
+
             ui.radio(self.show_variable_indices(), "Show variable indices")
                 .clicked()
                 .then(|| {

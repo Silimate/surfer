@@ -241,6 +241,7 @@ pub enum Message {
     AddTimeLine(Option<DisplayedItemIndex>),
     ToggleTickLines,
     ToggleVariableTooltip,
+    ToggleScopeTooltip,
     AddMarker {
         time: BigInt,
         name: Option<String>,

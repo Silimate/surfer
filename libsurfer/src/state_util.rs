@@ -45,6 +45,12 @@ impl State {
     }
 
     #[inline]
+    pub fn show_scope_tooltip(&self) -> bool {
+        self.show_scope_tooltip
+            .unwrap_or_else(|| self.config.layout.show_scope_tooltip())
+    }
+
+    #[inline]
     pub fn show_ticks(&self) -> bool {
         self.show_ticks
             .unwrap_or_else(|| self.config.layout.show_ticks())

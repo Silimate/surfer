@@ -15,6 +15,7 @@ show_menu = true
 show_toolbar = true
 show_ticks = true
 show_tooltip = true
+show_scope_tooltip = false
 show_overview = true
 show_statusbar = true
 show_variable_indices = true

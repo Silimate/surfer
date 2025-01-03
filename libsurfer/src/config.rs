@@ -93,8 +93,10 @@ pub struct SurferLayout {
     show_toolbar: bool,
     /// Flag to show/hide tick lines
     show_ticks: bool,
-    /// Flag to show/hide tooltip for variables and scopes
+    /// Flag to show/hide tooltip for variables
     show_tooltip: bool,
+    /// Flag to show/hide tooltip for scopes
+    show_scope_tooltip: bool,
     /// Flag to show/hide the overview
     show_overview: bool,
     /// Flag to show/hide the statusbar
@@ -141,6 +143,9 @@ impl SurferLayout {
     }
     pub fn show_tooltip(&self) -> bool {
         self.show_tooltip
+    }
+    pub fn show_scope_tooltip(&self) -> bool {
+        self.show_scope_tooltip
     }
     pub fn show_toolbar(&self) -> bool {
         self.show_toolbar

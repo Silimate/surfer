@@ -1200,6 +1200,13 @@ impl State {
                 };
                 self.show_tooltip = Some(new);
             }
+            Message::ToggleScopeTooltip => {
+                let new = match self.show_scope_tooltip {
+                    Some(prev) => !prev,
+                    None => !self.config.layout.show_scope_tooltip(),
+                };
+                self.show_scope_tooltip = Some(new);
+            }
             Message::ToggleOverview => {
                 let new = match self.show_overview {
                     Some(prev) => !prev,

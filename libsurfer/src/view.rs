@@ -645,7 +645,7 @@ impl State {
                 )));
             }
         });
-        if self.show_tooltip() {
+        if self.show_scope_tooltip() {
             response = response.on_hover_text(scope_tooltip_text(wave, scope));
         }
         response
