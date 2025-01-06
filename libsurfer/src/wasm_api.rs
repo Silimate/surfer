@@ -92,7 +92,10 @@ impl WebHandle {
         &self,
         canvas: web_sys::HtmlCanvasElement,
     ) -> Result<(), wasm_bindgen::JsValue> {
-        let web_options = eframe::WebOptions::default();
+        let web_options = eframe::WebOptions {
+            should_propagate_event: Box::new(|_event| true),
+            ..Default::default()
+        };
 
         let url = wasm_util::vcd_from_url();
 
