@@ -1683,7 +1683,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a1b589b4dc103969ad3cf85c950899926ec64300a1a46d76c03a6072957036f0"
 dependencies = [
  "crc32fast",
- "miniz_oxide 0.8.0",
+ "miniz_oxide 0.8.2",
 ]
 
 [[package]]
@@ -1760,12 +1760,12 @@ dependencies = [
 
 [[package]]
 name = "fst-reader"
-version = "0.9.0"
+version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d2b40f847d17920196d6a9f6e1ed034acf900aadf22843268475c22a32035af6"
+checksum = "d59d0aa779785c3df5da7134274c3a13d7b0cce41fdfd326f99661c336de5cb0"
 dependencies = [
- "flate2",
  "lz4_flex",
+ "miniz_oxide 0.8.2",
  "num_enum",
  "thiserror 2.0.8",
 ]
@@ -2655,7 +2655,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4979f22fdb869068da03c9f7528f8297c6fd2606bc3a4affe42e6a823fdb8da4"
 dependencies = [
  "cfg-if",
- "windows-targets 0.48.5",
+ "windows-targets 0.52.6",
 ]
 
 [[package]]
@@ -2912,9 +2912,9 @@ dependencies = [
 
 [[package]]
 name = "miniz_oxide"
-version = "0.8.0"
+version = "0.8.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e2d80299ef12ff69b16a84bb182e3b9df68b5a91574d3d4fa6e41b65deec4df1"
+checksum = "4ffbe83022cedc1d264172192511ae958937694cd57ce297164951b8b3568394"
 dependencies = [
  "adler2",
  "simd-adler32",
@@ -3632,7 +3632,7 @@ dependencies = [
  "crc32fast",
  "fdeflate",
  "flate2",
- "miniz_oxide 0.8.0",
+ "miniz_oxide 0.8.2",
 ]
 
 [[package]]
@@ -5594,9 +5594,9 @@ dependencies = [
 
 [[package]]
 name = "wellen"
-version = "0.13.6"
+version = "0.13.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b5555ad40d4dd0b071588b09bf07a214213c4f259dca1fd9c8940a78dbc385b7"
+checksum = "f6996c2abd191b3c410133925579710f72227995e2383113a5b593c6f9c21543"
 dependencies = [
  "fst-reader",
  "leb128",
