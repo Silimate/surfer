@@ -60,7 +60,7 @@ use std::sync::mpsc::{self, Receiver, Sender};
 use std::sync::{Arc, RwLock};
 
 use camino::Utf8PathBuf;
-use channels::{GlobalChannelRx, GlobalChannelTx};
+use channels::{GlobalChannelTx, IngressHandler, IngressReceiver};
 use color_eyre::eyre::Context;
 use color_eyre::Result;
 use derive_more::Display;
@@ -109,7 +109,7 @@ lazy_static! {
     /// things until program exit
     pub(crate) static ref OUTSTANDING_TRANSACTIONS: AtomicU32 = AtomicU32::new(0);
 
-    pub(crate) static ref WCP_CS_HANDLER: GlobalChannelRx<WcpCSMessage> = GlobalChannelRx::new();
+    pub(crate) static ref WCP_CS_HANDLER: IngressHandler<WcpCSMessage> = IngressHandler::new();
     pub(crate) static ref WCP_SC_HANDLER: GlobalChannelTx<WcpSCMessage> = GlobalChannelTx::new();
 }
 
@@ -210,7 +210,7 @@ struct CachedTransactionDrawData {
 pub struct Channels {
     pub msg_sender: Sender<Message>,
     pub msg_receiver: Receiver<Message>,
-    wcp_c2s_receiver: Option<tokio::sync::mpsc::Receiver<WcpCSMessage>>,
+    wcp_c2s_receiver: Option<IngressReceiver<WcpCSMessage>>,
     wcp_s2c_sender: Option<tokio::sync::mpsc::Sender<WcpSCMessage>>,
 }
 impl Channels {

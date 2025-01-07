@@ -7,14 +7,14 @@ use tokio::{
     sync::mpsc,
 };
 
-use crate::channels::SCSender;
+use crate::channels::IngressSender;
 
 pub struct CxxrtlWorker<W, R> {
     write: W,
     read: R,
     read_buf: VecDeque<u8>,
 
-    sc_channel: SCSender,
+    sc_channel: IngressSender<String>,
     cs_channel: mpsc::Receiver<String>,
 }
 
@@ -26,7 +26,7 @@ where
     pub(crate) fn new(
         write: W,
         read: R,
-        sc_channel: SCSender,
+        sc_channel: IngressSender<String>,
         cs_channel: mpsc::Receiver<String>,
     ) -> Self {
         Self {

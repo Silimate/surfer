@@ -8,16 +8,16 @@ use tokio::sync::{
 
 use crate::{EGUI_CONTEXT, OUTSTANDING_TRANSACTIONS};
 
-pub struct SCReceiver {
-    sc_messages: mpsc::Receiver<String>,
+pub struct IngressReceiver<T> {
+    sc_messages: mpsc::Receiver<T>,
 }
 
-impl SCReceiver {
-    pub fn new(sc_messages: mpsc::Receiver<String>) -> Self {
+impl<T> IngressReceiver<T> {
+    pub fn new(sc_messages: mpsc::Receiver<T>) -> Self {
         Self { sc_messages }
     }
 
-    pub fn try_recv(&mut self) -> Result<String, TryRecvError> {
+    pub fn try_recv(&mut self) -> Result<T, TryRecvError> {
         let result = self.sc_messages.try_recv();
         match result {
             Ok(result) => {
@@ -33,16 +33,16 @@ impl SCReceiver {
     }
 }
 
-pub struct SCSender {
-    sc_messages: mpsc::Sender<String>,
+pub struct IngressSender<T> {
+    sc_messages: mpsc::Sender<T>,
 }
 
-impl SCSender {
-    pub fn new(sc_messages: mpsc::Sender<String>) -> Self {
+impl<T> IngressSender<T> {
+    pub fn new(sc_messages: mpsc::Sender<T>) -> Self {
         Self { sc_messages }
     }
 
-    pub async fn send(&self, message: String) -> Result<(), SendError<String>> {
+    pub async fn send(&self, message: T) -> Result<(), SendError<T>> {
         let result = self.sc_messages.send(message).await;
         OUTSTANDING_TRANSACTIONS.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
         if let Some(ctx) = EGUI_CONTEXT.read().unwrap().as_ref() {
@@ -53,17 +53,17 @@ impl SCSender {
 }
 
 #[cfg_attr(not(target_arch = "wasm32"), allow(dead_code))]
-pub(crate) struct SCHandler {
-    pub tx: SCSender,
-    pub rx: RwLock<Option<mpsc::Receiver<String>>>,
+pub(crate) struct IngressHandler<T> {
+    pub tx: IngressSender<T>,
+    pub rx: RwLock<Option<IngressReceiver<T>>>,
 }
-impl SCHandler {
+impl<T> IngressHandler<T> {
     #[cfg_attr(not(target_arch = "wasm32"), allow(dead_code))]
     pub fn new() -> Self {
         let (tx, rx) = mpsc::channel(100);
         Self {
-            tx: SCSender::new(tx),
-            rx: RwLock::new(Some(rx)),
+            tx: IngressSender::new(tx),
+            rx: RwLock::new(Some(IngressReceiver::new(rx))),
         }
     }
 }
@@ -79,21 +79,6 @@ impl<T> GlobalChannelTx<T> {
         Self {
             tx,
             rx: RwLock::new(rx),
-        }
-    }
-}
-
-pub(crate) struct GlobalChannelRx<T> {
-    #[cfg_attr(not(target_arch = "wasm32"), allow(dead_code))]
-    pub tx: mpsc::Sender<T>,
-    pub rx: RwLock<Option<mpsc::Receiver<T>>>,
-}
-impl<T> GlobalChannelRx<T> {
-    pub fn new() -> Self {
-        let (tx, rx) = mpsc::channel(100);
-        Self {
-            tx,
-            rx: RwLock::new(Some(rx)),
         }
     }
 }

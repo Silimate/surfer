@@ -13,7 +13,7 @@ use tokio::sync::Mutex;
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
 
-use crate::channels::{GlobalChannelTx, SCHandler};
+use crate::channels::{GlobalChannelTx, IngressHandler};
 use crate::displayed_item::DisplayedItemRef;
 use crate::graphics::Anchor;
 use crate::graphics::Direction;
@@ -39,7 +39,8 @@ lazy_static! {
     pub(crate) static ref MESSAGE_QUEUE: Mutex<Vec<Message>> = Mutex::new(vec![]);
     static ref QUERY_QUEUE: tokio::sync::Mutex<VecDeque<Callback>> =
         tokio::sync::Mutex::new(VecDeque::new());
-    pub(crate) static ref CXXRTL_SC_HANDLER: SCHandler = SCHandler::new();
+    // TODO: Let's make these take CXXRTL messages instead of strings
+    pub(crate) static ref CXXRTL_SC_HANDLER: IngressHandler<String> = IngressHandler::new();
     pub(crate) static ref CXXRTL_CS_HANDLER: GlobalChannelTx<String> = GlobalChannelTx::new();
 }
 
@@ -316,7 +317,6 @@ pub async fn next_wcp_sc_message() -> Result<Option<String>, JsError> {
 // TODO: Unify the names with cxxrtl here
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen)]
 pub async fn handle_wcp_cs_message(message: String) -> Result<(), JsError> {
-    info!("[WCP] Received wcp cs message from WASM");
     let encoded = serde_json::from_str(&message).map_err(|e| JsError::new(&format!("{e}")))?;
     WCP_CS_HANDLER.tx.send(encoded).await?;
     Ok(())

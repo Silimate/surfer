@@ -16,7 +16,7 @@ use surfer_translation_types::VariableEncoding;
 
 use crate::wave_container::ScopeRefExt;
 use crate::{
-    channels::SCReceiver,
+    channels::IngressReceiver,
     cxxrtl::{
         command::CxxrtlCommand,
         cs_message::CSMessage,
@@ -187,7 +187,7 @@ impl CSSender {
 pub struct CxxrtlContainer {
     data: CxxrtlData,
     sending: CSSender,
-    sc_messages: SCReceiver,
+    sc_messages: IngressReceiver<String>,
     disconnected_reported: bool,
 }
 
@@ -195,7 +195,7 @@ impl CxxrtlContainer {
     async fn new(
         msg_channel: std::sync::mpsc::Sender<Message>,
         sending: CSSender,
-        sc_messages: mpsc::Receiver<String>,
+        sc_messages: IngressReceiver<String>,
     ) -> Result<Self> {
         info!("Sending cxxrtl greeting");
         sending
@@ -218,7 +218,7 @@ impl CxxrtlContainer {
 
         let result = Self {
             data,
-            sc_messages: SCReceiver::new(sc_messages),
+            sc_messages,
             sending,
             disconnected_reported: false,
         };
@@ -235,7 +235,7 @@ impl CxxrtlContainer {
     ) -> Result<Self> {
         use color_eyre::eyre::Context;
 
-        use crate::channels::SCSender;
+        use crate::channels::IngressSender;
         use crate::cxxrtl::io_worker;
 
         let stream = tokio::net::TcpStream::connect(addr)
@@ -247,7 +247,7 @@ impl CxxrtlContainer {
         let (cs_tx, cs_rx) = mpsc::channel(100);
         let (sc_tx, sc_rx) = mpsc::channel(100);
         tokio::spawn(
-            io_worker::CxxrtlWorker::new(write, read, SCSender::new(sc_tx), cs_rx).start(),
+            io_worker::CxxrtlWorker::new(write, read, IngressSender::new(sc_tx), cs_rx).start(),
         );
 
         Self::new(
@@ -256,7 +256,7 @@ impl CxxrtlContainer {
                 cs_messages: cs_tx,
                 callback_queue: VecDeque::new(),
             },
-            sc_rx,
+            IngressReceiver::new(sc_rx),
         )
         .await
     }

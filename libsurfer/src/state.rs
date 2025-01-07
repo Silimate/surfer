@@ -7,6 +7,7 @@ use std::{
 #[cfg(feature = "spade")]
 use crate::translation::spade::SpadeTranslator;
 use crate::{
+    channels::IngressReceiver,
     command_prompt::get_parser,
     config,
     data_container::DataContainer,
@@ -627,7 +628,7 @@ impl State {
         // TODO: Consider an unbounded channel?
         let (wcp_s2c_sender, wcp_s2c_receiver) = tokio::sync::mpsc::channel(100);
         let (wcp_c2s_sender, wcp_c2s_receiver) = tokio::sync::mpsc::channel(100);
-        self.sys.channels.wcp_c2s_receiver = Some(wcp_s2c_receiver);
+        self.sys.channels.wcp_c2s_receiver = Some(IngressReceiver::new(wcp_s2c_receiver));
         self.sys.channels.wcp_s2c_sender = Some(wcp_c2s_sender);
         let stop_signal_copy = self.sys.wcp_stop_signal.clone();
         stop_signal_copy.store(false, std::sync::atomic::Ordering::Relaxed);
