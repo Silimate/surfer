@@ -15,6 +15,7 @@ use toml::Table;
 mod basic_translators;
 pub mod clock;
 mod enum_translator;
+mod fixed_point;
 mod instruction_translators;
 pub mod numeric_translators;
 #[cfg(feature = "python")]
@@ -274,6 +275,8 @@ pub fn all_translators() -> TranslatorList {
             Box::new(ClockTranslator::new()),
             Box::new(StringTranslator {}),
             Box::new(EnumTranslator {}),
+            Box::new(UnsignedFixedPointTranslator),
+            Box::new(SignedFixedPointTranslator),
         ],
     )
 }

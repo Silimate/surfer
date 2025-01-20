@@ -5,7 +5,9 @@ use color_eyre::{eyre::anyhow, eyre::bail, Result};
 use derive_more::Debug;
 use log::warn;
 use num::{BigUint, ToPrimitive};
-use surfer_translation_types::{VariableDirection, VariableEncoding, VariableType, VariableValue};
+use surfer_translation_types::{
+    VariableDirection, VariableEncoding, VariableIndex, VariableType, VariableValue,
+};
 use wellen::{
     FileFormat, GetItem as _, Hierarchy, ScopeType, Signal, SignalEncoding, SignalRef,
     SignalSource, Time, TimeTable, TimeTableIdx, Timescale, TimescaleUnit, Var, VarRef, VarType,
@@ -14,6 +16,7 @@ use wellen::{
 use crate::message::BodyResult;
 use crate::time::{TimeScale, TimeUnit};
 use crate::variable_direction::VariableDirectionExt;
+use crate::variable_index::VariableIndexExt;
 use crate::variable_type::VariableTypeExt;
 use crate::wave_container::{
     MetaData, QueryResult, ScopeId, ScopeRef, ScopeRefExt, VarId, VariableMeta, VariableRef,
@@ -574,18 +577,10 @@ pub(crate) fn var_to_meta(
         var: r.clone(),
         num_bits: var.length(),
         variable_type: Some(VariableType::from_wellen_type(var.var_type())),
-        index: var.index().map(index_to_string),
+        index: var.index().map(VariableIndex::from_wellen_type),
         direction: Some(VariableDirection::from_wellen_direction(var.direction())),
         enum_map,
         encoding,
-    }
-}
-
-fn index_to_string(index: wellen::VarIndex) -> String {
-    if index.msb() == index.lsb() {
-        format!("[{}]", index.lsb())
-    } else {
-        format!("[{}:{}]", index.msb(), index.lsb())
     }
 }
 

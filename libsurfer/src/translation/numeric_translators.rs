@@ -1,13 +1,15 @@
+use crate::message::Message;
+use crate::translation::fixed_point::{big_uint_to_sfixed, big_uint_to_ufixed};
+use crate::variable_type::INTEGER_TYPES;
+use crate::wave_container::{ScopeId, VarId};
 use color_eyre::Result;
 use half::{bf16, f16};
 use num::BigUint;
 use softposit::{P16E1, P32E2, P8E0, Q16E1, Q8E0};
 use surfer_translation_types::{
-    translates_all_bit_types, BasicTranslator, ValueKind, VariableMeta, VariableValue,
+    translates_all_bit_types, BasicTranslator, TranslationResult, Translator, ValueKind, ValueRepr,
+    VariableInfo, VariableMeta, VariableValue,
 };
-
-use crate::variable_type::INTEGER_TYPES;
-use crate::wave_container::{ScopeId, VarId};
 
 use super::{check_single_wordlength, TranslationPreference};
 
@@ -399,6 +401,75 @@ impl BasicTranslator<VarId, ScopeId> for E4M3Translator {
 
     fn translates(&self, variable: &VariableMeta<VarId, ScopeId>) -> Result<TranslationPreference> {
         check_single_wordlength(variable.num_bits, 8)
+    }
+}
+
+pub struct UnsignedFixedPointTranslator;
+
+impl Translator<VarId, ScopeId, Message> for UnsignedFixedPointTranslator {
+    fn name(&self) -> String {
+        "Unsigned fixed point".into()
+    }
+
+    fn translate(
+        &self,
+        variable: &VariableMeta<VarId, ScopeId>,
+        value: &VariableValue,
+    ) -> Result<TranslationResult> {
+        let (string, value_kind) = if let Some(idx) = &variable.index {
+            translate_numeric(|v| big_uint_to_ufixed(&v, -idx.lsb), value)
+        } else {
+            translate_numeric(|v| format!("{}", v), value)
+        };
+        Ok(TranslationResult {
+            kind: value_kind,
+            val: ValueRepr::String(string),
+            subfields: vec![],
+        })
+    }
+
+    fn variable_info(&self, _: &VariableMeta<VarId, ScopeId>) -> Result<VariableInfo> {
+        Ok(VariableInfo::Bits)
+    }
+
+    fn translates(&self, _: &VariableMeta<VarId, ScopeId>) -> Result<TranslationPreference> {
+        Ok(TranslationPreference::Yes)
+    }
+}
+
+pub struct SignedFixedPointTranslator;
+
+impl Translator<VarId, ScopeId, Message> for SignedFixedPointTranslator {
+    fn name(&self) -> String {
+        "Signed fixed point".into()
+    }
+
+    fn translate(
+        &self,
+        variable: &VariableMeta<VarId, ScopeId>,
+        value: &VariableValue,
+    ) -> Result<TranslationResult> {
+        let (string, value_kind) = if let Some(idx) = &variable.index {
+            translate_numeric(
+                |v| big_uint_to_sfixed(&v, variable.num_bits.unwrap_or(0) as u64, -idx.lsb),
+                value,
+            )
+        } else {
+            translate_numeric(|v| format!("{}", v), value)
+        };
+        Ok(TranslationResult {
+            kind: value_kind,
+            val: ValueRepr::String(string),
+            subfields: vec![],
+        })
+    }
+
+    fn variable_info(&self, _: &VariableMeta<VarId, ScopeId>) -> Result<VariableInfo> {
+        Ok(VariableInfo::Bits)
+    }
+
+    fn translates(&self, _: &VariableMeta<VarId, ScopeId>) -> Result<TranslationPreference> {
+        Ok(TranslationPreference::Yes)
     }
 }
 

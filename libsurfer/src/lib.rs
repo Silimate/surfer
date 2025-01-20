@@ -36,6 +36,7 @@ pub mod transaction_container;
 pub mod translation;
 pub mod util;
 pub mod variable_direction;
+mod variable_index;
 pub mod variable_name_filter;
 pub mod variable_name_type;
 pub mod variable_type;

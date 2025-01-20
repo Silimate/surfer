@@ -4,13 +4,13 @@ pub mod python;
 mod result;
 mod scope_ref;
 mod translator;
+pub mod variable_index;
 mod variable_ref;
-
-use std::collections::HashMap;
 
 use derive_more::Display;
 use ecolor::Color32;
 use num::BigUint;
+use std::collections::HashMap;
 
 pub use crate::field_ref::FieldRef;
 pub use crate::result::{
@@ -19,6 +19,7 @@ pub use crate::result::{
 };
 pub use crate::scope_ref::ScopeRef;
 pub use crate::translator::{translates_all_bit_types, BasicTranslator, Translator};
+pub use crate::variable_index::VariableIndex;
 pub use crate::variable_ref::VariableRef;
 
 #[derive(Debug, PartialEq, Clone, Display)]
@@ -147,7 +148,7 @@ pub enum VariableType {
     StdULogicVector,
 }
 
-#[derive(Clone, Display, Copy)]
+#[derive(Clone, Display, Copy, Debug)]
 pub enum VariableDirection {
     #[display("unknown")]
     Unknown,
@@ -165,13 +166,13 @@ pub enum VariableDirection {
     Linkage,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct VariableMeta<VarId, ScopeId> {
     pub var: VariableRef<VarId, ScopeId>,
     pub num_bits: Option<u32>,
     /// Type of the variable in the HDL (on a best effort basis).
     pub variable_type: Option<VariableType>,
-    pub index: Option<String>,
+    pub index: Option<VariableIndex>,
     pub direction: Option<VariableDirection>,
     pub enum_map: HashMap<String, String>,
     /// Indicates how the variable is stored. A variable of "type" boolean for example

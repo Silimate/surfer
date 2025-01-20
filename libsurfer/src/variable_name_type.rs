@@ -110,7 +110,7 @@ impl WaveData {
                                 .variable_meta(&variable.variable_ref)
                                 .ok()
                                 .as_ref()
-                                .and_then(|meta| meta.index.clone())
+                                .and_then(|meta| meta.index)
                                 .map(|index| format!(" {index}"))
                                 .unwrap_or_default();
                             variable.display_name = format!("{}{}", variable.display_name, index);

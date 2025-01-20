@@ -772,7 +772,7 @@ impl State {
             let meta = wave_container.variable_meta(&variable).ok();
             let index = meta
                 .as_ref()
-                .and_then(|meta| meta.index.clone())
+                .and_then(|meta| meta.index)
                 .map(|index| format!(" {index}"))
                 .unwrap_or_default();
 
