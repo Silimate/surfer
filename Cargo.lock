@@ -917,7 +917,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "117725a109d387c937a1533ce01b450cbde6b88abceea8473c4d7a85853cda3c"
 dependencies = [
  "lazy_static",
- "windows-sys 0.52.0",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -1683,7 +1683,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a1b589b4dc103969ad3cf85c950899926ec64300a1a46d76c03a6072957036f0"
 dependencies = [
  "crc32fast",
- "miniz_oxide 0.8.2",
+ "miniz_oxide 0.8.3",
 ]
 
 [[package]]
@@ -1765,7 +1765,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d59d0aa779785c3df5da7134274c3a13d7b0cce41fdfd326f99661c336de5cb0"
 dependencies = [
  "lz4_flex",
- "miniz_oxide 0.8.2",
+ "miniz_oxide 0.8.3",
  "num_enum",
  "thiserror 2.0.8",
 ]
@@ -2708,6 +2708,7 @@ dependencies = [
  "instruction-decoder",
  "itertools 0.14.0",
  "lazy_static",
+ "leb128",
  "local-impl",
  "log",
  "lz4_flex",
@@ -2913,9 +2914,9 @@ dependencies = [
 
 [[package]]
 name = "miniz_oxide"
-version = "0.8.2"
+version = "0.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4ffbe83022cedc1d264172192511ae958937694cd57ce297164951b8b3568394"
+checksum = "b8402cab7aefae129c6977bb0ff1b8fd9a04eb5b51efc50a70bea51cda0c7924"
 dependencies = [
  "adler2",
  "simd-adler32",
@@ -3630,7 +3631,7 @@ dependencies = [
  "crc32fast",
  "fdeflate",
  "flate2",
- "miniz_oxide 0.8.2",
+ "miniz_oxide 0.8.3",
 ]
 
 [[package]]
@@ -4719,6 +4720,7 @@ dependencies = [
  "hyper",
  "hyper-util",
  "lazy_static",
+ "leb128",
  "log",
  "lz4_flex",
  "rand",
@@ -5597,14 +5599,15 @@ dependencies = [
 
 [[package]]
 name = "wellen"
-version = "0.13.9"
+version = "0.13.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "578c7bd0aa9c2715557793655b9ca7ef2821fd7435ceae9fb079b3dfb1887250"
+checksum = "74c026061972c8e5f9e81fb86dae3ed6d10a2fd4adb0c36a65b5fbc1af482b07"
 dependencies = [
  "fst-reader",
  "leb128",
  "lz4_flex",
  "memmap2",
+ "miniz_oxide 0.8.3",
  "num_enum",
  "rayon",
  "rustc-hash 2.1.0",

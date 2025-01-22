@@ -1,9 +1,9 @@
+use super::HierarchyResponse;
 use bincode::Options;
 use color_eyre::eyre::{bail, eyre};
 use color_eyre::Result;
 use log::info;
-
-use super::HierarchyResponse;
+use wellen::CompressedTimeTable;
 
 use surver::{
     Status, BINCODE_OPTIONS, HTTP_SERVER_KEY, HTTP_SERVER_VALUE_SURFER, SURFER_VERSION,
@@ -73,9 +73,9 @@ pub async fn get_time_table(server: String) -> Result<Vec<wellen::Time>> {
         .send()
         .await?;
     check_response(&server, &response)?;
-    let compressed = response.bytes().await?;
-    let raw = lz4_flex::decompress_size_prepended(&compressed)?;
-    let table = BINCODE_OPTIONS.deserialize(&raw)?;
+    let compressed_data = response.bytes().await?;
+    let compressed: CompressedTimeTable = BINCODE_OPTIONS.deserialize(&compressed_data)?;
+    let table = compressed.uncompress();
     Ok(table)
 }
 
@@ -91,12 +91,9 @@ pub async fn get_signals(
 
     let response = client.get(url).send().await?;
     check_response(&server, &response)?;
-    let compressed = response.bytes().await?;
-    let raw = lz4_flex::decompress_size_prepended(&compressed)?;
-
-    let mut reader = std::io::Cursor::new(raw);
-    let opts = BINCODE_OPTIONS.allow_trailing_bytes();
-    let num_ids: u64 = opts.deserialize_from(&mut reader)?;
+    let data = response.bytes().await?;
+    let mut reader = std::io::Cursor::new(data);
+    let num_ids: u64 = leb128::read::unsigned(&mut reader)?;
     if num_ids > signals.len() as u64 {
         bail!(
             "Too many signals in response: {num_ids}, expected {}",
@@ -107,15 +104,16 @@ pub async fn get_signals(
         return Ok(vec![]);
     }
 
+    let opts = BINCODE_OPTIONS.allow_trailing_bytes();
     let mut out = Vec::with_capacity(num_ids as usize);
     for _ in 0..(num_ids - 1) {
-        let signal_id: wellen::SignalRef = opts.deserialize_from(&mut reader)?;
-        let signal: wellen::Signal = opts.deserialize_from(&mut reader)?;
-        out.push((signal_id, signal));
+        let compressed: wellen::CompressedSignal = opts.deserialize_from(&mut reader)?;
+        let signal = compressed.uncompress();
+        out.push((signal.signal_ref(), signal));
     }
     // for the final signal, we expect to consume all bytes
-    let signal_id: wellen::SignalRef = opts.deserialize_from(&mut reader)?;
-    let signal: wellen::Signal = BINCODE_OPTIONS.deserialize_from(&mut reader)?;
-    out.push((signal_id, signal));
+    let compressed: wellen::CompressedSignal = BINCODE_OPTIONS.deserialize_from(&mut reader)?;
+    let signal = compressed.uncompress();
+    out.push((signal.signal_ref(), signal));
     Ok(out)
 }

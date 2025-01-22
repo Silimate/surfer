@@ -62,6 +62,7 @@ half = "2.4.1"
 instruction-decoder = { path = "instruction-decoder" }
 itertools = "0.14.0"
 lazy_static = "1.5.0"
+leb128 = "0.2.5"
 local-impl = "0.1.2"
 log = "0.4.22"
 lz4_flex = "0.11.3"
@@ -82,4 +83,4 @@ toml = { version = "0.8.12", default-features = false, features = ["parse"] }
 tokio = { version = "1.42", features = ["rt", "time", "macros"] }
 wasm-bindgen-futures = "0.4"
 web-time = "1.1.0"
-wellen = { version = "0.13.9", features = ["serde1"] }
+wellen = { version = "0.13.12", features = ["serde1"] }

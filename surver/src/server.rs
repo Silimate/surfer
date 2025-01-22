@@ -17,7 +17,9 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::mpsc::Sender;
 use std::sync::{Arc, RwLock};
 use tokio::net::TcpListener;
-use wellen::{viewers, FileFormat, Hierarchy, Signal, SignalRef, Time};
+use wellen::{
+    viewers, CompressedSignal, CompressedTimeTable, FileFormat, Hierarchy, Signal, SignalRef, Time,
+};
 
 use crate::{
     Status, BINCODE_OPTIONS, HTTP_SERVER_KEY, HTTP_SERVER_VALUE_SURFER, SURFER_VERSION,
@@ -91,21 +93,22 @@ fn get_hierarchy(shared: Arc<ReadOnly>) -> Result<Vec<u8>> {
 async fn get_timetable(state: Arc<RwLock<State>>) -> Result<Vec<u8>> {
     // poll to see when the time table is available
     #[allow(unused_assignments)]
-    let mut raw = vec![];
+    let mut table = vec![];
     loop {
         {
             let state = state.read().unwrap();
             if !state.timetable.is_empty() {
-                raw = BINCODE_OPTIONS.serialize(&state.timetable)?;
+                table = state.timetable.clone();
                 break;
             }
         }
         tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
     }
-    let compressed = lz4_flex::compress_prepend_size(&raw);
+    let raw_size = table.len() * std::mem::size_of::<Time>();
+    let compressed = BINCODE_OPTIONS.serialize(&CompressedTimeTable::compress(&table))?;
     info!(
         "Sending timetable. {} raw, {} compressed.",
-        bytesize::ByteSize::b(raw.len() as u64),
+        bytesize::ByteSize::b(raw_size as u64),
         bytesize::ByteSize::b(compressed.len() as u64)
     );
     Ok(compressed)
@@ -142,28 +145,31 @@ async fn get_signals(
     tx.send(ids.clone())?;
 
     // poll to see when all our ids are returned
-    let mut raw = BINCODE_OPTIONS.serialize(&(num_ids as u64))?;
+    let mut data = vec![];
+    leb128::write::unsigned(&mut data, num_ids as u64)?;
+    let mut raw_size = 0;
     loop {
         tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
         {
             let state = state.read().unwrap();
             if ids.iter().all(|id| state.signals.contains_key(id)) {
                 for id in ids {
-                    raw.append(&mut BINCODE_OPTIONS.serialize(&id)?);
-                    raw.append(&mut BINCODE_OPTIONS.serialize(&state.signals[&id])?);
+                    let signal = &state.signals[&id];
+                    raw_size += BINCODE_OPTIONS.serialize(signal)?.len();
+                    let comp = CompressedSignal::compress(signal);
+                    data.append(&mut BINCODE_OPTIONS.serialize(&comp)?);
                 }
                 break;
             }
         };
     }
-    let compressed = lz4_flex::compress_prepend_size(&raw);
     info!(
         "Sending {} signals. {} raw, {} compressed.",
         num_ids,
-        bytesize::ByteSize::b(raw.len() as u64),
-        bytesize::ByteSize::b(compressed.len() as u64)
+        bytesize::ByteSize::b(raw_size as u64),
+        bytesize::ByteSize::b(data.len() as u64)
     );
-    Ok(compressed)
+    Ok(data)
 }
 
 const CONTENT_TYPE: &str = "Content-Type";
