@@ -10,7 +10,7 @@ use surfer_translation_types::{VariableType, VariableValue};
 use crate::cxxrtl_container::CxxrtlContainer;
 use crate::message::BodyResult;
 use crate::time::{TimeScale, TimeUnit};
-use crate::wellen::{var_to_meta, LoadSignalsCmd, LoadSignalsResult, WellenContainer};
+use crate::wellen::{LoadSignalsCmd, LoadSignalsResult, WellenContainer};
 
 pub type FieldRef = surfer_translation_types::FieldRef<VarId, ScopeId>;
 pub type ScopeRef = surfer_translation_types::ScopeRef<ScopeId>;
@@ -372,14 +372,11 @@ impl WaveContainer {
         }
     }
 
-    pub fn variable_meta<'a>(&'a self, r: &'a VariableRef) -> Result<VariableMeta> {
+    pub fn variable_meta<'a>(&'a self, variable: &'a VariableRef) -> Result<VariableMeta> {
         match self {
-            WaveContainer::Wellen(f) => {
-                let var = f.get_var(r)?;
-                Ok(var_to_meta(var, f.get_enum_map(var), r))
-            }
+            WaveContainer::Wellen(f) => f.variable_to_meta(variable),
             WaveContainer::Empty => bail!("Getting meta from empty wave container"),
-            WaveContainer::Cxxrtl(c) => c.lock().unwrap().variable_meta(r),
+            WaveContainer::Cxxrtl(c) => c.lock().unwrap().variable_meta(variable),
         }
     }
 

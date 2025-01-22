@@ -515,6 +515,25 @@ impl WellenContainer {
         }
         out
     }
+
+    pub fn variable_to_meta(&self, variable: &VariableRef) -> Result<VariableMeta> {
+        let var = self.get_var(variable)?;
+        let encoding = match var.signal_encoding() {
+            SignalEncoding::String => VariableEncoding::String,
+            SignalEncoding::Real => VariableEncoding::Real,
+            SignalEncoding::BitVector(_) => VariableEncoding::BitVector,
+        };
+        Ok(VariableMeta {
+            var: variable.clone(),
+            num_bits: var.length(),
+            variable_type: Some(VariableType::from_wellen_type(var.var_type())),
+            variable_type_name: var.vhdl_type_name(&self.hierarchy).map(|s| s.to_string()),
+            index: var.index().map(VariableIndex::from_wellen_type),
+            direction: Some(VariableDirection::from_wellen_direction(var.direction())),
+            enum_map: self.get_enum_map(var),
+            encoding,
+        })
+    }
 }
 
 fn scope_type_to_string(tpe: ScopeType) -> &'static str {
@@ -560,27 +579,6 @@ fn convert_variable_value(value: wellen::SignalValue) -> VariableValue {
         }
         wellen::SignalValue::String(value) => VariableValue::String(value.to_string()),
         wellen::SignalValue::Real(value) => VariableValue::String(format!("{value}")),
-    }
-}
-
-pub(crate) fn var_to_meta(
-    var: &Var,
-    enum_map: HashMap<String, String>,
-    r: &VariableRef,
-) -> VariableMeta {
-    let encoding = match var.signal_encoding() {
-        SignalEncoding::String => VariableEncoding::String,
-        SignalEncoding::Real => VariableEncoding::Real,
-        SignalEncoding::BitVector(_) => VariableEncoding::BitVector,
-    };
-    VariableMeta {
-        var: r.clone(),
-        num_bits: var.length(),
-        variable_type: Some(VariableType::from_wellen_type(var.var_type())),
-        index: var.index().map(VariableIndex::from_wellen_type),
-        direction: Some(VariableDirection::from_wellen_direction(var.direction())),
-        enum_map,
-        encoding,
     }
 }
 

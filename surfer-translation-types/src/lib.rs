@@ -172,6 +172,8 @@ pub struct VariableMeta<VarId, ScopeId> {
     pub num_bits: Option<u32>,
     /// Type of the variable in the HDL (on a best effort basis).
     pub variable_type: Option<VariableType>,
+    /// Type name of variable, if available
+    pub variable_type_name: Option<String>,
     pub index: Option<VariableIndex>,
     pub direction: Option<VariableDirection>,
     pub enum_map: HashMap<String, String>,

@@ -677,6 +677,16 @@ snapshot_ui_with_file_and_msgs! {ghw_from_ghdl_suite_loads, "examples/tb_recv.gh
     Message::AddScope(ScopeRef::from_strs(&["tb_recv", "dut"]), false),
 ]}
 
+// This GHW file was generated with GHDL using VHDL fixed_pkg.
+snapshot_ui_with_file_and_msgs! {fixedpoint_translator_selected, "examples/vhdlfixed.ghw", [
+    Message::AddScope(ScopeRef::from_strs(&["constantadder_fixed_tb", "dut"]), false),
+]}
+
+// This FST file was generated with NVC using VHDL numeric_std.
+snapshot_ui_with_file_and_msgs! {signed_translator_selected, "examples/vhdlsigned.fst", [
+    Message::AddScope(ScopeRef::from_strs(&["constantadder_tb", "dut"]), false),
+]}
+
 #[cfg(feature = "spade")]
 snapshot_ui_with_file_spade_and_msgs! {
     spade_translation_works,

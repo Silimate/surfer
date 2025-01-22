@@ -653,3 +653,14 @@ fn check_single_wordlength(num_bits: Option<u32>, required: u32) -> Result<Trans
         Ok(TranslationPreference::No)
     }
 }
+
+fn match_variable_type_name(variable_type_name: &Option<String>, candidates: &[String]) -> bool {
+    if let Some(type_name) = variable_type_name {
+        for candidate in candidates {
+            if type_name.eq_ignore_ascii_case(candidate) {
+                return true;
+            }
+        }
+    }
+    false
+}
