@@ -270,7 +270,7 @@ pub enum Message {
 
     /// Variable dragging messages
     VariableDragStarted(DisplayedItemIndex),
-    VariableDragTargetChanged(DisplayedItemIndex),
+    VariableDragTargetChanged(crate::displayed_item_tree::TargetPosition),
     VariableDragFinished,
     AddDraggedVariables(Vec<VariableRef>),
     /// Unpauses the simulation if the wave source supports this kind of interactivity. Otherwise
@@ -300,6 +300,19 @@ pub enum Message {
     Undo(usize),
     /// Redo the last n changes
     Redo(usize),
+    DumpTree,
+    GroupNew {
+        name: Option<String>,
+        target_position: Option<crate::displayed_item_tree::TargetPosition>,
+        items: Option<Vec<DisplayedItemRef>>,
+    },
+    GroupDissolve(Option<DisplayedItemRef>),
+    GroupFold(Option<DisplayedItemRef>),
+    GroupUnfold(Option<DisplayedItemRef>),
+    GroupFoldRecursive(Option<DisplayedItemRef>),
+    GroupUnfoldRecursive(Option<DisplayedItemRef>),
+    GroupFoldAll,
+    GroupUnfoldAll,
     /// WCP Server
     StartWcpServer(Option<String>),
     StopWcpServer,

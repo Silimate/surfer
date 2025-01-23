@@ -70,10 +70,10 @@ impl WaveData {
     // FIXME: This function should probably not be here, we should instead update ItemDrawingInfo to
     // have this info
     fn get_item_y(&self, y: &GraphicsY) -> Option<f32> {
-        self.displayed_items_order
-            .iter()
+        self.items_tree
+            .iter_visible()
             .zip(&self.drawing_infos)
-            .find(|(item, _info)| **item == y.item)
+            .find(|(node, _info)| node.item == y.item)
             .map(|(_, info)| match y.anchor {
                 Anchor::Top => info.top(),
                 Anchor::Center => info.top() + (info.bottom() - info.top()) / 2.,

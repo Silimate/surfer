@@ -112,7 +112,7 @@ impl State {
                                 Message::ItemSelectRange(DisplayedItemIndex(
                                     self.waves
                                         .as_ref()
-                                        .map_or(0, |w| w.displayed_items_order.len() - 1),
+                                        .map_or(0, |w| w.items_tree.iter_visible().count() - 1),
                                 )),
                                 Message::UnfocusItem,
                             ]));
@@ -250,11 +250,19 @@ impl State {
                     }
                     (Key::Delete | Key::X, true, false, false) => {
                         if let Some(waves) = &self.waves {
-                            let mut remove_ids =
-                                waves.selected_items.clone().into_iter().collect::<Vec<_>>();
-                            if let Some(focus) = waves.focused_item {
-                                remove_ids.append(&mut vec![waves.displayed_items_order[focus.0]]);
+                            let mut remove_ids = waves
+                                .items_tree
+                                .iter_selected()
+                                .map(|i| i.item)
+                                .collect::<Vec<_>>();
+                            if let Some(node) = waves.focused_item.and_then(|focus| {
+                                waves.items_tree.get_visible(
+                                    crate::displayed_item_tree::VisibleItemIndex(focus.0),
+                                )
+                            }) {
+                                remove_ids.push(node.item)
                             }
+
                             msgs.push(Message::RemoveItems(remove_ids));
                         }
                     }

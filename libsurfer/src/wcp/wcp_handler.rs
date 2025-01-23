@@ -91,6 +91,9 @@ impl State {
                                             .unwrap_or(item.display_name.clone()),
                                         "Stream".to_string(),
                                     ),
+                                    DisplayedItem::Group(item) => {
+                                        (item.name.clone(), "Group".to_string())
+                                    }
                                 };
                                 items.push(ItemInfo {
                                     name,
@@ -118,7 +121,7 @@ impl State {
                                 .map(|n| VariableRef::from_hierarchy_string(n))
                                 .collect_vec();
                             let (cmd, ids) =
-                                waves.add_variables(&self.sys.translators, variable_refs);
+                                waves.add_variables(&self.sys.translators, variable_refs, None);
                             if let Some(cmd) = cmd {
                                 self.load_variables(cmd);
                             }
@@ -143,7 +146,8 @@ impl State {
 
                             let variables =
                                 waves.inner.as_waves().unwrap().variables_in_scope(&scope);
-                            let (cmd, ids) = waves.add_variables(&self.sys.translators, variables);
+                            let (cmd, ids) =
+                                waves.add_variables(&self.sys.translators, variables, None);
                             if let Some(cmd) = cmd {
                                 self.load_variables(cmd);
                             }
@@ -324,6 +328,11 @@ impl State {
     }
 
     fn get_displayed_items(&self, waves: &WaveData) -> Vec<DisplayedItemRef> {
-        waves.displayed_items_order.iter().copied().collect_vec()
+        // TODO check call sites since visible items may now differ from loaded items
+        waves
+            .items_tree
+            .iter_visible()
+            .map(|node| node.item)
+            .collect_vec()
     }
 }

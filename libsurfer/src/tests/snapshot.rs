@@ -1031,7 +1031,7 @@ snapshot_ui_with_file_and_msgs! {selection_extend_change_color, "examples/counte
     Message::AddScope(ScopeRef::from_strs(&["tb"]), false),
     Message::FocusItem(DisplayedItemIndex(2)),
     Message::MoveFocus(MoveDir::Up, 1, true),
-    Message::ItemColorChange(None, Some("blue".to_string())),
+    Message::ItemColorChange(None, Some("Blue".to_string())),
 ]}
 
 snapshot_ui!(regex_error_indication, || {

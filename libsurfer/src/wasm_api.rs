@@ -235,8 +235,8 @@ pub async fn index_of_name(name: String) -> Option<usize> {
     perform_query(Box::new(move |state| {
         if let Some(waves) = &state.waves {
             let mut result = None;
-            for (idx, itemref) in waves.displayed_items_order.iter().enumerate() {
-                if let Some(item) = waves.displayed_items.get(itemref) {
+            for (idx, node) in waves.items_tree.iter().enumerate() {
+                if let Some(item) = waves.displayed_items.get(&node.item) {
                     let item_name = match item {
                         DisplayedItem::Variable(var) => var.variable_ref.full_path_string(),
                         _ => item.name().to_string(),

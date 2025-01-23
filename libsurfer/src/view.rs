@@ -109,12 +109,20 @@ pub struct StreamDrawingInfo {
     pub bottom: f32,
 }
 
+#[derive(Debug)]
+pub struct GroupDrawingInfo {
+    pub item_list_idx: DisplayedItemIndex,
+    pub top: f32,
+    pub bottom: f32,
+}
+
 pub enum ItemDrawingInfo {
     Variable(VariableDrawingInfo),
     Divider(DividerDrawingInfo),
     Marker(MarkerDrawingInfo),
     TimeLine(TimeLineDrawingInfo),
     Stream(StreamDrawingInfo),
+    Group(GroupDrawingInfo),
 }
 
 impl ItemDrawingInfo {
@@ -125,6 +133,7 @@ impl ItemDrawingInfo {
             ItemDrawingInfo::Marker(drawing_info) => drawing_info.top,
             ItemDrawingInfo::TimeLine(drawing_info) => drawing_info.top,
             ItemDrawingInfo::Stream(drawing_info) => drawing_info.top,
+            ItemDrawingInfo::Group(drawing_info) => drawing_info.top,
         }
     }
     pub fn bottom(&self) -> f32 {
@@ -134,6 +143,7 @@ impl ItemDrawingInfo {
             ItemDrawingInfo::Marker(drawing_info) => drawing_info.bottom,
             ItemDrawingInfo::TimeLine(drawing_info) => drawing_info.bottom,
             ItemDrawingInfo::Stream(drawing_info) => drawing_info.bottom,
+            ItemDrawingInfo::Group(drawing_info) => drawing_info.bottom,
         }
     }
     pub fn item_list_idx(&self) -> usize {
@@ -143,6 +153,7 @@ impl ItemDrawingInfo {
             ItemDrawingInfo::Marker(drawing_info) => drawing_info.item_list_idx.0,
             ItemDrawingInfo::TimeLine(drawing_info) => drawing_info.item_list_idx.0,
             ItemDrawingInfo::Stream(drawing_info) => drawing_info.item_list_idx.0,
+            ItemDrawingInfo::Group(drawing_info) => drawing_info.item_list_idx.0,
         }
     }
 }
@@ -330,7 +341,7 @@ impl State {
             self.add_statusbar_panel(ctx, &self.waves, &mut msgs);
         }
         if let Some(waves) = &self.waves {
-            if self.show_overview() && !waves.displayed_items_order.is_empty() {
+            if self.show_overview() && !waves.items_tree.is_empty() {
                 self.add_overview_panel(ctx, waves, &mut msgs);
             }
         }
@@ -855,8 +866,8 @@ impl State {
                     .waves
                     .as_ref()
                     .unwrap()
-                    .displayed_items_order
-                    .iter()
+                    .items_tree
+                    .iter_visible()
                     .enumerate()
                 {
                     let vidx = vidx.into();
@@ -872,102 +883,205 @@ impl State {
         );
     }
 
+    fn hierarchy_icon(
+        &self,
+        ui: &mut egui::Ui,
+        has_children: bool,
+        unfolded: bool,
+        alignment: Align,
+    ) -> egui::Response {
+        let (rect, response) = ui.allocate_exact_size(
+            Vec2::splat(self.config.layout.waveforms_text_size),
+            Sense::click(),
+        );
+        if !has_children {
+            return response;
+        }
+
+        // fixme: use the much nicer remixicon arrow? do a layout here and paint the galley into the rect?
+        // or alternatively: change how the tree iterator works and use the egui facilities (cross widget?)
+        let icon_rect = Rect::from_center_size(
+            rect.center(),
+            emath::vec2(rect.width(), rect.height()) * 0.75,
+        );
+        let mut points = vec![
+            icon_rect.left_top(),
+            icon_rect.right_top(),
+            icon_rect.center_bottom(),
+        ];
+        let rotation = emath::Rot2::from_angle(if unfolded {
+            0.0
+        } else if alignment == Align::LEFT {
+            -std::f32::consts::TAU / 4.0
+        } else {
+            std::f32::consts::TAU / 4.0
+        });
+        for p in &mut points {
+            *p = icon_rect.center() + rotation * (*p - icon_rect.center());
+        }
+
+        let style = ui.style().interact(&response);
+        ui.painter().add(egui::Shape::convex_polygon(
+            points,
+            style.fg_stroke.color,
+            egui::Stroke::NONE,
+        ));
+        response
+    }
+
     fn draw_item_list(&mut self, msgs: &mut Vec<Message>, ui: &mut egui::Ui, ctx: &egui::Context) {
         let mut item_offsets = Vec::new();
 
+        let any_groups = self
+            .waves
+            .as_ref()
+            .unwrap()
+            .items_tree
+            .iter()
+            .any(|node| node.level > 0);
         let alignment = self.get_name_alignment();
         ui.with_layout(Layout::top_down(alignment).with_cross_justify(true), |ui| {
-            for (vidx, displayed_item_id) in self
+            let available_rect = ui.available_rect_before_wrap();
+            for (
+                vidx,
+                (
+                    crate::displayed_item_tree::Node {
+                        item: displayed_item_id,
+                        level,
+                        unfolded,
+                        ..
+                    },
+                    _index,
+                    has_children,
+                    last,
+                ),
+            ) in self
                 .waves
                 .as_ref()
                 .unwrap()
-                .displayed_items_order
-                .iter()
+                .items_tree
+                .iter_visible_extra()
                 .enumerate()
             {
                 let vidx = vidx.into();
-                if let Some(displayed_item) = self
+                let Some(displayed_item) = self
                     .waves
                     .as_ref()
                     .unwrap()
                     .displayed_items
                     .get(displayed_item_id)
-                {
-                    let item_rect = match displayed_item {
-                        DisplayedItem::Variable(displayed_variable) => {
-                            let levels_to_force_expand =
-                                self.sys.items_to_expand.borrow().iter().find_map(
-                                    |(id, levels)| {
-                                        if displayed_item_id == id {
-                                            Some(*levels)
-                                        } else {
-                                            None
-                                        }
-                                    },
-                                );
+                else {
+                    continue;
+                };
 
-                            self.draw_variable(
+                ui.with_layout(
+                    if alignment == Align::LEFT {
+                        Layout::left_to_right(Align::TOP)
+                    } else {
+                        Layout::right_to_left(Align::TOP)
+                    },
+                    |ui| {
+                        ui.add_space(10.0 * *level as f32);
+                        if any_groups {
+                            let response =
+                                self.hierarchy_icon(ui, has_children, *unfolded, alignment);
+                            if response.clicked() {
+                                if *unfolded {
+                                    msgs.push(Message::GroupFold(Some(*displayed_item_id)));
+                                } else {
+                                    msgs.push(Message::GroupUnfold(Some(*displayed_item_id)));
+                                }
+                            }
+                        }
+
+                        let item_rect = match displayed_item {
+                            DisplayedItem::Variable(displayed_variable) => {
+                                let levels_to_force_expand =
+                                    self.sys.items_to_expand.borrow().iter().find_map(
+                                        |(id, levels)| {
+                                            if displayed_item_id == id {
+                                                Some(*levels)
+                                            } else {
+                                                None
+                                            }
+                                        },
+                                    );
+
+                                self.draw_variable(
+                                    msgs,
+                                    vidx,
+                                    displayed_item,
+                                    *displayed_item_id,
+                                    FieldRef::without_fields(
+                                        displayed_variable.variable_ref.clone(),
+                                    ),
+                                    &mut item_offsets,
+                                    &displayed_variable.info,
+                                    ui,
+                                    ctx,
+                                    levels_to_force_expand,
+                                )
+                            }
+                            DisplayedItem::Divider(_) => self.draw_plain_item(
                                 msgs,
                                 vidx,
-                                displayed_item,
                                 *displayed_item_id,
-                                FieldRef::without_fields(displayed_variable.variable_ref.clone()),
+                                displayed_item,
                                 &mut item_offsets,
-                                &displayed_variable.info,
                                 ui,
-                                ctx,
-                                levels_to_force_expand,
-                            )
-                        }
-                        DisplayedItem::Divider(_) => self.draw_plain_item(
-                            msgs,
-                            vidx,
-                            *displayed_item_id,
-                            displayed_item,
-                            &mut item_offsets,
-                            ui,
-                        ),
-                        DisplayedItem::Marker(_) => self.draw_plain_item(
-                            msgs,
-                            vidx,
-                            *displayed_item_id,
-                            displayed_item,
-                            &mut item_offsets,
-                            ui,
-                        ),
-                        DisplayedItem::Placeholder(_) => self.draw_plain_item(
-                            msgs,
-                            vidx,
-                            *displayed_item_id,
-                            displayed_item,
-                            &mut item_offsets,
-                            ui,
-                        ),
-                        DisplayedItem::TimeLine(_) => self.draw_plain_item(
-                            msgs,
-                            vidx,
-                            *displayed_item_id,
-                            displayed_item,
-                            &mut item_offsets,
-                            ui,
-                        ),
-                        DisplayedItem::Stream(_) => self.draw_plain_item(
-                            msgs,
-                            vidx,
-                            *displayed_item_id,
-                            displayed_item,
-                            &mut item_offsets,
-                            ui,
-                        ),
-                    };
-                    self.draw_drag_target(
-                        msgs,
-                        vidx,
-                        item_rect,
-                        ui,
-                        vidx.0 == self.waves.as_ref().unwrap().displayed_items_order.len() - 1,
-                    );
-                };
+                            ),
+                            DisplayedItem::Marker(_) => self.draw_plain_item(
+                                msgs,
+                                vidx,
+                                *displayed_item_id,
+                                displayed_item,
+                                &mut item_offsets,
+                                ui,
+                            ),
+                            DisplayedItem::Placeholder(_) => self.draw_plain_item(
+                                msgs,
+                                vidx,
+                                *displayed_item_id,
+                                displayed_item,
+                                &mut item_offsets,
+                                ui,
+                            ),
+                            DisplayedItem::TimeLine(_) => self.draw_plain_item(
+                                msgs,
+                                vidx,
+                                *displayed_item_id,
+                                displayed_item,
+                                &mut item_offsets,
+                                ui,
+                            ),
+                            DisplayedItem::Stream(_) => self.draw_plain_item(
+                                msgs,
+                                vidx,
+                                *displayed_item_id,
+                                displayed_item,
+                                &mut item_offsets,
+                                ui,
+                            ),
+                            DisplayedItem::Group(_) => self.draw_plain_item(
+                                msgs,
+                                vidx,
+                                *displayed_item_id,
+                                displayed_item,
+                                &mut item_offsets,
+                                ui,
+                            ),
+                        };
+                        // expand to the left, but not over the icon size
+                        let mut expanded_rect = item_rect;
+                        expanded_rect.set_left(
+                            available_rect.left()
+                                + self.config.layout.waveforms_text_size
+                                + ui.spacing().item_spacing.x,
+                        );
+                        expanded_rect.set_right(available_rect.right());
+                        self.draw_drag_target(msgs, vidx, expanded_rect, available_rect, ui, last);
+                    },
+                );
             }
         });
 
@@ -1262,6 +1376,92 @@ impl State {
         }
     }
 
+    fn draw_variable_label(
+        &self,
+        vidx: DisplayedItemIndex,
+        displayed_item: &DisplayedItem,
+        displayed_id: DisplayedItemRef,
+        field: FieldRef,
+        msgs: &mut Vec<Message>,
+        ui: &mut egui::Ui,
+        ctx: &egui::Context,
+    ) -> egui::Response {
+        let style = ui.style_mut();
+        let text_color: Color32;
+        if self.item_is_focused(vidx) {
+            style.visuals.selection.bg_fill = self.config.theme.accent_info.background;
+            text_color = self.config.theme.accent_info.foreground;
+        } else if self.item_is_selected(displayed_id) {
+            style.visuals.selection.bg_fill = self.config.theme.selected_elements_colors.background;
+            text_color = self.config.theme.selected_elements_colors.foreground;
+        } else {
+            style.visuals.selection.bg_fill = self.config.theme.primary_ui_color.background;
+            text_color = self.config.theme.primary_ui_color.foreground;
+        }
+
+        let mut layout_job = LayoutJob::default();
+        displayed_item.add_to_layout_job(
+            &text_color,
+            style,
+            &mut layout_job,
+            Some(&field),
+            &self.config,
+        );
+
+        let mut variable_label = ui
+            .selectable_label(
+                self.item_is_selected(displayed_id) || self.item_is_focused(vidx),
+                WidgetText::LayoutJob(layout_job),
+            )
+            .interact(Sense::drag());
+
+        variable_label.context_menu(|ui| {
+            self.item_context_menu(Some(&field), msgs, ui, vidx);
+        });
+
+        if self.show_tooltip() {
+            let tooltip = if let Some(waves) = &self.waves {
+                if field.field.is_empty() {
+                    let wave_container = waves.inner.as_waves().unwrap();
+                    let meta = wave_container.variable_meta(&field.root).ok();
+                    variable_tooltip_text(&meta, &field.root)
+                } else {
+                    "From translator".to_string()
+                }
+            } else {
+                "No VCD loaded".to_string()
+            };
+            variable_label = variable_label.on_hover_text(tooltip);
+        }
+
+        if variable_label.clicked() {
+            if self
+                .waves
+                .as_ref()
+                .is_some_and(|w| w.focused_item.is_some_and(|f| f == vidx))
+            {
+                msgs.push(Message::UnfocusItem);
+            } else {
+                let modifiers = ctx.input(|i| i.modifiers);
+                if modifiers.ctrl {
+                    msgs.push(Message::ToggleItemSelected(Some(vidx)));
+                } else if modifiers.shift {
+                    msgs.push(Message::Batch(vec![
+                        Message::ItemSelectionClear,
+                        Message::ItemSelectRange(vidx),
+                    ]));
+                } else {
+                    msgs.push(Message::Batch(vec![
+                        Message::ItemSelectionClear,
+                        Message::FocusItem(vidx),
+                    ]));
+                }
+            }
+        }
+
+        variable_label
+    }
+
     #[allow(clippy::too_many_arguments)]
     fn draw_variable(
         &self,
@@ -1276,84 +1476,6 @@ impl State {
         ctx: &egui::Context,
         levels_to_force_expand: Option<usize>,
     ) -> Rect {
-        let mut draw_label = |ui: &mut egui::Ui| {
-            let style = ui.style_mut();
-            let text_color: Color32;
-            if self.item_is_focused(vidx) {
-                style.visuals.selection.bg_fill = self.config.theme.accent_info.background;
-                text_color = self.config.theme.accent_info.foreground;
-            } else if self.item_is_selected(displayed_id) {
-                style.visuals.selection.bg_fill =
-                    self.config.theme.selected_elements_colors.background;
-                text_color = self.config.theme.selected_elements_colors.foreground;
-            } else {
-                style.visuals.selection.bg_fill = self.config.theme.primary_ui_color.background;
-                text_color = self.config.theme.primary_ui_color.foreground;
-            }
-
-            let mut layout_job = LayoutJob::default();
-            displayed_item.add_to_layout_job(
-                &text_color,
-                style,
-                &mut layout_job,
-                Some(&field),
-                &self.config,
-            );
-
-            let mut variable_label = ui
-                .selectable_label(
-                    self.item_is_selected(displayed_id) || self.item_is_focused(vidx),
-                    WidgetText::LayoutJob(layout_job),
-                )
-                .interact(Sense::drag());
-
-            variable_label.context_menu(|ui| {
-                self.item_context_menu(Some(&field), msgs, ui, vidx);
-            });
-
-            if self.show_tooltip() {
-                let tooltip = if let Some(waves) = &self.waves {
-                    if field.field.is_empty() {
-                        let wave_container = waves.inner.as_waves().unwrap();
-                        let meta = wave_container.variable_meta(&field.root).ok();
-                        variable_tooltip_text(&meta, &field.root)
-                    } else {
-                        "From translator".to_string()
-                    }
-                } else {
-                    "No VCD loaded".to_string()
-                };
-                variable_label = variable_label.on_hover_text(tooltip);
-            }
-
-            if variable_label.clicked() {
-                if self
-                    .waves
-                    .as_ref()
-                    .is_some_and(|w| w.focused_item.is_some_and(|f| f == vidx))
-                {
-                    msgs.push(Message::UnfocusItem);
-                } else {
-                    let modifiers = ctx.input(|i| i.modifiers);
-                    if modifiers.ctrl {
-                        msgs.push(Message::ToggleItemSelected(Some(vidx)));
-                    } else if modifiers.shift {
-                        msgs.push(Message::Batch(vec![
-                            Message::ItemSelectionClear,
-                            Message::ItemSelectRange(vidx),
-                        ]));
-                    } else {
-                        msgs.push(Message::Batch(vec![
-                            Message::ItemSelectionClear,
-                            Message::FocusItem(vidx),
-                        ]));
-                    }
-                }
-            }
-
-            variable_label
-        };
-
         let displayed_field_ref = DisplayedFieldRef {
             item: displayed_id,
             field: field.field.clone(),
@@ -1370,32 +1492,48 @@ impl State {
                     header.set_open(level > 0);
                 }
 
-                let response = header
-                    .show_header(ui, |ui| {
-                        ui.with_layout(
-                            Layout::top_down(Align::LEFT).with_cross_justify(true),
-                            draw_label,
-                        );
-                    })
-                    .body(|ui| {
-                        for (name, info) in subfields {
-                            let mut new_path = field.clone();
-                            new_path.field.push(name.clone());
-                            self.draw_variable(
-                                msgs,
-                                vidx,
-                                displayed_item,
-                                displayed_id,
-                                new_path,
-                                drawing_infos,
-                                info,
-                                ui,
-                                ctx,
-                                levels_to_force_expand.map(|l| l.saturating_sub(1)),
-                            );
-                        }
-                    });
-
+                let response = ui
+                    .with_layout(
+                        Layout::top_down(Align::LEFT).with_cross_justify(true),
+                        |ui| {
+                            header
+                                .show_header(ui, |ui| {
+                                    ui.with_layout(
+                                        Layout::top_down(Align::LEFT).with_cross_justify(true),
+                                        |ui| {
+                                            self.draw_variable_label(
+                                                vidx,
+                                                displayed_item,
+                                                displayed_id,
+                                                field.clone(),
+                                                msgs,
+                                                ui,
+                                                ctx,
+                                            )
+                                        },
+                                    );
+                                })
+                                .body(|ui| {
+                                    for (name, info) in subfields {
+                                        let mut new_path = field.clone();
+                                        new_path.field.push(name.clone());
+                                        self.draw_variable(
+                                            msgs,
+                                            vidx,
+                                            displayed_item,
+                                            displayed_id,
+                                            new_path,
+                                            drawing_infos,
+                                            info,
+                                            ui,
+                                            ctx,
+                                            levels_to_force_expand.map(|l| l.saturating_sub(1)),
+                                        );
+                                    }
+                                })
+                        },
+                    )
+                    .inner;
                 drawing_infos.push(ItemDrawingInfo::Variable(VariableDrawingInfo {
                     displayed_field_ref,
                     field_ref: field.clone(),
@@ -1410,7 +1548,15 @@ impl State {
             | VariableInfo::Clock
             | VariableInfo::String
             | VariableInfo::Real => {
-                let label = draw_label(ui);
+                let label = self.draw_variable_label(
+                    vidx,
+                    displayed_item,
+                    displayed_id,
+                    field.clone(),
+                    msgs,
+                    ui,
+                    ctx,
+                );
                 self.draw_drag_source(msgs, vidx, &label);
                 drawing_infos.push(ItemDrawingInfo::Variable(VariableDrawingInfo {
                     displayed_field_ref,
@@ -1428,86 +1574,94 @@ impl State {
         &self,
         msgs: &mut Vec<Message>,
         vidx: DisplayedItemIndex,
-        item_rect: Rect,
+        expanded_rect: Rect,
+        available_rect: Rect,
         ui: &mut egui::Ui,
         last: bool,
     ) {
-        // Add default margin as it was removed when creating the frame
-        let rect_with_margin = Rect {
-            min: item_rect.min - ui.spacing().item_spacing / 2f32,
-            max: item_rect.max + ui.spacing().item_spacing / 2f32,
-        };
-
-        let vertical_translation_up = Vec2 {
-            x: 0f32,
-            y: -rect_with_margin.height() / 2f32,
-        };
-
-        let before_rect = Rect {
-            min: ui
-                .painter()
-                .round_pos_to_pixels(rect_with_margin.left_top()),
-            max: ui
-                .painter()
-                .round_pos_to_pixels(rect_with_margin.right_bottom() + vertical_translation_up),
-        };
-
-        let expanded_after_rect = if last {
-            ui.max_rect().max
-        } else {
-            rect_with_margin.right_bottom()
-        };
-
-        let after_rect = Rect {
-            min: ui.painter().round_pos_to_pixels(before_rect.left_bottom()),
-            max: ui.painter().round_pos_to_pixels(expanded_after_rect),
-        };
-
-        let half_line_width = Vec2 {
-            x: 0f32,
-            y: self.config.theme.linewidth / 2f32,
-        };
-
-        let vidx = vidx.0;
-        if self.drag_started {
-            if let Some(DisplayedItemIndex(source_idx)) = self.drag_source_idx {
-                let target_idx = if ui.rect_contains_pointer(before_rect) {
-                    ui.painter().rect_filled(
-                        Rect {
-                            min: rect_with_margin.left_top() - half_line_width,
-                            max: rect_with_margin.right_top() + half_line_width,
-                        },
-                        egui::Rounding::ZERO,
-                        self.config.theme.drag_hint_color,
-                    );
-                    if vidx > source_idx {
-                        vidx - 1
-                    } else {
-                        vidx
-                    }
-                } else if ui.rect_contains_pointer(after_rect) {
-                    ui.painter().rect_filled(
-                        Rect {
-                            min: rect_with_margin.left_bottom() - half_line_width,
-                            max: rect_with_margin.right_bottom() + half_line_width,
-                        },
-                        egui::Rounding::ZERO,
-                        self.config.theme.drag_hint_color,
-                    );
-                    if vidx < source_idx {
-                        vidx + 1
-                    } else {
-                        vidx
-                    }
-                } else {
-                    source_idx
-                };
-
-                if source_idx != target_idx {
-                    msgs.push(Message::VariableDragTargetChanged(target_idx.into()));
-                }
-            }
+        if !self.drag_started || self.drag_source_idx.is_none() {
+            return;
         }
+
+        let waves = self
+            .waves
+            .as_ref()
+            .expect("waves not available, but expected");
+
+        // expanded_rect is just for the label, leaving us with gaps between lines
+        // expand to counter that
+        let rect_with_margin = expanded_rect.expand2(ui.spacing().item_spacing / 2f32);
+
+        // collision check rect need to be
+        // - limited to half the height of the item text
+        // - extended to cover the empty space to the left
+        // - for the last element, expanded till the bottom
+        let before_rect = ui.painter().round_rect_to_pixels(
+            rect_with_margin
+                .with_max_y(rect_with_margin.left_center().y)
+                .with_min_x(available_rect.left()),
+        );
+        let after_rect = ui.painter().round_rect_to_pixels(
+            if last {
+                rect_with_margin.with_max_y(ui.max_rect().max.y)
+            } else {
+                rect_with_margin
+            }
+            .with_min_y(rect_with_margin.left_center().y)
+            .with_min_x(available_rect.left()),
+        );
+
+        let (insert_vidx, line_y) = if ui.rect_contains_pointer(before_rect) {
+            (vidx, rect_with_margin.top())
+        } else if ui.rect_contains_pointer(after_rect) {
+            ((vidx.0 + 1).into(), rect_with_margin.bottom())
+        } else {
+            return;
+        };
+
+        let level_range = waves.items_tree.valid_levels_visible(
+            crate::displayed_item_tree::VisibleItemIndex(insert_vidx.0),
+            |node| {
+                node.unfolded
+                    && matches!(
+                        waves.displayed_items.get(&node.item),
+                        Some(DisplayedItem::Group(..))
+                    )
+            },
+        );
+
+        let left_x = |level: u8| -> f32 { rect_with_margin.left() + level as f32 * 10.0 };
+        let Some(insert_level) = level_range.find_or_last(|&level| {
+            let mut rect = expanded_rect.with_min_x(left_x(level));
+            rect.set_width(10.0);
+            if level == 0 {
+                rect.set_left(available_rect.left());
+            }
+            ui.rect_contains_pointer(rect)
+        }) else {
+            return;
+        };
+
+        ui.painter().line_segment(
+            [
+                Pos2::new(left_x(insert_level), line_y),
+                Pos2::new(rect_with_margin.right(), line_y),
+            ],
+            Stroke::new(
+                self.config.theme.linewidth,
+                self.config.theme.drag_hint_color,
+            ),
+        );
+        msgs.push(Message::VariableDragTargetChanged(
+            crate::displayed_item_tree::TargetPosition {
+                before: waves
+                    .items_tree
+                    .to_displayed(crate::displayed_item_tree::VisibleItemIndex(insert_vidx.0))
+                    .map(|index| index.0)
+                    .unwrap_or_else(|| waves.items_tree.len()),
+                level: insert_level,
+            },
+        ));
     }
 
     fn draw_plain_item(
@@ -1592,6 +1746,13 @@ impl State {
                     bottom: label.rect.bottom(),
                 }));
             }
+            DisplayedItem::Group(_) => {
+                drawing_infos.push(ItemDrawingInfo::Group(GroupDrawingInfo {
+                    item_list_idx: vidx,
+                    top: label.rect.top(),
+                    bottom: label.rect.bottom(),
+                }));
+            }
             &DisplayedItem::Variable(_) => {}
             &DisplayedItem::Placeholder(_) => {}
         }
@@ -1619,7 +1780,10 @@ impl State {
 
     fn item_is_selected(&self, id: DisplayedItemRef) -> bool {
         if let Some(waves) = &self.waves {
-            waves.selected_items.contains(&id)
+            waves
+                .items_tree
+                .iter_visible_selected()
+                .any(|node| node.item == id)
         } else {
             false
         }
@@ -1720,9 +1884,6 @@ impl State {
                         }
                     }
 
-                    ItemDrawingInfo::Divider(_) => {
-                        ui.label("");
-                    }
                     ItemDrawingInfo::Marker(numbered_cursor) => {
                         if let Some(cursor) = &waves.cursor {
                             let delta = time_string(
@@ -1743,10 +1904,10 @@ impl State {
                             ui.label("");
                         }
                     }
-                    ItemDrawingInfo::TimeLine(_) => {
-                        ui.label("");
-                    }
-                    ItemDrawingInfo::Stream(_) => {
+                    ItemDrawingInfo::Divider(_)
+                    | ItemDrawingInfo::TimeLine(_)
+                    | ItemDrawingInfo::Stream(_)
+                    | ItemDrawingInfo::Group(_) => {
                         ui.label("");
                     }
                 }
@@ -1833,7 +1994,15 @@ impl State {
     ) -> Color32 {
         *waves
             .displayed_items
-            .get(&waves.displayed_items_order[drawing_info.item_list_idx()])
+            .get(
+                &waves
+                    .items_tree
+                    .get_visible(crate::displayed_item_tree::VisibleItemIndex(
+                        drawing_info.item_list_idx(),
+                    ))
+                    .unwrap()
+                    .item,
+            )
             .and_then(super::displayed_item::DisplayedItem::background_color)
             .and_then(|color| self.config.theme.get_color(&color))
             .unwrap_or_else(|| self.get_default_alternating_background_color(vidx))

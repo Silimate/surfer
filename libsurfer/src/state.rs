@@ -12,6 +12,7 @@ use crate::{
     data_container::DataContainer,
     dialog::ReloadWaveformDialog,
     displayed_item::DisplayedItemIndex,
+    displayed_item_tree::DisplayedItemTree,
     message::Message,
     system_state::SystemState,
     time::{TimeStringFormatting, TimeUnit},
@@ -58,7 +59,7 @@ pub struct State {
     pub(crate) waves: Option<WaveData>,
     pub(crate) drag_started: bool,
     pub(crate) drag_source_idx: Option<DisplayedItemIndex>,
-    pub(crate) drag_target_idx: Option<DisplayedItemIndex>,
+    pub(crate) drag_target_idx: Option<crate::displayed_item_tree::TargetPosition>,
 
     pub(crate) previous_waves: Option<WaveData>,
 
@@ -253,27 +254,9 @@ impl State {
             .cloned()
             .collect_vec();
 
-        let variable_len = variables.len();
-        let items_len = waves.displayed_items_order.len();
-        if let (Some(cmd), _) = waves.add_variables(&self.sys.translators, variables) {
+        // TODO add parameter to add_variables, insert to (self.drag_target_idx, self.drag_source_idx)
+        if let (Some(cmd), _) = waves.add_variables(&self.sys.translators, variables, None) {
             self.load_variables(cmd);
-        }
-        if let (Some(DisplayedItemIndex(target_idx)), Some(_)) =
-            (self.drag_target_idx, self.drag_source_idx)
-        {
-            for i in 0..variable_len {
-                let to_insert = self
-                    .waves
-                    .as_mut()
-                    .unwrap()
-                    .displayed_items_order
-                    .remove(items_len + i);
-                self.waves
-                    .as_mut()
-                    .unwrap()
-                    .displayed_items_order
-                    .insert(target_idx + i, to_insert);
-            }
         }
 
         if recursive {
@@ -320,14 +303,13 @@ impl State {
                     source: filename,
                     format,
                     active_scope: None,
-                    displayed_items_order: vec![],
+                    items_tree: DisplayedItemTree::default(),
                     displayed_items: HashMap::new(),
                     viewports,
                     cursor: None,
                     markers: HashMap::new(),
                     focused_item: None,
                     focused_transaction: (None, None),
-                    selected_items: HashSet::new(),
                     default_variable_name_type: self.config.default_variable_name_type,
                     display_variable_indices: self.show_variable_indices(),
                     scroll_offset: 0.,
@@ -369,14 +351,13 @@ impl State {
             source: filename,
             format,
             active_scope: None,
-            displayed_items_order: vec![],
+            items_tree: DisplayedItemTree::default(),
             displayed_items: HashMap::new(),
             viewports,
             cursor: None,
             markers: HashMap::new(),
             focused_item: None,
             focused_transaction: (None, None),
-            selected_items: HashSet::new(),
             default_variable_name_type: self.config.default_variable_name_type,
             display_variable_indices: self.show_variable_indices(),
             scroll_offset: 0.,
@@ -511,8 +492,8 @@ impl State {
         {
             mem::swap(&mut waves.active_scope, &mut new_waves.active_scope);
             let items = std::mem::take(&mut new_waves.displayed_items);
-            let items_order = std::mem::take(&mut new_waves.displayed_items_order);
-            let load_commands = waves.update_with_items(&items, items_order, &self.sys.translators);
+            let items_tree = std::mem::take(&mut new_waves.items_tree);
+            let load_commands = waves.update_with_items(&items, items_tree, &self.sys.translators);
 
             mem::swap(&mut waves.viewports, &mut new_waves.viewports);
             mem::swap(&mut waves.cursor, &mut new_waves.cursor);
@@ -606,8 +587,7 @@ impl State {
             message,
             focused_item: waves.focused_item,
             focused_transaction: waves.focused_transaction.clone(),
-            selected_items: waves.selected_items.clone(),
-            displayed_item_order: waves.displayed_items_order.clone(),
+            items_tree: waves.items_tree.clone(),
             displayed_items: waves.displayed_items.clone(),
             markers: waves.markers.clone(),
         }

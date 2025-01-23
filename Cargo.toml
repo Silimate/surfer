@@ -14,6 +14,7 @@ rust-version = "1.82"
 repository = "https://gitlab.com/surfer-project/surfer/"
 
 [profile.release]
+debug = true
 opt-level = 3 # fast and small wasm
 lto = true
 
@@ -35,12 +36,12 @@ clap = { version = "4.5.23", features = ['derive'] }
 color-eyre = "0.6.3"
 config = { version = "0.15.4", default-features = false, features = ["toml"] }
 derive_more = { version = "1.0", default-features = false, features = [
-  "add",
-  "add_assign",
-  "mul",
-  "display",
-  "not",
-  "debug"
+    "add",
+    "add_assign",
+    "mul",
+    "display",
+    "not",
+    "debug"
 ] }
 ecolor = "0.30"
 emath = "0.30"

@@ -41,9 +41,9 @@ impl FromStr for VariableNameType {
 impl WaveData {
     pub fn compute_variable_display_names(&mut self) {
         let full_names = self
-            .displayed_items_order
+            .items_tree
             .iter()
-            .map(|id| self.displayed_items.get(id))
+            .map(|node| self.displayed_items.get(&node.item))
             .filter_map(|item| match item {
                 Some(DisplayedItem::Variable(variable)) => Some(variable.variable_ref.clone()),
                 _ => None,
@@ -51,9 +51,9 @@ impl WaveData {
             .unique()
             .collect_vec();
 
-        for id in &self.displayed_items_order {
+        for crate::displayed_item_tree::Node { item, .. } in self.items_tree.iter() {
             self.displayed_items
-                .entry(*id)
+                .entry(*item)
                 .and_modify(|item| match item {
                     DisplayedItem::Variable(variable) => {
                         let local_name = variable.variable_ref.name.clone();
@@ -121,13 +121,14 @@ impl WaveData {
                     DisplayedItem::TimeLine(_) => {}
                     DisplayedItem::Placeholder(_) => {}
                     DisplayedItem::Stream(_) => {}
+                    DisplayedItem::Group(_) => {}
                 });
         }
     }
 
     pub fn force_variable_name_type(&mut self, name_type: VariableNameType) {
-        for id in &self.displayed_items_order {
-            self.displayed_items.entry(*id).and_modify(|item| {
+        for crate::displayed_item_tree::Node { item, .. } in self.items_tree.iter() {
+            self.displayed_items.entry(*item).and_modify(|item| {
                 if let DisplayedItem::Variable(variable) = item {
                     variable.display_name_type = name_type;
                 }

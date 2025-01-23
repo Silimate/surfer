@@ -92,25 +92,27 @@ pub fn get_parser(state: &State) -> Command<Message> {
     };
     let displayed_items = match &state.waves {
         Some(v) => v
-            .displayed_items_order
+            .items_tree
             .iter()
             .enumerate()
-            .map(|(idx, item_id)| {
-                let idx = DisplayedItemIndex(idx);
-                let item = &v.displayed_items[item_id];
-                match item {
-                    DisplayedItem::Variable(var) => format!(
-                        "{}_{}",
-                        uint_idx_to_alpha_idx(idx, v.displayed_items.len()),
-                        var.variable_ref.full_path_string()
-                    ),
-                    _ => format!(
-                        "{}_{}",
-                        uint_idx_to_alpha_idx(idx, v.displayed_items.len()),
-                        item.name()
-                    ),
-                }
-            })
+            .map(
+                |(idx, crate::displayed_item_tree::Node { item: item_id, .. })| {
+                    let idx = DisplayedItemIndex(idx);
+                    let item = &v.displayed_items[item_id];
+                    match item {
+                        DisplayedItem::Variable(var) => format!(
+                            "{}_{}",
+                            uint_idx_to_alpha_idx(idx, v.displayed_items.len()),
+                            var.variable_ref.full_path_string()
+                        ),
+                        _ => format!(
+                            "{}_{}",
+                            uint_idx_to_alpha_idx(idx, v.displayed_items.len()),
+                            item.name()
+                        ),
+                    }
+                },
+            )
             .collect_vec(),
         None => vec![],
     };
@@ -161,10 +163,10 @@ pub fn get_parser(state: &State) -> Command<Message> {
 
     let markers = if let Some(waves) = &state.waves {
         waves
-            .displayed_items_order
+            .items_tree
             .iter()
-            .map(|id| {
-                let x = waves.displayed_items.get(id);
+            .map(|crate::displayed_item_tree::Node { item, .. }| {
+                let x = waves.displayed_items.get(item);
                 x
             })
             .filter_map(|item| match item {
@@ -269,6 +271,13 @@ pub fn get_parser(state: &State) -> Command<Message> {
             "preference_set_arrow_key_bindings",
             "goto_cursor",
             "goto_marker",
+            "dump_tree",
+            "group_marked",
+            "group_dissolve",
+            "group_fold_recursive",
+            "group_unfold_recursive",
+            "group_fold_all",
+            "group_unfold_all",
             "save_state",
             "save_state_as",
             "timeline_add",
@@ -646,6 +655,31 @@ pub fn get_parser(state: &State) -> Command<Message> {
                             .map(|idx| Command::Terminal(Message::GoToMarkerPosition(idx, 0)))
                     }),
                 ),
+                "dump_tree" => Some(Command::Terminal(Message::DumpTree)),
+                "group_marked" => optional_single_word(
+                    vec![],
+                    Box::new(|name| {
+                        let trimmed = name.trim();
+                        Some(Command::Terminal(Message::GroupNew {
+                            name: if !trimmed.is_empty() {
+                                Some(trimmed.to_owned())
+                            } else {
+                                None
+                            },
+                            target_position: None,
+                            items: None,
+                        }))
+                    }),
+                ),
+                "group_dissolve" => Some(Command::Terminal(Message::GroupDissolve(None))),
+                "group_fold_recursive" => {
+                    Some(Command::Terminal(Message::GroupFoldRecursive(None)))
+                }
+                "group_unfold_recursive" => {
+                    Some(Command::Terminal(Message::GroupUnfoldRecursive(None)))
+                }
+                "group_fold_all" => Some(Command::Terminal(Message::GroupFoldAll)),
+                "group_unfold_all" => Some(Command::Terminal(Message::GroupUnfoldAll)),
                 "show_controls" => Some(Command::Terminal(Message::SetKeyHelpVisible(true))),
                 "show_mouse_gestures" => {
                     Some(Command::Terminal(Message::SetGestureHelpVisible(true)))

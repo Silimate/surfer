@@ -336,13 +336,16 @@ impl State {
 
         let translators = &self.sys.translators;
         let commands = waves
-            .displayed_items_order
-            .par_iter()
-            .map(|id| (*id, waves.displayed_items.get(id)))
+            .items_tree
+            .iter_visible()
+            .map(|node| (node.item, waves.displayed_items.get(&node.item)))
             .filter_map(|(id, item)| match item {
                 Some(DisplayedItem::Variable(variable_ref)) => Some((id, variable_ref)),
                 _ => None,
             })
+            .collect::<Vec<_>>()
+            .par_iter()
+            .cloned()
             // Iterate over the variables, generating draw commands for all the
             // subfields
             .filter_map(|(id, displayed_variable)| {
@@ -414,7 +417,10 @@ impl State {
         let num_timestamps = waves.num_timestamps().unwrap_or(1.into());
 
         let displayed_streams = waves
-            .displayed_items_order
+            .items_tree
+            .iter_visible()
+            .map(|node| node.item)
+            .collect::<Vec<_>>()
             .par_iter()
             .map(|id| waves.displayed_items.get(id))
             .filter_map(|item| match item {
@@ -839,9 +845,11 @@ impl State {
             let y_offset = drawing_info.top() - zero_y;
 
             let displayed_item = waves
-                .displayed_items_order
-                .get(drawing_info.item_list_idx())
-                .and_then(|id| waves.displayed_items.get(id));
+                .items_tree
+                .get_visible(crate::displayed_item_tree::VisibleItemIndex(
+                    drawing_info.item_list_idx(),
+                ))
+                .and_then(|node| waves.displayed_items.get(&node.item));
             let color = displayed_item
                 .and_then(super::displayed_item::DisplayedItem::color)
                 .and_then(|color| self.config.theme.get_color(&color));
@@ -915,6 +923,7 @@ impl State {
                     );
                 }
                 ItemDrawingInfo::Stream(_) => {}
+                ItemDrawingInfo::Group(_) => {}
             }
         }
     }
@@ -965,9 +974,11 @@ impl State {
             let y_offset = drawing_info.top() - zero_y;
 
             let displayed_item = waves
-                .displayed_items_order
-                .get(drawing_info.item_list_idx())
-                .and_then(|id| waves.displayed_items.get(id));
+                .items_tree
+                .get_visible(crate::displayed_item_tree::VisibleItemIndex(
+                    drawing_info.item_list_idx(),
+                ))
+                .and_then(|node| waves.displayed_items.get(&node.item));
             let color = displayed_item
                 .and_then(super::displayed_item::DisplayedItem::color)
                 .and_then(|color| self.config.theme.get_color(&color));
@@ -1087,6 +1098,7 @@ impl State {
                 ItemDrawingInfo::Variable(_) => {}
                 ItemDrawingInfo::Divider(_) => {}
                 ItemDrawingInfo::Marker(_) => {}
+                ItemDrawingInfo::Group(_) => {}
             }
         }
 
@@ -1379,8 +1391,11 @@ impl State {
         let timestamp = viewport.as_time_bigint(pos.x, frame_width, &num_timestamps);
         if let Some(utimestamp) = timestamp.to_biguint() {
             if let Some(vidx) = waves.get_item_at_y(pos.y) {
-                if let Some(id) = waves.displayed_items_order.get(vidx) {
-                    if let DisplayedItem::Variable(variable) = &waves.displayed_items[id] {
+                if let Some(node) = waves
+                    .items_tree
+                    .get_visible(crate::displayed_item_tree::VisibleItemIndex(vidx))
+                {
+                    if let DisplayedItem::Variable(variable) = &waves.displayed_items[&node.item] {
                         if let Ok(Some(res)) = waves
                             .inner
                             .as_waves()
