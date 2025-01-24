@@ -1023,6 +1023,7 @@ mod tests {
                 node.item_ref.0 == 2
             })
             .expect("move must succeed");
+        println!("{:?}", tree.items);
         assert_eq!(new_idx.0, 2);
         assert_eq!(tree.items[3].level, 0);
         assert_eq!(
@@ -1033,6 +1034,7 @@ mod tests {
         let new_idx = tree
             .move_item(new_idx, MoveDir::Down, |node| node.item_ref.0 == 2)
             .expect("move must succeed");
+        println!("{:?}", tree.items);
         assert_eq!(new_idx.0, 3);
         assert_eq!(tree.items[3].level, 0);
         assert_eq!(
