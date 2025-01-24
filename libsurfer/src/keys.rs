@@ -3,7 +3,7 @@ use egui::{Context, Event, Key, Modifiers};
 use emath::Vec2;
 
 use crate::config::ArrowKeyBindings;
-use crate::displayed_item::DisplayedItemIndex;
+use crate::displayed_item_tree::VisibleItemIndex;
 use crate::{
     message::Message,
     wave_data::{PER_SCROLL_EVENT, SCROLL_EVENTS_PER_PAGE},
@@ -108,8 +108,8 @@ impl State {
                     (Key::A, true, false, false) => {
                         if modifiers.command {
                             msgs.push(Message::Batch(vec![
-                                Message::FocusItem(DisplayedItemIndex(0)),
-                                Message::ItemSelectRange(DisplayedItemIndex(
+                                Message::FocusItem(VisibleItemIndex(0)),
+                                Message::ItemSelectRange(VisibleItemIndex(
                                     self.waves
                                         .as_ref()
                                         .map_or(0, |w| w.items_tree.iter_visible().count() - 1),
@@ -255,11 +255,10 @@ impl State {
                                 .iter_selected()
                                 .map(|i| i.item)
                                 .collect::<Vec<_>>();
-                            if let Some(node) = waves.focused_item.and_then(|focus| {
-                                waves.items_tree.get_visible(
-                                    crate::displayed_item_tree::VisibleItemIndex(focus.0),
-                                )
-                            }) {
+                            if let Some(node) = waves
+                                .focused_item
+                                .and_then(|focus| waves.items_tree.get_visible(focus))
+                            {
                                 remove_ids.push(node.item)
                             }
 

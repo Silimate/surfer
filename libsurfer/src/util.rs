@@ -1,14 +1,13 @@
 //! Utility functions.
+use crate::displayed_item_tree::VisibleItemIndex;
 #[cfg(not(target_arch = "wasm32"))]
 use std::path::{Path, PathBuf};
-
-use crate::displayed_item::DisplayedItemIndex;
 
 /// This function takes a number and converts it's digits into the range
 /// a-p. This is nice because it makes for some easily typed ids.
 /// The function first formats the number as a hex digit and then performs
 /// the mapping.
-pub fn uint_idx_to_alpha_idx(idx: DisplayedItemIndex, nvariables: usize) -> String {
+pub fn uint_idx_to_alpha_idx(idx: VisibleItemIndex, nvariables: usize) -> String {
     // this calculates how many hex digits we need to represent nvariables
     // unwrap because the result should always fit into usize and because
     // we are not going to display millions of character ids.
@@ -38,7 +37,7 @@ pub fn uint_idx_to_alpha_idx(idx: DisplayedItemIndex, nvariables: usize) -> Stri
 }
 
 /// This is the reverse function to uint_idx_to_alpha_idx.
-pub fn alpha_idx_to_uint_idx(idx: String) -> Option<DisplayedItemIndex> {
+pub fn alpha_idx_to_uint_idx(idx: String) -> Option<VisibleItemIndex> {
     let mapped = idx
         .chars()
         .map(|c| match c {
@@ -63,7 +62,7 @@ pub fn alpha_idx_to_uint_idx(idx: String) -> Option<DisplayedItemIndex> {
         .collect::<String>();
     usize::from_str_radix(&mapped, 16)
         .ok()
-        .map(DisplayedItemIndex)
+        .map(VisibleItemIndex)
 }
 
 /// This function searches upward from `start` for directories or files matching `item`. It returns

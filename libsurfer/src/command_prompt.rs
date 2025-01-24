@@ -3,7 +3,7 @@ use std::iter::zip;
 use std::{fs, str::FromStr};
 
 use crate::config::{ArrowKeyBindings, HierarchyStyle};
-use crate::displayed_item::DisplayedItemIndex;
+use crate::displayed_item_tree::{Node, VisibleItemIndex};
 use crate::lazy_static;
 use crate::transaction_container::StreamScopeRef;
 use crate::wave_container::{ScopeRef, ScopeRefExt, VariableRef, VariableRefExt};
@@ -93,26 +93,24 @@ pub fn get_parser(state: &State) -> Command<Message> {
     let displayed_items = match &state.waves {
         Some(v) => v
             .items_tree
-            .iter()
+            .iter_visible()
             .enumerate()
-            .map(
-                |(idx, crate::displayed_item_tree::Node { item: item_id, .. })| {
-                    let idx = DisplayedItemIndex(idx);
-                    let item = &v.displayed_items[item_id];
-                    match item {
-                        DisplayedItem::Variable(var) => format!(
-                            "{}_{}",
-                            uint_idx_to_alpha_idx(idx, v.displayed_items.len()),
-                            var.variable_ref.full_path_string()
-                        ),
-                        _ => format!(
-                            "{}_{}",
-                            uint_idx_to_alpha_idx(idx, v.displayed_items.len()),
-                            item.name()
-                        ),
-                    }
-                },
-            )
+            .map(|(vidx, Node { item: item_id, .. })| {
+                let idx = VisibleItemIndex(vidx);
+                let item = &v.displayed_items[item_id];
+                match item {
+                    DisplayedItem::Variable(var) => format!(
+                        "{}_{}",
+                        uint_idx_to_alpha_idx(idx, v.displayed_items.len()),
+                        var.variable_ref.full_path_string()
+                    ),
+                    _ => format!(
+                        "{}_{}",
+                        uint_idx_to_alpha_idx(idx, v.displayed_items.len()),
+                        item.name()
+                    ),
+                }
+            })
             .collect_vec(),
         None => vec![],
     };

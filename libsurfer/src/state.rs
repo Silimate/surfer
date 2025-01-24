@@ -4,6 +4,7 @@ use std::{
     path::PathBuf,
 };
 
+use crate::displayed_item_tree::VisibleItemIndex;
 #[cfg(feature = "spade")]
 use crate::translation::spade::SpadeTranslator;
 use crate::{
@@ -12,7 +13,6 @@ use crate::{
     config,
     data_container::DataContainer,
     dialog::ReloadWaveformDialog,
-    displayed_item::DisplayedItemIndex,
     displayed_item_tree::DisplayedItemTree,
     message::Message,
     system_state::SystemState,
@@ -59,7 +59,7 @@ pub struct State {
 
     pub(crate) waves: Option<WaveData>,
     pub(crate) drag_started: bool,
-    pub(crate) drag_source_idx: Option<DisplayedItemIndex>,
+    pub(crate) drag_source_idx: Option<VisibleItemIndex>,
     pub(crate) drag_target_idx: Option<crate::displayed_item_tree::TargetPosition>,
 
     pub(crate) previous_waves: Option<WaveData>,
@@ -88,7 +88,7 @@ pub struct State {
     pub(crate) variable_name_filter_focused: bool,
     pub(crate) variable_name_filter_type: VariableNameFilterType,
     pub(crate) variable_name_filter_case_insensitive: bool,
-    pub(crate) rename_target: Option<DisplayedItemIndex>,
+    pub(crate) rename_target: Option<VisibleItemIndex>,
     //Sidepanel width
     pub(crate) sidepanel_width: Option<f32>,
     /// UI zoom factor if set by the user

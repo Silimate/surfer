@@ -81,9 +81,8 @@ use wcp::{proto::WcpCSMessage, proto::WcpEvent, proto::WcpSCMessage};
 
 use crate::config::{SurferConfig, SurferTheme};
 use crate::dialog::ReloadWaveformDialog;
-use crate::displayed_item::{
-    DisplayedFieldRef, DisplayedItem, DisplayedItemIndex, DisplayedItemRef, FieldFormat,
-};
+use crate::displayed_item::{DisplayedFieldRef, DisplayedItem, DisplayedItemRef, FieldFormat};
+use crate::displayed_item_tree::VisibleItemIndex;
 use crate::drawing_canvas::TxDrawingCommands;
 use crate::message::{HeaderResult, Message};
 use crate::transaction_container::{StreamScopeRef, TransactionRef, TransactionStreamRef};
@@ -228,7 +227,7 @@ impl Channels {
 /// Stores the current canvas state to enable undo/redo operations
 struct CanvasState {
     message: String,
-    focused_item: Option<DisplayedItemIndex>,
+    focused_item: Option<VisibleItemIndex>,
     focused_transaction: (Option<TransactionRef>, Option<Transaction>),
     items_tree: DisplayedItemTree,
     displayed_items: HashMap<DisplayedItemRef, DisplayedItem>,
@@ -419,24 +418,18 @@ impl State {
                 };
 
                 if let Some(select_from) = waves.focused_item {
-                    waves.items_tree.xselect_visible_range(
-                        crate::displayed_item_tree::VisibleItemIndex(select_from.0),
-                        crate::displayed_item_tree::VisibleItemIndex(select_to.0),
-                        true,
-                    );
+                    waves
+                        .items_tree
+                        .xselect_visible_range(select_from, select_to, true);
                 }
             }
-            Message::ToggleItemSelected(idx) => {
+            Message::ToggleItemSelected(vidx) => {
                 let Some(waves) = self.waves.as_mut() else {
                     return;
                 };
-                if let Some(node) = idx
+                if let Some(node) = vidx
                     .or(waves.focused_item)
-                    .and_then(|vidx| {
-                        waves
-                            .items_tree
-                            .to_displayed(crate::displayed_item_tree::VisibleItemIndex(vidx.0))
-                    })
+                    .and_then(|vidx| waves.items_tree.to_displayed(vidx))
                     .and_then(|item| waves.items_tree.get_mut(item))
                 {
                     node.selected = !node.selected
@@ -458,12 +451,12 @@ impl State {
                 let Some(waves) = self.waves.as_mut() else {
                     return;
                 };
-                let idx = vidx.or(waves.focused_item);
-                if let Some(idx) = idx {
-                    self.rename_target = Some(idx);
+                let vidx = vidx.or(waves.focused_item);
+                if let Some(vidx) = vidx {
+                    self.rename_target = Some(vidx);
                     *self.sys.item_renaming_string.borrow_mut() = waves
                         .items_tree
-                        .get_visible(crate::displayed_item_tree::VisibleItemIndex(idx.0))
+                        .get_visible(vidx)
                         .and_then(|node| waves.displayed_items.get(&node.item))
                         .map(displayed_item::DisplayedItem::name)
                         .unwrap_or_default();
@@ -478,36 +471,32 @@ impl State {
                     return;
                 }
 
-                let new_focus_idx = match direction {
+                let new_focus_vidx = VisibleItemIndex(match direction {
                     MoveDir::Up => waves
                         .focused_item
-                        .map(|dii| dii.0)
-                        .map_or(Some(visible_item_cnt - 1), |focused| {
-                            Some(focused - count.clamp(0, focused))
-                        }),
-                    MoveDir::Down => waves.focused_item.map(|dii| dii.0).map_or(
-                        Some((count - 1).clamp(0, visible_item_cnt - 1)),
-                        |focused| Some((focused + count).clamp(0, visible_item_cnt - 1)),
-                    ),
-                };
+                        .map(|vidx| vidx.0)
+                        .unwrap_or(visible_item_cnt)
+                        .saturating_sub(count),
+                    MoveDir::Down => waves
+                        .focused_item
+                        .map(|vidx| vidx.0)
+                        .unwrap_or(usize::MAX)
+                        .wrapping_add(count)
+                        .clamp(0, visible_item_cnt - 1),
+                });
 
-                if let Some(new_focus_idx) = new_focus_idx {
-                    if select {
-                        if let Some(idx) = waves.focused_item.and_then(|focused| {
-                            waves.items_tree.to_displayed(
-                                crate::displayed_item_tree::VisibleItemIndex(focused.0),
-                            )
-                        }) {
-                            waves.items_tree.xselect(idx, true)
-                        };
-                        if let Some(idx) = waves.items_tree.to_displayed(
-                            crate::displayed_item_tree::VisibleItemIndex(new_focus_idx),
-                        ) {
-                            waves.items_tree.xselect(idx, true)
-                        }
+                if select {
+                    if let Some(idx) = waves
+                        .focused_item
+                        .and_then(|vidx| waves.items_tree.to_displayed(vidx))
+                    {
+                        waves.items_tree.xselect(idx, true)
+                    };
+                    if let Some(idx) = waves.items_tree.to_displayed(new_focus_vidx) {
+                        waves.items_tree.xselect(idx, true)
                     }
                 }
-                waves.focused_item = new_focus_idx.map(|idx| idx.into());
+                waves.focused_item = Some(new_focus_vidx);
             }
             Message::FocusTransaction(tx_ref, tx) => {
                 if tx_ref.is_some() && tx.is_none() {
@@ -557,28 +546,23 @@ impl State {
                 }
             }
             Message::RemoveItemByIndex(vidx) => {
-                let undo_msg = self
-                    .waves
-                    .as_ref()
-                    .and_then(|waves| {
-                        waves
-                            .items_tree
-                            .get_visible(crate::displayed_item_tree::VisibleItemIndex(vidx.0))
-                            .and_then(|node| waves.displayed_items.get(&node.item))
-                            .map(displayed_item::DisplayedItem::name)
-                            .map(|name| format!("Remove item {name}"))
+                let waves = self.waves.as_ref();
+                let item_ref = waves
+                    .and_then(|waves| waves.items_tree.get_visible(vidx))
+                    .map(|node| node.item);
+                let undo_msg = item_ref
+                    .and_then(|item_ref| {
+                        waves.and_then(|waves| waves.displayed_items.get(&item_ref))
                     })
+                    .map(displayed_item::DisplayedItem::name)
+                    .map(|name| format!("Remove item {name}"))
                     .unwrap_or("Remove one item".to_string());
                 self.save_current_canvas(undo_msg);
                 if let Some(waves) = self.waves.as_mut() {
-                    let Some(node) = waves
-                        .items_tree
-                        .get_visible(crate::displayed_item_tree::VisibleItemIndex(vidx.0))
-                    else {
-                        return;
-                    };
-                    waves.remove_displayed_item(node.item); // TODO going back and forth between index and ref
-                }
+                    if let Some(item_ref) = item_ref {
+                        waves.remove_displayed_item(item_ref)
+                    }
+                };
             }
             Message::RemoveItems(mut items) => {
                 let undo_msg = self
@@ -586,13 +570,10 @@ impl State {
                     .as_ref()
                     .and_then(|waves| {
                         if items.len() == 1 {
-                            items.first().and_then(|idx| {
+                            items.first().and_then(|item_ref| {
                                 waves
-                                    .items_tree
-                                    .get_visible(crate::displayed_item_tree::VisibleItemIndex(
-                                        idx.0,
-                                    ))
-                                    .and_then(|node| waves.displayed_items.get(&node.item))
+                                    .displayed_items
+                                    .get(item_ref)
                                     .map(|item| format!("Remove item {}", item.name()))
                             })
                         } else {
@@ -617,21 +598,10 @@ impl State {
                 let Some(waves) = self.waves.as_mut() else {
                     return;
                 };
-                let Some(DisplayedItemIndex(vidx)) = waves.focused_item else {
+                let Some(vidx) = waves.focused_item else {
                     return;
                 };
-                let Some(idx) = waves
-                    .items_tree
-                    .to_displayed(crate::displayed_item_tree::VisibleItemIndex(vidx))
-                else {
-                    return;
-                };
-                let focused_item_ref = waves
-                    .items_tree
-                    .get(idx)
-                    .expect("we must have an element here, checked above")
-                    .item;
-                let mut vidx = crate::displayed_item_tree::VisibleItemIndex(vidx);
+                let mut vidx = vidx;
                 for _ in 0..count {
                     vidx = waves
                         .items_tree
@@ -643,11 +613,7 @@ impl State {
                         })
                         .expect("move failed for unknown reason");
                 }
-                waves.focused_item = waves
-                    .items_tree
-                    .iter_visible()
-                    .find_position(|node| node.item == focused_item_ref)
-                    .map(|(idx, _)| DisplayedItemIndex(idx));
+                waves.focused_item = waves.focused_item.and(Some(vidx));
             }
             Message::CanvasScroll {
                 delta,
@@ -771,11 +737,7 @@ impl State {
                 // convert focused item index to item ref
                 let focused = waves
                     .focused_item
-                    .and_then(|idx| {
-                        waves
-                            .items_tree
-                            .get_visible(crate::displayed_item_tree::VisibleItemIndex(idx.0))
-                    })
+                    .and_then(|vidx| waves.items_tree.get_visible(vidx))
                     .map(|node| node.item);
 
                 let mut redraw = false;
@@ -822,16 +784,13 @@ impl State {
                 ));
                 self.invalidate_draw_commands();
                 if let Some(waves) = self.waves.as_mut() {
-                    if let Some(DisplayedItemIndex(idx)) = vidx.or(waves.focused_item) {
-                        waves
-                            .items_tree
-                            .get_visible(crate::displayed_item_tree::VisibleItemIndex(idx))
-                            .map(|node| {
-                                waves
-                                    .displayed_items
-                                    .entry(node.item)
-                                    .and_modify(|item| item.set_color(color_name.clone()))
-                            });
+                    if let Some(vidx) = vidx.or(waves.focused_item) {
+                        waves.items_tree.get_visible(vidx).map(|node| {
+                            waves
+                                .displayed_items
+                                .entry(node.item)
+                                .and_modify(|item| item.set_color(color_name.clone()))
+                        });
                     }
                     if vidx.is_none() {
                         for node in waves.items_tree.iter_visible_selected() {
@@ -849,16 +808,13 @@ impl State {
                     name.clone().unwrap_or("default".into())
                 ));
                 if let Some(waves) = self.waves.as_mut() {
-                    if let Some(DisplayedItemIndex(idx)) = vidx.or(waves.focused_item) {
-                        waves
-                            .items_tree
-                            .get_visible(crate::displayed_item_tree::VisibleItemIndex(idx))
-                            .map(|node| {
-                                waves
-                                    .displayed_items
-                                    .entry(node.item)
-                                    .and_modify(|item| item.set_name(name))
-                            });
+                    if let Some(vidx) = vidx.or(waves.focused_item) {
+                        waves.items_tree.get_visible(vidx).map(|node| {
+                            waves
+                                .displayed_items
+                                .entry(node.item)
+                                .and_modify(|item| item.set_name(name))
+                        });
                     }
                 };
             }
@@ -868,15 +824,13 @@ impl State {
                     color_name.clone().unwrap_or("default".into())
                 ));
                 if let Some(waves) = self.waves.as_mut() {
-                    if let Some(DisplayedItemIndex(idx)) = vidx.or(waves.focused_item) {
-                        waves
-                            .items_tree
-                            .get_visible(crate::displayed_item_tree::VisibleItemIndex(idx))
-                            .map(|node| {
-                                waves.displayed_items.entry(node.item).and_modify(|item| {
-                                    item.set_background_color(color_name.clone())
-                                })
-                            });
+                    if let Some(vidx) = vidx.or(waves.focused_item) {
+                        waves.items_tree.get_visible(vidx).map(|node| {
+                            waves
+                                .displayed_items
+                                .entry(node.item)
+                                .and_modify(|item| item.set_background_color(color_name.clone()))
+                        });
                     }
                     if vidx.is_none() {
                         for node in waves.items_tree.iter_visible_selected() {
@@ -1433,11 +1387,8 @@ impl State {
                     return;
                 };
                 // checks if vidx is Some then use that, else try focused variable
-                if let Some(DisplayedItemIndex(vidx)) = vidx.or(waves.focused_item) {
-                    let Some(item_ref) = waves
-                        .items_tree
-                        .get_visible(crate::displayed_item_tree::VisibleItemIndex(vidx))
-                        .map(|node| node.item)
+                if let Some(vidx) = vidx.or(waves.focused_item) {
+                    let Some(item_ref) = waves.items_tree.get_visible(vidx).map(|node| node.item)
                     else {
                         return;
                     };
@@ -1614,7 +1565,7 @@ impl State {
                 self.drag_started = false;
 
                 // reordering
-                if let (Some(DisplayedItemIndex(source_vidx)), Some(target_position)) =
+                if let (Some(source_vidx), Some(target_position)) =
                     (self.drag_source_idx, self.drag_target_idx)
                 {
                     self.save_current_canvas("Drag item".to_string());
@@ -1623,11 +1574,9 @@ impl State {
                         return;
                     };
 
-                    let focused_index = waves.focused_item.and_then(|vidx| {
-                        waves
-                            .items_tree
-                            .to_displayed(crate::displayed_item_tree::VisibleItemIndex(vidx.0))
-                    });
+                    let focused_index = waves
+                        .focused_item
+                        .and_then(|vidx| waves.items_tree.to_displayed(vidx));
                     let focused_item_ref = focused_index
                         .and_then(|idx| waves.items_tree.get(idx))
                         .map(|node| node.item);
@@ -1642,11 +1591,8 @@ impl State {
                     if let Some(idx) = focused_index {
                         to_move.push(idx)
                     };
-                    if let Some(idx) = waves
-                        .items_tree
-                        .to_displayed(crate::displayed_item_tree::VisibleItemIndex(source_vidx))
-                    {
-                        to_move.push(idx)
+                    if let Some(vidx) = waves.items_tree.to_displayed(source_vidx) {
+                        to_move.push(vidx)
                     };
 
                     let _ = waves.items_tree.move_items(to_move, target_position);
@@ -1658,18 +1604,16 @@ impl State {
                                 .iter_visible()
                                 .position(|node| node.item == item_ref)
                         })
-                        .map(DisplayedItemIndex);
+                        .map(VisibleItemIndex);
                 }
                 self.drag_source_idx = None;
                 self.drag_target_idx = None;
             }
             Message::VariableValueToClipbord(vidx) => {
                 if let Some(waves) = &self.waves {
-                    if let Some(DisplayedItemIndex(vidx)) = vidx.or(waves.focused_item) {
-                        if let Some(item_ref) = waves
-                            .items_tree
-                            .get_visible(crate::displayed_item_tree::VisibleItemIndex(vidx))
-                            .map(|node| node.item)
+                    if let Some(vidx) = vidx.or(waves.focused_item) {
+                        if let Some(item_ref) =
+                            waves.items_tree.get_visible(vidx).map(|node| node.item)
                         {
                             let Some(DisplayedItem::Variable(_displayed_variable)) =
                                 waves.displayed_items.get(&item_ref)
@@ -1774,9 +1718,7 @@ impl State {
                     info!("moving focus item");
                     let focus_index = waves
                         .items_tree
-                        .to_displayed(crate::displayed_item_tree::VisibleItemIndex(
-                            waves.focused_item.expect("Inconsistent state").0,
-                        ))
+                        .to_displayed(waves.focused_item.expect("Inconsistent state"))
                         .expect("Inconsistent state");
                     item_refs.push(
                         waves
@@ -1874,9 +1816,7 @@ impl State {
                 if let Some(focused_item) = waves.focused_item {
                     let (_, focused_index, _, _) = waves
                         .items_tree
-                        .get_visible_extra(crate::displayed_item_tree::VisibleItemIndex(
-                            focused_item.0,
-                        ))
+                        .get_visible_extra(focused_item)
                         .expect("Inconsistent state");
                     if waves.items_tree.subtree_contains(item, focused_index) {
                         waves.focused_item = None;
@@ -1906,7 +1846,7 @@ impl State {
                 if let Some(focused_item) = waves.focused_item {
                     let focused_level = waves
                         .items_tree
-                        .get_visible(crate::displayed_item_tree::VisibleItemIndex(focused_item.0))
+                        .get_visible(focused_item)
                         .expect("Inconsistent state")
                         .level;
                     if !unfold && focused_level > 0 {

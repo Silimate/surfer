@@ -23,7 +23,7 @@ pub enum MoveResult {
 }
 
 /// N-th visible item, becomes invalid after any add/remove/move/fold/unfold operation
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Serialize, Deserialize)]
 pub struct VisibleItemIndex(pub usize);
 
 /// N-th item, may currently be invisible, becomes invalid after any add/remove/move operation
@@ -108,7 +108,7 @@ pub struct VisibleItemIteratorExtraInfo<'a> {
 }
 
 impl<'a> Iterator for VisibleItemIteratorExtraInfo<'a> {
-    type Item = (&'a Node, ItemIndex, bool, bool);
+    type Item = (&'a Node, ItemIndex, bool, bool); // TODO this should include the vidx
 
     fn next(&mut self) -> Option<Self::Item> {
         let this_idx = self.next_idx;

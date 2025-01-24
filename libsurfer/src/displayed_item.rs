@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 use surfer_translation_types::VariableInfo;
 
 use crate::config::SurferConfig;
+use crate::displayed_item_tree::VisibleItemIndex;
 use crate::transaction_container::TransactionStreamRef;
 use crate::wave_container::{FieldRef, VariableRef, VariableRefExt, WaveContainer};
 use crate::{
@@ -48,16 +49,6 @@ impl From<DisplayedItemRef> for DisplayedFieldRef {
             item,
             field: vec![],
         }
-    }
-}
-
-/// Index into [`WaveData::displayed_items_order`] vector
-#[derive(Serialize, Deserialize, Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub struct DisplayedItemIndex(pub usize);
-
-impl From<usize> for DisplayedItemIndex {
-    fn from(index: usize) -> Self {
-        DisplayedItemIndex(index)
     }
 }
 
@@ -421,7 +412,7 @@ impl DisplayedItem {
 pub fn draw_rename_window(
     ctx: &Context,
     msgs: &mut Vec<Message>,
-    idx: DisplayedItemIndex,
+    vidx: VisibleItemIndex,
     name: &mut String,
 ) {
     let mut open = true;
@@ -433,17 +424,17 @@ pub fn draw_rename_window(
             ui.vertical_centered(|ui| {
                 let response = ui.text_edit_singleline(name);
                 if response.lost_focus() && ui.input(|i| i.key_pressed(Key::Enter)) {
-                    msgs.push(Message::ItemNameChange(Some(idx), Some(name.clone())));
+                    msgs.push(Message::ItemNameChange(Some(vidx), Some(name.clone())));
                     msgs.push(Message::SetRenameItemVisible(false));
                 }
                 response.request_focus();
                 ui.horizontal(|ui| {
                     if ui.button("Rename").clicked() {
-                        msgs.push(Message::ItemNameChange(Some(idx), Some(name.clone())));
+                        msgs.push(Message::ItemNameChange(Some(vidx), Some(name.clone())));
                         msgs.push(Message::SetRenameItemVisible(false));
                     }
                     if ui.button("Default").clicked() {
-                        msgs.push(Message::ItemNameChange(Some(idx), None));
+                        msgs.push(Message::ItemNameChange(Some(vidx), None));
                         msgs.push(Message::SetRenameItemVisible(false));
                     }
                     if ui.button("Cancel").clicked() {

@@ -312,9 +312,7 @@ impl State {
         }) {
             let Some(item) = waves
                 .items_tree
-                .get_visible(crate::displayed_item_tree::VisibleItemIndex(
-                    drawing_info.item_list_idx.0,
-                )) // TODO store as VII
+                .get_visible(drawing_info.item_list_idx)
                 .and_then(|node| waves.displayed_items.get(&node.item))
             else {
                 return;

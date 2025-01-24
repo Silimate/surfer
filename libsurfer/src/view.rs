@@ -22,8 +22,9 @@ use surfer_translation_types::{
 #[cfg(feature = "performance_plot")]
 use crate::benchmark::NUM_PERF_SAMPLES;
 use crate::displayed_item::{
-    draw_rename_window, DisplayedFieldRef, DisplayedItem, DisplayedItemIndex, DisplayedItemRef,
+    draw_rename_window, DisplayedFieldRef, DisplayedItem, DisplayedItemRef,
 };
+use crate::displayed_item_tree::VisibleItemIndex;
 use crate::help::{
     draw_about_window, draw_control_help_window, draw_license_window, draw_quickstart_help_window,
 };
@@ -44,6 +45,7 @@ use crate::{
 };
 use crate::{config::SurferTheme, wave_container::VariableMeta};
 use crate::{data_container::VariableType as VarType, OUTSTANDING_TRANSACTIONS};
+
 pub struct DrawingContext<'a> {
     pub painter: &'a mut Painter,
     pub cfg: &'a DrawConfig,
@@ -74,21 +76,21 @@ impl DrawConfig {
 pub struct VariableDrawingInfo {
     pub field_ref: FieldRef,
     pub displayed_field_ref: DisplayedFieldRef,
-    pub item_list_idx: DisplayedItemIndex,
+    pub item_list_idx: VisibleItemIndex,
     pub top: f32,
     pub bottom: f32,
 }
 
 #[derive(Debug)]
 pub struct DividerDrawingInfo {
-    pub item_list_idx: DisplayedItemIndex,
+    pub item_list_idx: VisibleItemIndex,
     pub top: f32,
     pub bottom: f32,
 }
 
 #[derive(Debug)]
 pub struct MarkerDrawingInfo {
-    pub item_list_idx: DisplayedItemIndex,
+    pub item_list_idx: VisibleItemIndex,
     pub top: f32,
     pub bottom: f32,
     pub idx: u8,
@@ -96,7 +98,7 @@ pub struct MarkerDrawingInfo {
 
 #[derive(Debug)]
 pub struct TimeLineDrawingInfo {
-    pub item_list_idx: DisplayedItemIndex,
+    pub item_list_idx: VisibleItemIndex,
     pub top: f32,
     pub bottom: f32,
 }
@@ -104,14 +106,14 @@ pub struct TimeLineDrawingInfo {
 #[derive(Debug)]
 pub struct StreamDrawingInfo {
     pub transaction_stream_ref: TransactionStreamRef,
-    pub item_list_idx: DisplayedItemIndex,
+    pub item_list_idx: VisibleItemIndex,
     pub top: f32,
     pub bottom: f32,
 }
 
 #[derive(Debug)]
 pub struct GroupDrawingInfo {
-    pub item_list_idx: DisplayedItemIndex,
+    pub item_list_idx: VisibleItemIndex,
     pub top: f32,
     pub bottom: f32,
 }
@@ -146,14 +148,14 @@ impl ItemDrawingInfo {
             ItemDrawingInfo::Group(drawing_info) => drawing_info.bottom,
         }
     }
-    pub fn item_list_idx(&self) -> usize {
+    pub fn item_list_idx(&self) -> VisibleItemIndex {
         match self {
-            ItemDrawingInfo::Variable(drawing_info) => drawing_info.item_list_idx.0,
-            ItemDrawingInfo::Divider(drawing_info) => drawing_info.item_list_idx.0,
-            ItemDrawingInfo::Marker(drawing_info) => drawing_info.item_list_idx.0,
-            ItemDrawingInfo::TimeLine(drawing_info) => drawing_info.item_list_idx.0,
-            ItemDrawingInfo::Stream(drawing_info) => drawing_info.item_list_idx.0,
-            ItemDrawingInfo::Group(drawing_info) => drawing_info.item_list_idx.0,
+            ItemDrawingInfo::Variable(drawing_info) => drawing_info.item_list_idx,
+            ItemDrawingInfo::Divider(drawing_info) => drawing_info.item_list_idx,
+            ItemDrawingInfo::Marker(drawing_info) => drawing_info.item_list_idx,
+            ItemDrawingInfo::TimeLine(drawing_info) => drawing_info.item_list_idx,
+            ItemDrawingInfo::Stream(drawing_info) => drawing_info.item_list_idx,
+            ItemDrawingInfo::Group(drawing_info) => drawing_info.item_list_idx,
         }
     }
 }
@@ -627,9 +629,9 @@ impl State {
         ));
         let _ = response.interact(egui::Sense::click_and_drag());
         response.drag_started().then(|| {
-            msgs.push(Message::VariableDragStarted(
-                self.waves.as_ref().unwrap().display_item_ref_counter.into(),
-            ))
+            msgs.push(Message::VariableDragStarted(VisibleItemIndex(
+                self.waves.as_ref().unwrap().display_item_ref_counter,
+            )))
         });
 
         response.drag_stopped().then(|| {
@@ -838,9 +840,9 @@ impl State {
                         response = response.on_hover_text(variable_tooltip_text(&meta, &variable));
                     }
                     response.drag_started().then(|| {
-                        msgs.push(Message::VariableDragStarted(
-                            self.waves.as_ref().unwrap().display_item_ref_counter.into(),
-                        ))
+                        msgs.push(Message::VariableDragStarted(VisibleItemIndex(
+                            self.waves.as_ref().unwrap().display_item_ref_counter,
+                        )))
                     });
                     response.drag_stopped().then(|| {
                         if ui.input(|i| i.pointer.hover_pos().unwrap_or_default().x)
@@ -873,7 +875,7 @@ impl State {
                     .iter_visible()
                     .enumerate()
                 {
-                    let vidx = vidx.into();
+                    let vidx = VisibleItemIndex(vidx);
                     ui.scope(|ui| {
                         ui.style_mut().visuals.selection.bg_fill =
                             self.config.theme.accent_warn.background;
@@ -966,7 +968,7 @@ impl State {
                 .iter_visible_extra()
                 .enumerate()
             {
-                let vidx = vidx.into();
+                let vidx = VisibleItemIndex(vidx);
                 let Some(displayed_item) = self
                     .waves
                     .as_ref()
@@ -1361,7 +1363,7 @@ impl State {
     fn draw_drag_source(
         &self,
         msgs: &mut Vec<Message>,
-        vidx: DisplayedItemIndex,
+        vidx: VisibleItemIndex,
         item_response: &egui::Response,
     ) {
         if item_response.dragged_by(egui::PointerButton::Primary)
@@ -1381,7 +1383,7 @@ impl State {
 
     fn draw_variable_label(
         &self,
-        vidx: DisplayedItemIndex,
+        vidx: VisibleItemIndex,
         displayed_item: &DisplayedItem,
         displayed_id: DisplayedItemRef,
         field: FieldRef,
@@ -1469,7 +1471,7 @@ impl State {
     fn draw_variable(
         &self,
         msgs: &mut Vec<Message>,
-        vidx: DisplayedItemIndex,
+        vidx: VisibleItemIndex,
         displayed_item: &DisplayedItem,
         displayed_id: DisplayedItemRef,
         field: FieldRef,
@@ -1576,7 +1578,7 @@ impl State {
     fn draw_drag_target(
         &self,
         msgs: &mut Vec<Message>,
-        vidx: DisplayedItemIndex,
+        vidx: VisibleItemIndex,
         expanded_rect: Rect,
         available_rect: Rect,
         ui: &mut egui::Ui,
@@ -1617,20 +1619,17 @@ impl State {
         let (insert_vidx, line_y) = if ui.rect_contains_pointer(before_rect) {
             (vidx, rect_with_margin.top())
         } else if ui.rect_contains_pointer(after_rect) {
-            ((vidx.0 + 1).into(), rect_with_margin.bottom())
+            (VisibleItemIndex(vidx.0 + 1), rect_with_margin.bottom())
         } else {
             return;
         };
 
-        let level_range = waves.items_tree.valid_levels_visible(
-            crate::displayed_item_tree::VisibleItemIndex(insert_vidx.0),
-            |node| {
-                matches!(
-                    waves.displayed_items.get(&node.item),
-                    Some(DisplayedItem::Group(..))
-                )
-            },
-        );
+        let level_range = waves.items_tree.valid_levels_visible(insert_vidx, |node| {
+            matches!(
+                waves.displayed_items.get(&node.item),
+                Some(DisplayedItem::Group(..))
+            )
+        });
 
         let left_x = |level: u8| -> f32 { rect_with_margin.left() + level as f32 * 10.0 };
         let Some(insert_level) = level_range.find_or_last(|&level| {
@@ -1658,7 +1657,7 @@ impl State {
             crate::displayed_item_tree::TargetPosition {
                 before: waves
                     .items_tree
-                    .to_displayed(crate::displayed_item_tree::VisibleItemIndex(insert_vidx.0))
+                    .to_displayed(insert_vidx)
                     .map(|index| index.0)
                     .unwrap_or_else(|| waves.items_tree.len()),
                 level: insert_level,
@@ -1669,7 +1668,7 @@ impl State {
     fn draw_plain_item(
         &self,
         msgs: &mut Vec<Message>,
-        vidx: DisplayedItemIndex,
+        vidx: VisibleItemIndex,
         displayed_id: DisplayedItemRef,
         displayed_item: &DisplayedItem,
         drawing_infos: &mut Vec<ItemDrawingInfo>,
@@ -1761,7 +1760,7 @@ impl State {
         label.rect
     }
 
-    fn get_alpha_focus_id(&self, vidx: DisplayedItemIndex) -> RichText {
+    fn get_alpha_focus_id(&self, vidx: VisibleItemIndex) -> RichText {
         let alpha_id = uint_idx_to_alpha_idx(
             vidx,
             self.waves
@@ -1772,7 +1771,7 @@ impl State {
         RichText::new(alpha_id).monospace()
     }
 
-    fn item_is_focused(&self, vidx: DisplayedItemIndex) -> bool {
+    fn item_is_focused(&self, vidx: VisibleItemIndex) -> bool {
         if let Some(waves) = &self.waves {
             waves.focused_item == Some(vidx)
         } else {
@@ -1838,7 +1837,7 @@ impl State {
                 .sorted_by_key(|o| o.top() as i32)
                 .enumerate()
             {
-                let vidx = vidx.into();
+                let vidx = VisibleItemIndex(vidx);
                 let next_y = ui.cursor().top();
                 // In order to align the text in this view with the variable tree,
                 // we need to keep track of how far away from the expected offset we are,
@@ -1992,16 +1991,14 @@ impl State {
         &self,
         waves: &WaveData,
         drawing_info: &ItemDrawingInfo,
-        vidx: DisplayedItemIndex,
+        vidx: VisibleItemIndex,
     ) -> Color32 {
         *waves
             .displayed_items
             .get(
                 &waves
                     .items_tree
-                    .get_visible(crate::displayed_item_tree::VisibleItemIndex(
-                        drawing_info.item_list_idx(),
-                    ))
+                    .get_visible(drawing_info.item_list_idx())
                     .unwrap()
                     .item,
             )
@@ -2010,7 +2007,7 @@ impl State {
             .unwrap_or_else(|| self.get_default_alternating_background_color(vidx))
     }
 
-    fn get_default_alternating_background_color(&self, vidx: DisplayedItemIndex) -> &Color32 {
+    fn get_default_alternating_background_color(&self, vidx: VisibleItemIndex) -> &Color32 {
         // Set background color
         if self.config.theme.alt_frequency != 0
             && (vidx.0 / self.config.theme.alt_frequency) % 2 == 1

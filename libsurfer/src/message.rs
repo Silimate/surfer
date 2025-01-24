@@ -9,6 +9,7 @@ use serde::Deserialize;
 use std::path::PathBuf;
 use surver::Status;
 
+use crate::displayed_item_tree::VisibleItemIndex;
 use crate::graphics::{Graphic, GraphicId};
 use crate::transaction_container::{
     StreamScopeRef, TransactionContainer, TransactionRef, TransactionStreamRef,
@@ -20,7 +21,7 @@ use crate::wave_source::CxxrtlKind;
 use crate::{
     clock_highlighting::ClockHighlightType,
     config::ArrowKeyBindings,
-    displayed_item::{DisplayedFieldRef, DisplayedItemIndex, DisplayedItemRef},
+    displayed_item::{DisplayedFieldRef, DisplayedItemRef},
     time::{TimeStringFormatting, TimeUnit},
     variable_name_type::VariableNameType,
     wave_container::{ScopeRef, VariableRef, WaveContainer},
@@ -67,12 +68,12 @@ pub enum Message {
     AddStreamOrGeneratorFromName(Option<StreamScopeRef>, String),
     AddAllFromStreamScope(String),
     InvalidateCount,
-    RemoveItemByIndex(DisplayedItemIndex),
+    RemoveItemByIndex(VisibleItemIndex),
     RemoveItems(Vec<DisplayedItemRef>),
-    FocusItem(DisplayedItemIndex),
-    ItemSelectRange(DisplayedItemIndex),
+    FocusItem(VisibleItemIndex),
+    ItemSelectRange(VisibleItemIndex),
     UnfocusItem,
-    RenameItem(Option<DisplayedItemIndex>),
+    RenameItem(Option<VisibleItemIndex>),
     MoveFocus(MoveDir, CommandCount, bool),
     MoveFocusedItem(MoveDir, CommandCount),
     FocusTransaction(Option<TransactionRef>, Option<Transaction>),
@@ -81,10 +82,10 @@ pub enum Message {
     SetScrollOffset(f32),
     VariableFormatChange(Option<DisplayedFieldRef>, String),
     ItemSelectionClear,
-    ItemColorChange(Option<DisplayedItemIndex>, Option<String>),
-    ItemBackgroundColorChange(Option<DisplayedItemIndex>, Option<String>),
-    ItemNameChange(Option<DisplayedItemIndex>, Option<String>),
-    ChangeVariableNameType(Option<DisplayedItemIndex>, VariableNameType),
+    ItemColorChange(Option<VisibleItemIndex>, Option<String>),
+    ItemBackgroundColorChange(Option<VisibleItemIndex>, Option<String>),
+    ItemNameChange(Option<VisibleItemIndex>, Option<String>),
+    ChangeVariableNameType(Option<VisibleItemIndex>, VariableNameType),
     ForceVariableNameTypes(VariableNameType),
     SetNameAlignRight(bool),
     SetClockHighlightType(ClockHighlightType),
@@ -194,7 +195,7 @@ pub enum Message {
     ToggleEmptyScopes,
     ToggleParametersInScopes,
     ToggleSidePanel,
-    ToggleItemSelected(Option<DisplayedItemIndex>),
+    ToggleItemSelected(Option<VisibleItemIndex>),
     ToggleDefaultTimeline,
     SetTimeUnit(TimeUnit),
     SetTimeStringFormatting(Option<TimeStringFormatting>),
@@ -235,10 +236,10 @@ pub enum Message {
     SetArrowKeyBindings(ArrowKeyBindings),
     // Second argument is position to insert after, None inserts after focused item,
     // or last if no focused item
-    AddDivider(Option<String>, Option<DisplayedItemIndex>),
+    AddDivider(Option<String>, Option<VisibleItemIndex>),
     // Argument is position to insert after, None inserts after focused item,
     // or last if no focused item
-    AddTimeLine(Option<DisplayedItemIndex>),
+    AddTimeLine(Option<VisibleItemIndex>),
     ToggleTickLines,
     ToggleVariableTooltip,
     ToggleScopeTooltip,
@@ -257,19 +258,19 @@ pub enum Message {
     GoToMarkerPosition(u8, usize),
     MoveCursorToTransition {
         next: bool,
-        variable: Option<DisplayedItemIndex>,
+        variable: Option<VisibleItemIndex>,
         skip_zero: bool,
     },
     MoveTransaction {
         next: bool,
     },
-    VariableValueToClipbord(Option<DisplayedItemIndex>),
+    VariableValueToClipbord(Option<VisibleItemIndex>),
     InvalidateDrawCommands,
     AddGraphic(GraphicId, Graphic),
     RemoveGraphic(GraphicId),
 
     /// Variable dragging messages
-    VariableDragStarted(DisplayedItemIndex),
+    VariableDragStarted(VisibleItemIndex),
     VariableDragTargetChanged(crate::displayed_item_tree::TargetPosition),
     VariableDragFinished,
     AddDraggedVariables(Vec<VariableRef>),

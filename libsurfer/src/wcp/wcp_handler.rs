@@ -1,5 +1,5 @@
 use crate::{
-    displayed_item::{DisplayedItem, DisplayedItemIndex, DisplayedItemRef},
+    displayed_item::{DisplayedItem, DisplayedItemRef},
     message::Message,
     wave_container::{ScopeRefExt, VariableRef, VariableRefExt},
     wave_data::WaveData,
@@ -202,8 +202,8 @@ impl State {
                         };
                         // TODO: Create a `.into` function here instead of unwrapping and wrapping
                         // it to prevent future type errors
-                        if let Some(idx) = waves.get_displayed_item_index(&id.into()) {
-                            self.update(Message::FocusItem(DisplayedItemIndex(idx.0)));
+                        if let Some(vidx) = waves.get_displayed_item_index(&id.into()) {
+                            self.update(Message::FocusItem(vidx));
 
                             self.send_response(WcpResponse::ack);
                         } else {
