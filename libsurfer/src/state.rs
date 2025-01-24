@@ -608,7 +608,7 @@ impl State {
     }
 
     #[cfg_attr(target_arch = "wasm32", allow(dead_code))]
-    pub(crate) fn start_wcp_server(&mut self, address: Option<String>) {
+    pub(crate) fn start_wcp_server(&mut self, address: Option<String>, initiate: bool) {
         use std::thread;
 
         use wcp::wcp_server::WcpServer;
@@ -637,9 +637,10 @@ impl State {
         let ctx = self.sys.context.clone();
         let address = address.unwrap_or(self.config.wcp.address.clone());
         self.sys.wcp_server_address = Some(address.clone());
-        self.sys.wcp_server_thread = Some(thread::spawn(|| {
+        self.sys.wcp_server_thread = Some(thread::spawn(move || {
             let server = WcpServer::new(
                 address,
+                initiate,
                 wcp_s2c_sender,
                 wcp_c2s_receiver,
                 stop_signal_copy,
@@ -649,7 +650,7 @@ impl State {
             match server {
                 Ok(mut server) => server.run(),
                 Err(m) => {
-                    error!("Could not start WCP server. Address already in use. {m:?}")
+                    error!("Could not start WCP server. {m:?}")
                 }
             }
         }));

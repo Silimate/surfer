@@ -773,7 +773,10 @@ pub fn get_parser(state: &State) -> Command<Message> {
                 "unpause_simulation" => Some(Command::Terminal(Message::UnpauseSimulation)),
                 "undo" => Some(Command::Terminal(Message::Undo(1))),
                 "redo" => Some(Command::Terminal(Message::Redo(1))),
-                "wcp_server_start" => Some(Command::Terminal(Message::StartWcpServer(None))),
+                "wcp_server_start" => Some(Command::Terminal(Message::StartWcpServer {
+                    address: None,
+                    initiate: false,
+                })),
                 "wcp_server_stop" => Some(Command::Terminal(Message::StopWcpServer)),
                 "exit" => Some(Command::Terminal(Message::Exit)),
                 _ => None,

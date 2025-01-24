@@ -19,7 +19,8 @@ use tokio::sync::mpsc::Sender;
 use super::{proto::WcpCSMessage, proto::WcpCommand, proto::WcpSCMessage};
 
 pub struct WcpServer {
-    listener: TcpListener,
+    listener: Option<TcpListener>,
+    stream: Option<TcpStream>,
     sender: Sender<WcpCSMessage>,
     receiver: Receiver<WcpSCMessage>,
     stop_signal: Arc<AtomicBool>,
@@ -30,19 +31,31 @@ pub struct WcpServer {
 impl WcpServer {
     pub fn new(
         address: String,
+        initiate: bool,
         s2c_sender: Sender<WcpCSMessage>,
         c2s_receiver: Receiver<WcpSCMessage>,
         stop_signal: Arc<AtomicBool>,
         running_signal: Arc<AtomicBool>,
         ctx: Option<Arc<Context>>,
     ) -> Result<Self> {
-        let listener = TcpListener::bind(address)?;
-        info!(
-            "WCP Server listening on port {}",
-            listener.local_addr().unwrap()
-        );
+        let listener;
+        let stream;
+        if initiate {
+            let the_stream = TcpStream::connect(address)?;
+            stream = Some(the_stream);
+            listener = None;
+        } else {
+            let the_listener = TcpListener::bind(address)?;
+            info!(
+                "WCP Server listening on port {}",
+                the_listener.local_addr().unwrap()
+            );
+            listener = Some(the_listener);
+            stream = None;
+        }
         Ok(WcpServer {
             listener,
+            stream,
             sender: s2c_sender,
             receiver: c2s_receiver,
             stop_signal,
@@ -52,8 +65,19 @@ impl WcpServer {
     }
 
     pub fn run(&mut self) {
-        info!("WCP Listening on Port {:#?}", self.listener);
-        let listener = self.listener.try_clone().unwrap();
+        if self.listener.is_some() {
+            self.listen();
+        } else if self.stream.is_some() {
+            self.initiate();
+        } else {
+            error!("Internal error: calling `run` with both listener and stream unset");
+        }
+    }
+
+    fn listen(&mut self) {
+        let listener = self.listener.take().unwrap();
+        info!("WCP Listening on Port {:#?}", listener);
+        let listener = listener.try_clone().unwrap();
 
         for stream in listener.incoming() {
             // check if the server should stop
@@ -62,18 +86,7 @@ impl WcpServer {
             }
 
             match stream {
-                Ok(stream) => {
-                    info!("WCP New connection: {}", stream.peer_addr().unwrap());
-                    if let Err(error) = stream.set_read_timeout(Some(Duration::from_secs(2))) {
-                        error!("Failed to set timeout: {error:#?}")
-                    }
-
-                    //handle connection from client
-                    match self.handle_client(stream) {
-                        Err(error) => warn!("WCP Client disconnected with error: {error:#?}"),
-                        Ok(()) => info!("WCP client disconnected"),
-                    }
-                }
+                Ok(stream) => self.handle_connection(stream),
                 Err(ref e)
                     if [std::io::ErrorKind::WouldBlock, std::io::ErrorKind::TimedOut]
                         .contains(&e.kind()) =>
@@ -87,7 +100,55 @@ impl WcpServer {
         self.running_signal.store(false, Ordering::Relaxed);
     }
 
+    fn initiate(&mut self) {
+        let stream = self.stream.take().unwrap();
+        match self.handle_client(stream) {
+            Err(error) => warn!("WCP Client disconnected with error: {error:#?}"),
+            Ok(()) => info!("WCP client disconnected"),
+        }
+    }
+
+    fn handle_connection(&mut self, stream: TcpStream) {
+        info!("WCP New connection: {}", stream.peer_addr().unwrap());
+        if let Err(error) = stream.set_read_timeout(Some(Duration::from_secs(2))) {
+            error!("Failed to set timeout: {error:#?}")
+        }
+
+        //handle connection from client
+        match self.handle_client(stream) {
+            Err(error) => warn!("WCP Client disconnected with error: {error:#?}"),
+            Ok(()) => info!("WCP client disconnected"),
+        }
+    }
+
     fn handle_client(&mut self, mut stream: TcpStream) -> Result<(), serde_Error> {
+        let commands = vec![
+            "add_variables",
+            "set_viewport_to",
+            "cursor_set",
+            "reload",
+            "add_scopes",
+            "get_item_list",
+            "set_item_color",
+            "get_item_info",
+            "clear_item",
+            "focus_item",
+            "clear",
+            "load",
+            "zoom_to_fit",
+        ]
+        .into_iter()
+        .map(str::to_string)
+        .collect();
+
+        //send greeting
+        let greeting = WcpSCMessage::create_greeting(0, commands);
+        if let Err(error) = serde_json::to_writer(&stream, &greeting) {
+            warn!("WCP Sending of greeting failed: {error:#?}")
+        }
+        let _ = stream.write(b"\0");
+        stream.flush().unwrap();
+
         loop {
             // check if the server should stop
             if self.stop_signal.load(Ordering::Relaxed) {
