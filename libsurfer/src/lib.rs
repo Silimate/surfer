@@ -620,7 +620,7 @@ impl State {
                 let Some(DisplayedItemIndex(vidx)) = waves.focused_item else {
                     return;
                 };
-                let Some(mut idx) = waves
+                let Some(idx) = waves
                     .items_tree
                     .to_displayed(crate::displayed_item_tree::VisibleItemIndex(vidx))
                 else {
@@ -631,10 +631,16 @@ impl State {
                     .get(idx)
                     .expect("we must have an element here, checked above")
                     .item;
+                let mut vidx = crate::displayed_item_tree::VisibleItemIndex(vidx);
                 for _ in 0..count {
-                    idx = waves
+                    vidx = waves
                         .items_tree
-                        .move_item(idx, direction)
+                        .move_item(vidx, direction, |node| {
+                            matches!(
+                                waves.displayed_items.get(&node.item),
+                                Some(DisplayedItem::Group(..))
+                            )
+                        })
                         .expect("move failed for unknown reason");
                 }
                 waves.focused_item = waves

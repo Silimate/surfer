@@ -1625,11 +1625,10 @@ impl State {
         let level_range = waves.items_tree.valid_levels_visible(
             crate::displayed_item_tree::VisibleItemIndex(insert_vidx.0),
             |node| {
-                node.unfolded
-                    && matches!(
-                        waves.displayed_items.get(&node.item),
-                        Some(DisplayedItem::Group(..))
-                    )
+                matches!(
+                    waves.displayed_items.get(&node.item),
+                    Some(DisplayedItem::Group(..))
+                )
             },
         );
 

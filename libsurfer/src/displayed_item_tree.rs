@@ -299,62 +299,123 @@ impl DisplayedItemTree {
         removed
     }
 
-    pub fn move_item(
-        &mut self,
-        ItemIndex(item): ItemIndex,
-        direction: MoveDir,
-    ) -> Result<ItemIndex, MoveResult> {
-        if item >= self.items.len() {
-            return Err(MoveResult::InvalidIndex);
+    /// Find the item before `idx` that is visible, independent of level
+    fn visible_predecessor(&self, mut idx: usize) -> Option<usize> {
+        if idx == 0 || idx > self.items.len() {
+            return None;
         }
 
-        let end = self.subtree_end(item);
-        let new_index = match direction {
-            MoveDir::Down => {
-                // if we are already at the end, move out one
-                if end == self.items.len() {
-                    if self.items[item].level != 0 {
-                        for node in self.items[item..end].iter_mut() {
-                            node.level -= 1;
-                        }
-                    }
-                    return Ok(ItemIndex(item));
+        let start_level = self.items[idx].level;
+        let mut candidate = idx - 1;
+        let mut limit_level = self.items[candidate].level;
+
+        loop {
+            idx -= 1;
+            let looking_item = &self.items[idx];
+            // ignore subtrees deeper than what we found already
+            if looking_item.level < limit_level {
+                limit_level = looking_item.level;
+                // the whole subtree we have been looking at is not visible,
+                // assume for now the current node is
+                if !looking_item.unfolded {
+                    candidate = idx;
                 }
-
-                let (insert, level) = if self.has_visible_children(ItemIndex(end)) {
-                    (end + 1, self.items[end].level + 1)
-                } else {
-                    (self.subtree_end(end), self.items[end].level)
-                };
-
-                self.move_items(
-                    vec![ItemIndex(item)],
-                    TargetPosition {
-                        before: insert,
-                        level,
-                    },
-                )?;
-                ItemIndex(insert - 1)
             }
-            MoveDir::Up => {
-                if item == 0 {
-                    return Ok(ItemIndex(0));
-                }
+            if self.items[idx].level <= start_level || idx == 0 {
+                return Some(candidate);
+            }
+        }
+    }
 
-                let prev_level = self.items[item - 1].level;
-                if prev_level > self.items[item].level {
-                    shift_subtree_to_level(&mut self.items[item..end], prev_level);
-                    return Ok(ItemIndex(item));
-                }
+    /// Move a visible item (and it's subtree) up/down by one visible item
+    ///
+    /// When moving up we move into all visible deeper trees first before skipping up.
+    /// Moving down we move out until we are on the level of the next element.
+    /// This way all indentations possible due to opened subtrees are reachable.
+    ///
+    /// Folded subtrees are skipped.
+    ///
+    /// `f` will be called with a node that might become the parent after move.
+    /// It must return true iff that node is allowed to have child nodes.
+    pub fn move_item<F>(
+        &mut self,
+        vidx: VisibleItemIndex,
+        direction: MoveDir,
+        f: F,
+    ) -> Result<VisibleItemIndex, MoveResult>
+    where
+        F: Fn(&Node) -> bool,
+    {
+        let Some(ItemIndex(idx)) = self.to_displayed(vidx) else {
+            return Err(MoveResult::InvalidIndex);
+        };
 
-                self.move_items(
-                    vec![ItemIndex(item)],
-                    TargetPosition {
-                        before: item - 1,
-                        level: prev_level,
+        let this_level = self.items[idx].level;
+        let end = self.subtree_end(idx);
+        let new_index = match direction {
+            MoveDir::Down => match self.items.get(end) {
+                // we are at the end, but maybe still down in the hierarchy -> shift out
+                None => {
+                    shift_subtree_to_level(&mut self.items[idx..end], this_level.saturating_sub(1));
+                    vidx
+                }
+                // the next node is less indented -> shift out, don't move yet
+                Some(Node { level, .. }) if *level < this_level => {
+                    shift_subtree_to_level(&mut self.items[idx..end], this_level - 1);
+                    vidx
+                }
+                // the next node must be a sibling, it's unfolded and can have children so move into it
+                Some(
+                    node @ Node {
+                        unfolded: true,
+                        level,
+                        ..
                     },
-                )?;
-                ItemIndex(item - 1)
+                ) if f(node) => {
+                    self.move_items(
+                        vec![ItemIndex(idx)],
+                        TargetPosition {
+                            before: end + 1,
+                            level: *level + 1,
+                        },
+                    )?;
+                    VisibleItemIndex(vidx.0 + 1)
+                }
+                // remaining: the next node is either a folded sibling or can't have children, jump over
+                _ => {
+                    self.move_items(
+                        vec![ItemIndex(idx)],
+                        TargetPosition {
+                            before: self.subtree_end(end),
+                            level: this_level,
+                        },
+                    )?;
+                    VisibleItemIndex(vidx.0 + 1)
+                }
+            },
+            MoveDir::Up => {
+                match self.visible_predecessor(idx).map(|i| (i, &self.items[i])) {
+                    None => vidx,
+                    // empty, unfolded node deeper/equal in, possibly to move into
+                    // .. or node deeper in, but don't move into
+                    Some((_node_idx, node))
+                        if (node.level >= this_level && f(node) && node.unfolded)
+                            | (node.level > this_level) =>
+                    {
+                        shift_subtree_to_level(&mut self.items[idx..end], this_level + 1);
+                        vidx
+                    }
+                    Some((node_idx, node)) => {
+                        self.move_items(
+                            vec![ItemIndex(idx)],
+                            TargetPosition {
+                                before: node_idx,
+                                level: node.level,
+                            },
+                        )?;
+                        VisibleItemIndex(vidx.0 - 1)
+                    }
+                }
             }
         };
         Ok(new_index)
@@ -460,7 +521,7 @@ impl DisplayedItemTree {
         Ok(())
     }
 
-    /// Return the range of valid levels given the visible nodes
+    /// Return the range of valid levels for inserting above `item`, given the visible nodes
     ///
     /// `f` will be called with what will become the in-order predecessor node
     /// after insert. It must return true iff that node is allowed to have child nodes.
@@ -479,8 +540,14 @@ impl DisplayedItemTree {
             .as_slice()
         {
             [] => 0..1, // only happens for indices > self.items.len()
-            [last] => 0..last.level.saturating_add(1 + f(last) as u8),
-            [pre, post, ..] => post.level..pre.level.saturating_add(1 + f(pre) as u8),
+            [last] => {
+                0..last
+                    .level
+                    .saturating_add(1 + (f(last) && last.unfolded) as u8)
+            }
+            [pre, post, ..] => {
+                post.level..pre.level.saturating_add(1 + (f(pre) && pre.unfolded) as u8)
+            }
         }
     }
 
@@ -514,15 +581,6 @@ impl DisplayedItemTree {
         } else {
             Err(MoveResult::InvalidLevel)
         }*/
-    }
-
-    fn has_visible_children(&self, ItemIndex(index): ItemIndex) -> bool {
-        self.items[index].unfolded
-            && self
-                .items
-                .get(index + 1)
-                .map(|x| x.level > self.items[index].level)
-                .unwrap_or(false)
     }
 
     pub fn is_visible(&self, ItemIndex(index): ItemIndex) -> bool {
@@ -690,7 +748,7 @@ mod tests {
         tree
     }
 
-    /// common tes tree
+    /// common test tree
     /// ```text
     ///    0  1  2
     /// 0: 0
@@ -871,54 +929,190 @@ mod tests {
     }
 
     #[test]
-    fn test_move_item_up() {
+    fn test_move_item_up_unfolded_group() {
         let mut tree = build_tree(&[
-            (0, 0, false, false),
-            (1, 0, false, false),
-            (2, 0, false, false),
+            (0, 0, true, false),
+            (1, 0, true, false),
+            (10, 1, true, false),
+            (2, 0, true, false),
+            (3, 0, true, false),
         ]);
-        let new_index = tree
-            .move_item(ItemIndex(1), MoveDir::Up)
+        let new_idx = tree
+            .move_item(VisibleItemIndex(3), MoveDir::Up, |node| node.item.0 == 1)
             .expect("move must succeed");
-        assert_eq!(new_index.0, 0);
+        assert_eq!(new_idx.0, 3);
+        assert_eq!(tree.items[3].level, 1);
         assert_eq!(
             tree.items.iter().map(|x| x.item.0).collect_vec(),
-            vec![1, 0, 2]
+            vec![0, 1, 10, 2, 3]
         );
 
-        let new_index = tree
-            .move_item(new_index, MoveDir::Up)
+        let new_idx = tree
+            .move_item(new_idx, MoveDir::Up, |node| node.item.0 == 1)
             .expect("move must succeed");
-        assert_eq!(new_index.0, 0);
+        assert_eq!(new_idx.0, 2);
+        assert_eq!(tree.items[2].level, 1);
         assert_eq!(
             tree.items.iter().map(|x| x.item.0).collect_vec(),
-            vec![1, 0, 2]
+            vec![0, 1, 2, 10, 3]
+        );
+
+        let new_idx = tree
+            .move_item(new_idx, MoveDir::Up, |node| node.item.0 == 1)
+            .expect("move must succeed");
+        assert_eq!(new_idx.0, 1);
+        assert_eq!(tree.items[1].level, 0);
+        assert_eq!(
+            tree.items.iter().map(|x| x.item.0).collect_vec(),
+            vec![0, 2, 1, 10, 3]
+        );
+
+        let new_idx = tree
+            .move_item(new_idx, MoveDir::Up, |node| node.item.0 == 1)
+            .expect("move must succeed");
+        assert_eq!(new_idx.0, 0);
+        assert_eq!(tree.items[0].level, 0);
+        assert_eq!(
+            tree.items.iter().map(|x| x.item.0).collect_vec(),
+            vec![2, 0, 1, 10, 3]
+        );
+
+        let new_idx = tree
+            .move_item(new_idx, MoveDir::Up, |node| node.item.0 == 1)
+            .expect("move must succeed");
+        assert_eq!(new_idx.0, 0);
+        assert_eq!(tree.items[0].level, 0);
+        assert_eq!(
+            tree.items.iter().map(|x| x.item.0).collect_vec(),
+            vec![2, 0, 1, 10, 3]
         );
     }
 
     #[test]
-    fn test_move_item_down() {
+    fn test_move_item_up_folded_group() {
         let mut tree = build_tree(&[
-            (0, 0, false, false),
+            (0, 0, true, false),
             (1, 0, false, false),
-            (2, 0, false, false),
+            (10, 1, true, false),
+            (11, 1, true, false),
+            (2, 0, true, false),
+            (3, 0, true, false),
         ]);
-        let new_index = tree
-            .move_item(ItemIndex(1), MoveDir::Down)
+        let new_idx = tree
+            .move_item(VisibleItemIndex(2), MoveDir::Up, |node| node.item.0 == 1)
             .expect("move must succeed");
-        assert_eq!(new_index.0, 2);
+        assert_eq!(new_idx.0, 1);
+        assert_eq!(tree.items[1].level, 0);
         assert_eq!(
             tree.items.iter().map(|x| x.item.0).collect_vec(),
-            vec![0, 2, 1]
+            vec![0, 2, 1, 10, 11, 3]
         );
 
-        let new_index = tree
-            .move_item(new_index, MoveDir::Down)
+        let new_idx = tree
+            .move_item(new_idx, MoveDir::Up, |node| node.item.0 == 1)
             .expect("move must succeed");
-        assert_eq!(new_index.0, 2);
+        assert_eq!(new_idx.0, 0);
+        assert_eq!(tree.items[0].level, 0);
         assert_eq!(
             tree.items.iter().map(|x| x.item.0).collect_vec(),
-            vec![0, 2, 1]
+            vec![2, 0, 1, 10, 11, 3]
+        );
+    }
+
+    #[test]
+    fn test_move_item_down_unfolded_group() {
+        let mut tree = build_tree(&[
+            (0, 0, true, false),
+            (1, 0, true, false),
+            (2, 0, true, false),
+            (20, 1, true, false),
+            (3, 0, true, false),
+        ]);
+        let new_idx = tree
+            .move_item(VisibleItemIndex(1), MoveDir::Down, |node| node.item.0 == 2)
+            .expect("move must succeed");
+        println!("{:?}", tree.items);
+        assert_eq!(new_idx.0, 2);
+        assert_eq!(tree.items[3].level, 1);
+        assert_eq!(
+            tree.items.iter().map(|x| x.item.0).collect_vec(),
+            vec![0, 2, 1, 20, 3]
+        );
+
+        let new_idx = tree
+            .move_item(new_idx, MoveDir::Down, |node| node.item.0 == 2)
+            .expect("move must succeed");
+        println!("{:?}", tree.items);
+        assert_eq!(new_idx.0, 3);
+        assert_eq!(tree.items[3].level, 1);
+        assert_eq!(
+            tree.items.iter().map(|x| x.item.0).collect_vec(),
+            vec![0, 2, 20, 1, 3]
+        );
+
+        let new_idx = tree
+            .move_item(new_idx, MoveDir::Down, |node| node.item.0 == 2)
+            .expect("move must succeed");
+        println!("{:?}", tree.items);
+        assert_eq!(new_idx.0, 3);
+        assert_eq!(tree.items[3].level, 0);
+        assert_eq!(
+            tree.items.iter().map(|x| x.item.0).collect_vec(),
+            vec![0, 2, 20, 1, 3]
+        );
+
+        let new_idx = tree
+            .move_item(new_idx, MoveDir::Down, |node| node.item.0 == 2)
+            .expect("move must succeed");
+        println!("{:?}", tree.items);
+        assert_eq!(new_idx.0, 4);
+        assert_eq!(tree.items[3].level, 0);
+        assert_eq!(
+            tree.items.iter().map(|x| x.item.0).collect_vec(),
+            vec![0, 2, 20, 3, 1]
+        );
+
+        let new_idx = tree
+            .move_item(new_idx, MoveDir::Down, |node| node.item.0 == 2)
+            .expect("move must succeed");
+        println!("{:?}", tree.items);
+        assert_eq!(new_idx.0, 4);
+        assert_eq!(tree.items[3].level, 0);
+        assert_eq!(
+            tree.items.iter().map(|x| x.item.0).collect_vec(),
+            vec![0, 2, 20, 3, 1]
+        );
+    }
+
+    #[test]
+    fn test_move_item_down_folded_group() {
+        let mut tree = build_tree(&[
+            (0, 0, true, false),
+            (1, 0, true, false),
+            (2, 0, false, false),
+            (20, 1, true, false),
+            (3, 0, true, false),
+        ]);
+        let new_idx = tree
+            .move_item(VisibleItemIndex(1), MoveDir::Down, |node| node.item.0 == 2)
+            .expect("move must succeed");
+        println!("{:?}", tree.items);
+        assert_eq!(new_idx.0, 2);
+        assert_eq!(tree.items[3].level, 0);
+        assert_eq!(
+            tree.items.iter().map(|x| x.item.0).collect_vec(),
+            vec![0, 2, 20, 1, 3]
+        );
+
+        let new_idx = tree
+            .move_item(new_idx, MoveDir::Down, |node| node.item.0 == 2)
+            .expect("move must succeed");
+        println!("{:?}", tree.items);
+        assert_eq!(new_idx.0, 3);
+        assert_eq!(tree.items[3].level, 0);
+        assert_eq!(
+            tree.items.iter().map(|x| x.item.0).collect_vec(),
+            vec![0, 2, 20, 3, 1]
         );
     }
 
@@ -1254,6 +1448,7 @@ mod tests {
     #[test]
     fn test_valid_levels() {
         let tree = build_tree(&[
+            /* vidx */
             /* 0 */ (0, 0, true, false),
             /* 1 */ (1, 0, true, false),
             /* 2 */ (2, 0, false, false),
@@ -1289,15 +1484,14 @@ mod tests {
             0..2
         );
 
-        // invisible item must be ignored, but allow the user to move item into subtree
-        // TODO check if we really want to allow the indent here
+        // invisible item must be ignored, do not move into (and not "loose" signal)
         assert_eq!(
             tree.valid_levels_visible(VisibleItemIndex(3), |_| false),
             0..1
         );
         assert_eq!(
             tree.valid_levels_visible(VisibleItemIndex(3), |_| true),
-            0..2
+            0..1
         );
 
         // if we are past a full "cliff" allow to insert all along to the root
