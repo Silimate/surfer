@@ -16,7 +16,7 @@ pub struct Node {
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub enum MoveResult {
+pub enum MoveError {
     InvalidIndex,
     InvalidLevel,
     CircularMove,
@@ -239,7 +239,7 @@ impl DisplayedItemTree {
         &mut self,
         item: DisplayedItemRef,
         position: TargetPosition,
-    ) -> Result<ItemIndex, MoveResult> {
+    ) -> Result<ItemIndex, MoveError> {
         self.is_valid_position(position)?;
 
         self.items.insert(
@@ -345,12 +345,12 @@ impl DisplayedItemTree {
         vidx: VisibleItemIndex,
         direction: MoveDir,
         f: F,
-    ) -> Result<VisibleItemIndex, MoveResult>
+    ) -> Result<VisibleItemIndex, MoveError>
     where
         F: Fn(&Node) -> bool,
     {
         let Some(ItemIndex(idx)) = self.to_displayed(vidx) else {
-            return Err(MoveResult::InvalidIndex);
+            return Err(MoveError::InvalidIndex);
         };
 
         let this_level = self.items[idx].level;
@@ -449,14 +449,14 @@ impl DisplayedItemTree {
         &mut self,
         mut indices: Vec<ItemIndex>,
         target: TargetPosition,
-    ) -> Result<(), MoveResult> {
+    ) -> Result<(), MoveError> {
         indices.sort();
         let indices = indices.into_iter().dedup().collect_vec();
 
         self.is_valid_position(target)?;
         if let Some(idx) = indices.last() {
             if idx.0 >= self.items.len() {
-                return Err(MoveResult::InvalidIndex);
+                return Err(MoveError::InvalidIndex);
             }
         }
 
@@ -475,7 +475,7 @@ impl DisplayedItemTree {
         }
 
         if self.path_to_root_would_intersect(pre_indices, target.before, target.level) {
-            return Err(MoveResult::CircularMove);
+            return Err(MoveError::CircularMove);
         }
 
         // move all items that are before the target index
@@ -560,7 +560,7 @@ impl DisplayedItemTree {
     /// in general valid, ignoring visibility and assuming that every node
     /// may have children.
     /// It returns an appropriate error in case the position is invalid.
-    fn is_valid_position(&self, _position: TargetPosition) -> Result<(), MoveResult> {
+    fn is_valid_position(&self, _position: TargetPosition) -> Result<(), MoveError> {
         Ok(())
         // TODO
         /*if position.before > self.items.len() {
@@ -1415,7 +1415,7 @@ mod tests {
                 level: 2,
             },
         );
-        assert_eq!(result, Err(MoveResult::CircularMove));
+        assert_eq!(result, Err(MoveError::CircularMove));
         assert_eq!(tree.items, test_tree().items);
     }
 
@@ -1438,7 +1438,7 @@ mod tests {
                 level: 2,
             },
         );
-        assert_eq!(result, Err(MoveResult::CircularMove));
+        assert_eq!(result, Err(MoveError::CircularMove));
         assert_eq!(tree.items, reference.items);
     }
 
@@ -1452,7 +1452,7 @@ mod tests {
                 level: 1,
             },
         );
-        assert_eq!(result, Err(MoveResult::CircularMove));
+        assert_eq!(result, Err(MoveError::CircularMove));
         assert_eq!(tree.items, test_tree().items);
     }
 
