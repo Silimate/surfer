@@ -412,6 +412,7 @@ impl State {
                         }
 
                         let response = ScrollArea::both()
+                            .auto_shrink([false; 2])
                             .vertical_scroll_offset(scroll_offset)
                             .show(ui, |ui| {
                                 self.draw_item_list(&mut msgs, ui, ctx);
