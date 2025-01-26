@@ -951,7 +951,7 @@ impl State {
                 vidx,
                 (
                     crate::displayed_item_tree::Node {
-                        item: displayed_item_id,
+                        item_ref,
                         level,
                         unfolded,
                         ..
@@ -969,12 +969,8 @@ impl State {
                 .enumerate()
             {
                 let vidx = VisibleItemIndex(vidx);
-                let Some(displayed_item) = self
-                    .waves
-                    .as_ref()
-                    .unwrap()
-                    .displayed_items
-                    .get(displayed_item_id)
+                let Some(displayed_item) =
+                    self.waves.as_ref().unwrap().displayed_items.get(item_ref)
                 else {
                     continue;
                 };
@@ -992,9 +988,9 @@ impl State {
                                 self.hierarchy_icon(ui, has_children, *unfolded, alignment);
                             if response.clicked() {
                                 if *unfolded {
-                                    msgs.push(Message::GroupFold(Some(*displayed_item_id)));
+                                    msgs.push(Message::GroupFold(Some(*item_ref)));
                                 } else {
-                                    msgs.push(Message::GroupUnfold(Some(*displayed_item_id)));
+                                    msgs.push(Message::GroupUnfold(Some(*item_ref)));
                                 }
                             }
                         }
@@ -1004,7 +1000,7 @@ impl State {
                                 let levels_to_force_expand =
                                     self.sys.items_to_expand.borrow().iter().find_map(
                                         |(id, levels)| {
-                                            if displayed_item_id == id {
+                                            if item_ref == id {
                                                 Some(*levels)
                                             } else {
                                                 None
@@ -1016,7 +1012,7 @@ impl State {
                                     msgs,
                                     vidx,
                                     displayed_item,
-                                    *displayed_item_id,
+                                    *item_ref,
                                     FieldRef::without_fields(
                                         displayed_variable.variable_ref.clone(),
                                     ),
@@ -1030,7 +1026,7 @@ impl State {
                             DisplayedItem::Divider(_) => self.draw_plain_item(
                                 msgs,
                                 vidx,
-                                *displayed_item_id,
+                                *item_ref,
                                 displayed_item,
                                 &mut item_offsets,
                                 ui,
@@ -1038,7 +1034,7 @@ impl State {
                             DisplayedItem::Marker(_) => self.draw_plain_item(
                                 msgs,
                                 vidx,
-                                *displayed_item_id,
+                                *item_ref,
                                 displayed_item,
                                 &mut item_offsets,
                                 ui,
@@ -1046,7 +1042,7 @@ impl State {
                             DisplayedItem::Placeholder(_) => self.draw_plain_item(
                                 msgs,
                                 vidx,
-                                *displayed_item_id,
+                                *item_ref,
                                 displayed_item,
                                 &mut item_offsets,
                                 ui,
@@ -1054,7 +1050,7 @@ impl State {
                             DisplayedItem::TimeLine(_) => self.draw_plain_item(
                                 msgs,
                                 vidx,
-                                *displayed_item_id,
+                                *item_ref,
                                 displayed_item,
                                 &mut item_offsets,
                                 ui,
@@ -1062,7 +1058,7 @@ impl State {
                             DisplayedItem::Stream(_) => self.draw_plain_item(
                                 msgs,
                                 vidx,
-                                *displayed_item_id,
+                                *item_ref,
                                 displayed_item,
                                 &mut item_offsets,
                                 ui,
@@ -1070,7 +1066,7 @@ impl State {
                             DisplayedItem::Group(_) => self.draw_plain_item(
                                 msgs,
                                 vidx,
-                                *displayed_item_id,
+                                *item_ref,
                                 displayed_item,
                                 &mut item_offsets,
                                 ui,
@@ -1626,7 +1622,7 @@ impl State {
 
         let level_range = waves.items_tree.valid_levels_visible(insert_vidx, |node| {
             matches!(
-                waves.displayed_items.get(&node.item),
+                waves.displayed_items.get(&node.item_ref),
                 Some(DisplayedItem::Group(..))
             )
         });
@@ -1784,7 +1780,7 @@ impl State {
             waves
                 .items_tree
                 .iter_visible_selected()
-                .any(|node| node.item == id)
+                .any(|node| node.item_ref == id)
         } else {
             false
         }
@@ -2000,7 +1996,7 @@ impl State {
                     .items_tree
                     .get_visible(drawing_info.item_list_idx())
                     .unwrap()
-                    .item,
+                    .item_ref,
             )
             .and_then(super::displayed_item::DisplayedItem::background_color)
             .and_then(|color| self.config.theme.get_color(&color))

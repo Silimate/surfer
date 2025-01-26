@@ -55,7 +55,7 @@ impl WaveData {
             let color = self
                 .items_tree
                 .iter()
-                .map(|node| self.displayed_items.get(&node.item))
+                .map(|node| self.displayed_items.get(&node.item_ref))
                 .find_map(|item| match item {
                     Some(DisplayedItem::Marker(tmp_marker)) => {
                         if *idx == tmp_marker.idx {
@@ -158,7 +158,7 @@ impl WaveData {
         for displayed_item in self
             .items_tree
             .iter_visible()
-            .map(|node| self.displayed_items.get(&node.item))
+            .map(|node| self.displayed_items.get(&node.item_ref))
             .filter_map(|item| match item {
                 Some(DisplayedItem::Marker(marker)) => Some(marker),
                 _ => None,
@@ -215,7 +215,7 @@ impl State {
         let mut numbered_markers = waves
             .items_tree
             .iter()
-            .map(|node| waves.displayed_items.get(&node.item))
+            .map(|node| waves.displayed_items.get(&node.item_ref))
             .filter_map(|displayed_item| match displayed_item {
                 Some(DisplayedItem::Marker(marker)) => {
                     let text_color = self.get_item_text_color(displayed_item.unwrap());
@@ -313,7 +313,7 @@ impl State {
             let Some(item) = waves
                 .items_tree
                 .get_visible(drawing_info.item_list_idx)
-                .and_then(|node| waves.displayed_items.get(&node.item))
+                .and_then(|node| waves.displayed_items.get(&node.item_ref))
             else {
                 return;
             };

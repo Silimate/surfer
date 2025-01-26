@@ -73,7 +73,7 @@ impl WaveData {
         self.items_tree
             .iter_visible()
             .zip(&self.drawing_infos)
-            .find(|(node, _info)| node.item == y.item)
+            .find(|(node, _info)| node.item_ref == y.item)
             .map(|(_, info)| match y.anchor {
                 Anchor::Top => info.top(),
                 Anchor::Center => info.top() + (info.bottom() - info.top()) / 2.,

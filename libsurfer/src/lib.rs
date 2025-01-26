@@ -457,7 +457,7 @@ impl State {
                     *self.sys.item_renaming_string.borrow_mut() = waves
                         .items_tree
                         .get_visible(vidx)
-                        .and_then(|node| waves.displayed_items.get(&node.item))
+                        .and_then(|node| waves.displayed_items.get(&node.item_ref))
                         .map(displayed_item::DisplayedItem::name)
                         .unwrap_or_default();
                 }
@@ -549,7 +549,7 @@ impl State {
                 let waves = self.waves.as_ref();
                 let item_ref = waves
                     .and_then(|waves| waves.items_tree.get_visible(vidx))
-                    .map(|node| node.item);
+                    .map(|node| node.item_ref);
                 let undo_msg = item_ref
                     .and_then(|item_ref| {
                         waves.and_then(|waves| waves.displayed_items.get(&item_ref))
@@ -607,7 +607,7 @@ impl State {
                         .items_tree
                         .move_item(vidx, direction, |node| {
                             matches!(
-                                waves.displayed_items.get(&node.item),
+                                waves.displayed_items.get(&node.item_ref),
                                 Some(DisplayedItem::Group(..))
                             )
                         })
@@ -738,7 +738,7 @@ impl State {
                 let focused = waves
                     .focused_item
                     .and_then(|vidx| waves.items_tree.get_visible(vidx))
-                    .map(|node| node.item);
+                    .map(|node| node.item_ref);
 
                 let mut redraw = false;
 
@@ -756,7 +756,7 @@ impl State {
                     for item in waves
                         .items_tree
                         .iter_visible_selected()
-                        .map(|node| node.item)
+                        .map(|node| node.item_ref)
                     {
                         let field_ref = DisplayedFieldRef::from(item);
                         if let Some(DisplayedItem::Variable(variable)) =
@@ -788,7 +788,7 @@ impl State {
                         waves.items_tree.get_visible(vidx).map(|node| {
                             waves
                                 .displayed_items
-                                .entry(node.item)
+                                .entry(node.item_ref)
                                 .and_modify(|item| item.set_color(color_name.clone()))
                         });
                     }
@@ -796,7 +796,7 @@ impl State {
                         for node in waves.items_tree.iter_visible_selected() {
                             waves
                                 .displayed_items
-                                .entry(node.item)
+                                .entry(node.item_ref)
                                 .and_modify(|item| item.set_color(color_name.clone()));
                         }
                     }
@@ -812,7 +812,7 @@ impl State {
                         waves.items_tree.get_visible(vidx).map(|node| {
                             waves
                                 .displayed_items
-                                .entry(node.item)
+                                .entry(node.item_ref)
                                 .and_modify(|item| item.set_name(name))
                         });
                     }
@@ -828,7 +828,7 @@ impl State {
                         waves.items_tree.get_visible(vidx).map(|node| {
                             waves
                                 .displayed_items
-                                .entry(node.item)
+                                .entry(node.item_ref)
                                 .and_modify(|item| item.set_background_color(color_name.clone()))
                         });
                     }
@@ -836,7 +836,7 @@ impl State {
                         for node in waves.items_tree.iter_visible_selected() {
                             waves
                                 .displayed_items
-                                .entry(node.item)
+                                .entry(node.item_ref)
                                 .and_modify(|item| item.set_background_color(color_name.clone()));
                         }
                     }
@@ -883,7 +883,7 @@ impl State {
                             .items_tree
                             .iter_visible()
                             .flat_map(|node| {
-                                let item = &waves.displayed_items[&node.item];
+                                let item = &waves.displayed_items[&node.item_ref];
                                 match item {
                                     DisplayedItem::Stream(s) => {
                                         let stream_ref = &s.transaction_stream_ref;
@@ -1388,7 +1388,8 @@ impl State {
                 };
                 // checks if vidx is Some then use that, else try focused variable
                 if let Some(vidx) = vidx.or(waves.focused_item) {
-                    let Some(item_ref) = waves.items_tree.get_visible(vidx).map(|node| node.item)
+                    let Some(item_ref) =
+                        waves.items_tree.get_visible(vidx).map(|node| node.item_ref)
                     else {
                         return;
                     };
@@ -1579,7 +1580,7 @@ impl State {
                         .and_then(|vidx| waves.items_tree.to_displayed(vidx));
                     let focused_item_ref = focused_index
                         .and_then(|idx| waves.items_tree.get(idx))
-                        .map(|node| node.item);
+                        .map(|node| node.item_ref);
 
                     let mut to_move = waves
                         .items_tree
@@ -1602,7 +1603,7 @@ impl State {
                             waves
                                 .items_tree
                                 .iter_visible()
-                                .position(|node| node.item == item_ref)
+                                .position(|node| node.item_ref == item_ref)
                         })
                         .map(VisibleItemIndex);
                 }
@@ -1613,7 +1614,7 @@ impl State {
                 if let Some(waves) = &self.waves {
                     if let Some(vidx) = vidx.or(waves.focused_item) {
                         if let Some(item_ref) =
-                            waves.items_tree.get_visible(vidx).map(|node| node.item)
+                            waves.items_tree.get_visible(vidx).map(|node| node.item_ref)
                         {
                             let Some(DisplayedItem::Variable(_displayed_variable)) =
                                 waves.displayed_items.get(&item_ref)
@@ -1709,7 +1710,7 @@ impl State {
                     waves
                         .items_tree
                         .iter_visible_selected()
-                        .map(|node| node.item)
+                        .map(|node| node.item_ref)
                         .collect::<Vec<_>>()
                 });
 
@@ -1725,7 +1726,7 @@ impl State {
                             .items_tree
                             .get(focus_index)
                             .expect("Inconsistent state")
-                            .item,
+                            .item_ref,
                     );
                     item_refs
                 } else {
@@ -1746,7 +1747,7 @@ impl State {
                     .enumerate()
                     .filter_map(|(idx, node)| {
                         item_refs
-                            .contains(&node.item)
+                            .contains(&node.item_ref)
                             .then_some(crate::displayed_item_tree::ItemIndex(idx))
                     })
                     .collect::<Vec<_>>();
@@ -1941,11 +1942,11 @@ pub fn dump_tree(waves: &WaveData) {
         result.push_str(
             &waves
                 .displayed_items
-                .get(&node.item)
+                .get(&node.item_ref)
                 .map(|item| item.name())
                 .unwrap_or("?".to_owned()),
         );
-        result.push_str(&format!("   ({:?})", node.item));
+        result.push_str(&format!("   ({:?})", node.item_ref));
         if node.selected {
             result.push_str(" !SEL! ")
         }

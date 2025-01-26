@@ -353,7 +353,7 @@ impl State {
         let (displayed_item_id, displayed_item) = waves
             .items_tree
             .get_visible(vidx)
-            .map(|node| (node.item, &waves.displayed_items[&node.item]))
+            .map(|node| (node.item_ref, &waves.displayed_items[&node.item_ref]))
             .unwrap();
 
         if let Some(path) = path {
@@ -378,7 +378,7 @@ impl State {
                             if waves
                                 .items_tree
                                 .iter_visible_selected()
-                                .map(|node| node.item)
+                                .map(|node| node.item_ref)
                                 .contains(&displayed_item_id)
                             {
                                 None
@@ -412,7 +412,7 @@ impl State {
                             if waves
                                 .items_tree
                                 .iter_visible_selected()
-                                .map(|node| node.item)
+                                .map(|node| node.item_ref)
                                 .contains(&displayed_item_id)
                             {
                                 None
@@ -456,7 +456,7 @@ impl State {
                 if waves
                     .items_tree
                     .iter_visible_selected()
-                    .map(|node| node.item)
+                    .map(|node| node.item_ref)
                     .contains(&displayed_item_id)
                 {
                     Message::Batch(vec![
@@ -464,7 +464,7 @@ impl State {
                             waves
                                 .items_tree
                                 .iter_visible_selected()
-                                .map(|node| node.item)
+                                .map(|node| node.item_ref)
                                 .collect_vec(),
                         ),
                         Message::UnfocusItem,
@@ -568,7 +568,7 @@ impl State {
                         if waves
                             .items_tree
                             .iter_visible_selected()
-                            .map(|node| node.item)
+                            .map(|node| node.item_ref)
                             .contains(&displayed_field_ref.item)
                         {
                             None

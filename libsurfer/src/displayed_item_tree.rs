@@ -7,7 +7,7 @@ use crate::MoveDir;
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct Node {
-    pub item: DisplayedItemRef,
+    pub item_ref: DisplayedItemRef,
     /// Nesting level of the node.
     pub level: u8,
     /// Whether a subtree of this node (if it exists) is shown
@@ -245,7 +245,7 @@ impl DisplayedItemTree {
         self.items.insert(
             position.before,
             Node {
-                item,
+                item_ref: item,
                 level: position.level,
                 unfolded: true,
                 selected: false,
@@ -269,7 +269,10 @@ impl DisplayedItemTree {
 
     pub fn remove_recursive(&mut self, ItemIndex(item): ItemIndex) -> Vec<DisplayedItemRef> {
         let end = self.subtree_end(item);
-        self.items.drain(item..end).map(|x| x.item).collect_vec()
+        self.items
+            .drain(item..end)
+            .map(|x| x.item_ref)
+            .collect_vec()
     }
 
     pub fn remove_dissolve(&mut self, ItemIndex(item): ItemIndex) -> DisplayedItemRef {
@@ -277,7 +280,7 @@ impl DisplayedItemTree {
         self.items[item + 1..end]
             .iter_mut()
             .for_each(|x| x.level -= 1);
-        self.items.remove(item).item
+        self.items.remove(item).item_ref
     }
 
     pub fn extract_recursive_if<F>(&mut self, f: F) -> Vec<DisplayedItemRef>
@@ -290,7 +293,7 @@ impl DisplayedItemTree {
         while idx < self.items.len() {
             if f(self.items.get(idx).unwrap()) {
                 let end = self.subtree_end(idx);
-                removed.extend(self.items.drain(idx..end).map(|x| x.item));
+                removed.extend(self.items.drain(idx..end).map(|x| x.item_ref));
             } else {
                 idx += 1;
             }
@@ -739,7 +742,7 @@ mod tests {
         let mut tree = DisplayedItemTree::new();
         for &(item, level, unfolded, selected) in nodes {
             tree.items.push(Node {
-                item: DisplayedItemRef(item),
+                item_ref: DisplayedItemRef(item),
                 level,
                 unfolded,
                 selected,
@@ -781,7 +784,7 @@ mod tests {
     fn test_iter_visible() {
         let tree = test_tree();
         assert_eq!(
-            tree.iter_visible().map(|x| x.item.0).collect_vec(),
+            tree.iter_visible().map(|x| x.item_ref.0).collect_vec(),
             vec![0, 1, 2, 3, 30, 31, 4, 5]
         );
     }
@@ -791,7 +794,7 @@ mod tests {
         let tree = test_tree();
         assert_eq!(
             tree.iter_visible_extra()
-                .map(|(x, idx, child, last)| (x.item.0, idx.0, child, last))
+                .map(|(x, idx, child, last)| (x.item_ref.0, idx.0, child, last))
                 .collect_vec(),
             vec![
                 (0, 0, false, false),
@@ -818,7 +821,7 @@ mod tests {
         )
         .expect("insert_item must succeed");
         assert_eq!(
-            tree.items.iter().map(|x| x.item.0).collect_vec(),
+            tree.items.iter().map(|x| x.item_ref.0).collect_vec(),
             vec![0xff, 0, 1, 2, 20, 200, 3, 30, 31, 4, 5]
         );
         assert_eq!(tree.items[0].level, 0);
@@ -840,7 +843,7 @@ mod tests {
         )
         .expect("insert_item must succeed");
         assert_eq!(
-            tree.items.iter().map(|x| x.item.0).collect_vec(),
+            tree.items.iter().map(|x| x.item_ref.0).collect_vec(),
             vec![0, 1, 2, 20, 200, 3, 30, 31, 0xff, 4, 5]
         );
         assert_eq!(tree.items[7].level, 1);
@@ -860,7 +863,7 @@ mod tests {
         )
         .expect("insert_item must succeed");
         assert_eq!(
-            tree.items.iter().map(|x| x.item.0).collect_vec(),
+            tree.items.iter().map(|x| x.item_ref.0).collect_vec(),
             vec![0, 1, 2, 20, 200, 3, 30, 0xff, 31, 4, 5]
         );
         assert_eq!(tree.items[7].level, 2);
@@ -880,7 +883,7 @@ mod tests {
         )
         .expect("insert_item must succeed");
         assert_eq!(
-            tree.items.iter().map(|x| x.item.0).collect_vec(),
+            tree.items.iter().map(|x| x.item_ref.0).collect_vec(),
             vec![0, 1, 2, 20, 200, 3, 30, 31, 4, 5, 0xff]
         );
         assert_eq!(tree.items[10].level, 0);
@@ -892,7 +895,7 @@ mod tests {
         let removed = tree.remove_recursive(ItemIndex(0));
         assert_eq!(removed, vec![DisplayedItemRef(0)]);
         assert_eq!(
-            tree.items.iter().map(|x| x.item.0).collect_vec(),
+            tree.items.iter().map(|x| x.item_ref.0).collect_vec(),
             vec![1, 2, 20, 200, 3, 30, 31, 4, 5]
         );
     }
@@ -910,7 +913,7 @@ mod tests {
             ]
         );
         assert_eq!(
-            tree.items.iter().map(|x| x.item.0).collect_vec(),
+            tree.items.iter().map(|x| x.item_ref.0).collect_vec(),
             vec![0, 1, 3, 30, 31, 4, 5]
         );
     }
@@ -921,7 +924,7 @@ mod tests {
         let removed = tree.remove_dissolve(ItemIndex(5));
         assert_eq!(removed, DisplayedItemRef(3));
         assert_eq!(
-            tree.items.iter().map(|x| x.item.0).collect_vec(),
+            tree.items.iter().map(|x| x.item_ref.0).collect_vec(),
             vec![0, 1, 2, 20, 200, 30, 31, 4, 5]
         );
         assert_eq!(tree.items[5].level, 0);
@@ -938,52 +941,54 @@ mod tests {
             (3, 0, true, false),
         ]);
         let new_idx = tree
-            .move_item(VisibleItemIndex(3), MoveDir::Up, |node| node.item.0 == 1)
+            .move_item(VisibleItemIndex(3), MoveDir::Up, |node| {
+                node.item_ref.0 == 1
+            })
             .expect("move must succeed");
         assert_eq!(new_idx.0, 3);
         assert_eq!(tree.items[3].level, 1);
         assert_eq!(
-            tree.items.iter().map(|x| x.item.0).collect_vec(),
+            tree.items.iter().map(|x| x.item_ref.0).collect_vec(),
             vec![0, 1, 10, 2, 3]
         );
 
         let new_idx = tree
-            .move_item(new_idx, MoveDir::Up, |node| node.item.0 == 1)
+            .move_item(new_idx, MoveDir::Up, |node| node.item_ref.0 == 1)
             .expect("move must succeed");
         assert_eq!(new_idx.0, 2);
         assert_eq!(tree.items[2].level, 1);
         assert_eq!(
-            tree.items.iter().map(|x| x.item.0).collect_vec(),
+            tree.items.iter().map(|x| x.item_ref.0).collect_vec(),
             vec![0, 1, 2, 10, 3]
         );
 
         let new_idx = tree
-            .move_item(new_idx, MoveDir::Up, |node| node.item.0 == 1)
+            .move_item(new_idx, MoveDir::Up, |node| node.item_ref.0 == 1)
             .expect("move must succeed");
         assert_eq!(new_idx.0, 1);
         assert_eq!(tree.items[1].level, 0);
         assert_eq!(
-            tree.items.iter().map(|x| x.item.0).collect_vec(),
+            tree.items.iter().map(|x| x.item_ref.0).collect_vec(),
             vec![0, 2, 1, 10, 3]
         );
 
         let new_idx = tree
-            .move_item(new_idx, MoveDir::Up, |node| node.item.0 == 1)
+            .move_item(new_idx, MoveDir::Up, |node| node.item_ref.0 == 1)
             .expect("move must succeed");
         assert_eq!(new_idx.0, 0);
         assert_eq!(tree.items[0].level, 0);
         assert_eq!(
-            tree.items.iter().map(|x| x.item.0).collect_vec(),
+            tree.items.iter().map(|x| x.item_ref.0).collect_vec(),
             vec![2, 0, 1, 10, 3]
         );
 
         let new_idx = tree
-            .move_item(new_idx, MoveDir::Up, |node| node.item.0 == 1)
+            .move_item(new_idx, MoveDir::Up, |node| node.item_ref.0 == 1)
             .expect("move must succeed");
         assert_eq!(new_idx.0, 0);
         assert_eq!(tree.items[0].level, 0);
         assert_eq!(
-            tree.items.iter().map(|x| x.item.0).collect_vec(),
+            tree.items.iter().map(|x| x.item_ref.0).collect_vec(),
             vec![2, 0, 1, 10, 3]
         );
     }
@@ -999,22 +1004,24 @@ mod tests {
             (3, 0, true, false),
         ]);
         let new_idx = tree
-            .move_item(VisibleItemIndex(2), MoveDir::Up, |node| node.item.0 == 1)
+            .move_item(VisibleItemIndex(2), MoveDir::Up, |node| {
+                node.item_ref.0 == 1
+            })
             .expect("move must succeed");
         assert_eq!(new_idx.0, 1);
         assert_eq!(tree.items[1].level, 0);
         assert_eq!(
-            tree.items.iter().map(|x| x.item.0).collect_vec(),
+            tree.items.iter().map(|x| x.item_ref.0).collect_vec(),
             vec![0, 2, 1, 10, 11, 3]
         );
 
         let new_idx = tree
-            .move_item(new_idx, MoveDir::Up, |node| node.item.0 == 1)
+            .move_item(new_idx, MoveDir::Up, |node| node.item_ref.0 == 1)
             .expect("move must succeed");
         assert_eq!(new_idx.0, 0);
         assert_eq!(tree.items[0].level, 0);
         assert_eq!(
-            tree.items.iter().map(|x| x.item.0).collect_vec(),
+            tree.items.iter().map(|x| x.item_ref.0).collect_vec(),
             vec![2, 0, 1, 10, 11, 3]
         );
     }
@@ -1029,57 +1036,59 @@ mod tests {
             (3, 0, true, false),
         ]);
         let new_idx = tree
-            .move_item(VisibleItemIndex(1), MoveDir::Down, |node| node.item.0 == 2)
+            .move_item(VisibleItemIndex(1), MoveDir::Down, |node| {
+                node.item_ref.0 == 2
+            })
             .expect("move must succeed");
         println!("{:?}", tree.items);
         assert_eq!(new_idx.0, 2);
         assert_eq!(tree.items[3].level, 1);
         assert_eq!(
-            tree.items.iter().map(|x| x.item.0).collect_vec(),
+            tree.items.iter().map(|x| x.item_ref.0).collect_vec(),
             vec![0, 2, 1, 20, 3]
         );
 
         let new_idx = tree
-            .move_item(new_idx, MoveDir::Down, |node| node.item.0 == 2)
+            .move_item(new_idx, MoveDir::Down, |node| node.item_ref.0 == 2)
             .expect("move must succeed");
         println!("{:?}", tree.items);
         assert_eq!(new_idx.0, 3);
         assert_eq!(tree.items[3].level, 1);
         assert_eq!(
-            tree.items.iter().map(|x| x.item.0).collect_vec(),
+            tree.items.iter().map(|x| x.item_ref.0).collect_vec(),
             vec![0, 2, 20, 1, 3]
         );
 
         let new_idx = tree
-            .move_item(new_idx, MoveDir::Down, |node| node.item.0 == 2)
+            .move_item(new_idx, MoveDir::Down, |node| node.item_ref.0 == 2)
             .expect("move must succeed");
         println!("{:?}", tree.items);
         assert_eq!(new_idx.0, 3);
         assert_eq!(tree.items[3].level, 0);
         assert_eq!(
-            tree.items.iter().map(|x| x.item.0).collect_vec(),
+            tree.items.iter().map(|x| x.item_ref.0).collect_vec(),
             vec![0, 2, 20, 1, 3]
         );
 
         let new_idx = tree
-            .move_item(new_idx, MoveDir::Down, |node| node.item.0 == 2)
+            .move_item(new_idx, MoveDir::Down, |node| node.item_ref.0 == 2)
             .expect("move must succeed");
         println!("{:?}", tree.items);
         assert_eq!(new_idx.0, 4);
         assert_eq!(tree.items[3].level, 0);
         assert_eq!(
-            tree.items.iter().map(|x| x.item.0).collect_vec(),
+            tree.items.iter().map(|x| x.item_ref.0).collect_vec(),
             vec![0, 2, 20, 3, 1]
         );
 
         let new_idx = tree
-            .move_item(new_idx, MoveDir::Down, |node| node.item.0 == 2)
+            .move_item(new_idx, MoveDir::Down, |node| node.item_ref.0 == 2)
             .expect("move must succeed");
         println!("{:?}", tree.items);
         assert_eq!(new_idx.0, 4);
         assert_eq!(tree.items[3].level, 0);
         assert_eq!(
-            tree.items.iter().map(|x| x.item.0).collect_vec(),
+            tree.items.iter().map(|x| x.item_ref.0).collect_vec(),
             vec![0, 2, 20, 3, 1]
         );
     }
@@ -1094,24 +1103,26 @@ mod tests {
             (3, 0, true, false),
         ]);
         let new_idx = tree
-            .move_item(VisibleItemIndex(1), MoveDir::Down, |node| node.item.0 == 2)
+            .move_item(VisibleItemIndex(1), MoveDir::Down, |node| {
+                node.item_ref.0 == 2
+            })
             .expect("move must succeed");
         println!("{:?}", tree.items);
         assert_eq!(new_idx.0, 2);
         assert_eq!(tree.items[3].level, 0);
         assert_eq!(
-            tree.items.iter().map(|x| x.item.0).collect_vec(),
+            tree.items.iter().map(|x| x.item_ref.0).collect_vec(),
             vec![0, 2, 20, 1, 3]
         );
 
         let new_idx = tree
-            .move_item(new_idx, MoveDir::Down, |node| node.item.0 == 2)
+            .move_item(new_idx, MoveDir::Down, |node| node.item_ref.0 == 2)
             .expect("move must succeed");
         println!("{:?}", tree.items);
         assert_eq!(new_idx.0, 3);
         assert_eq!(tree.items[3].level, 0);
         assert_eq!(
-            tree.items.iter().map(|x| x.item.0).collect_vec(),
+            tree.items.iter().map(|x| x.item_ref.0).collect_vec(),
             vec![0, 2, 20, 3, 1]
         );
     }
@@ -1128,7 +1139,7 @@ mod tests {
         )
         .expect("move_items must succeed");
         assert_eq!(
-            tree.items.iter().map(|x| x.item.0).collect_vec(),
+            tree.items.iter().map(|x| x.item_ref.0).collect_vec(),
             vec![4, 0, 1, 2, 20, 200, 3, 30, 31, 5]
         );
         assert_eq!(tree.items[0].level, 0);
@@ -1146,7 +1157,7 @@ mod tests {
         )
         .expect("move_items must succeed");
         assert_eq!(
-            tree.items.iter().map(|x| x.item.0).collect_vec(),
+            tree.items.iter().map(|x| x.item_ref.0).collect_vec(),
             vec![0, 1, 2, 20, 3, 30, 31, 4, 5, 200]
         );
         assert_eq!(tree.items[9].level, 0);
@@ -1164,7 +1175,7 @@ mod tests {
         )
         .expect("move_items must succeed");
         assert_eq!(
-            tree.items.iter().map(|x| x.item.0).collect_vec(),
+            tree.items.iter().map(|x| x.item_ref.0).collect_vec(),
             vec![0, 4, 5, 1, 2, 20, 200, 3, 30, 31]
         );
         assert_eq!(tree.items[1].level, 0);
@@ -1183,7 +1194,7 @@ mod tests {
         )
         .expect("move_items must succeed");
         assert_eq!(
-            tree.items.iter().map(|x| x.item.0).collect_vec(),
+            tree.items.iter().map(|x| x.item_ref.0).collect_vec(),
             vec![0, 31, 4, 1, 2, 20, 200, 3, 30, 5]
         );
         assert_eq!(tree.items[1].level, 0);
@@ -1202,7 +1213,7 @@ mod tests {
         )
         .expect("move_items must succeed");
         assert_eq!(
-            tree.items.iter().map(|x| x.item.0).collect_vec(),
+            tree.items.iter().map(|x| x.item_ref.0).collect_vec(),
             vec![0, 2, 20, 200, 1, 4, 3, 30, 31, 5]
         );
         assert_eq!(tree.items[4].level, 1);
@@ -1221,7 +1232,7 @@ mod tests {
         )
         .expect("move_items must succeed");
         assert_eq!(
-            tree.items.iter().map(|x| x.item.0).collect_vec(),
+            tree.items.iter().map(|x| x.item_ref.0).collect_vec(),
             vec![0, 2, 20, 1, 4, 200, 3, 30, 31, 5]
         );
         assert_eq!(tree.items[4].level, 2);
@@ -1244,7 +1255,7 @@ mod tests {
         )
         .expect("move_items must succeed");
         assert_eq!(
-            tree.items.iter().map(|x| x.item.0).collect_vec(),
+            tree.items.iter().map(|x| x.item_ref.0).collect_vec(),
             vec![0, 2, 1]
         )
     }
@@ -1321,7 +1332,7 @@ mod tests {
         )
         .expect("move_items must succeed");
         assert_eq!(
-            tree.items.iter().map(|x| x.item.0).collect_vec(),
+            tree.items.iter().map(|x| x.item_ref.0).collect_vec(),
             vec![1, 2, 20, 0, 200, 5, 3, 30, 31, 4]
         );
         assert_eq!(tree.items[3].level, 2);
@@ -1343,7 +1354,7 @@ mod tests {
         )
         .expect("move_items must succeed");
         assert_eq!(
-            tree.items.iter().map(|x| x.item.0).collect_vec(),
+            tree.items.iter().map(|x| x.item_ref.0).collect_vec(),
             vec![1, 2, 20, 0, 200, 5, 3, 30, 31, 4]
         );
         assert_eq!(tree.items[3].level, 1);
@@ -1363,7 +1374,7 @@ mod tests {
         )
         .expect("move_items must succeed");
         assert_eq!(
-            tree.items.iter().map(|x| x.item.0).collect_vec(),
+            tree.items.iter().map(|x| x.item_ref.0).collect_vec(),
             vec![0, 1, 2, 20, 200, 3, 30, 31, 4, 5]
         );
         assert_eq!(tree.items, test_tree().items);
@@ -1387,7 +1398,7 @@ mod tests {
         )
         .expect("move_items must succeed");
         assert_eq!(
-            tree.items.iter().map(|x| x.item.0).collect_vec(),
+            tree.items.iter().map(|x| x.item_ref.0).collect_vec(),
             vec![0, 10, 12, 11, 13]
         );
     }

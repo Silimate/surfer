@@ -448,7 +448,7 @@ impl WaveData {
             .items_tree
             .iter()
             .enumerate()
-            .find(|(_, node)| node.item == id)
+            .find(|(_, node)| node.item_ref == id)
             .map(|(idx, _)| ItemIndex(idx))
         else {
             return;
@@ -457,7 +457,7 @@ impl WaveData {
         let focused_item_ref = self
             .focused_item
             .and_then(|vidx| self.items_tree.get_visible(vidx))
-            .map(|node| node.item);
+            .map(|node| node.item_ref);
 
         for removed_ref in self.items_tree.remove_recursive(idx) {
             if let Some(DisplayedItem::Marker(m)) = self.displayed_items.remove(&removed_ref) {
@@ -469,7 +469,7 @@ impl WaveData {
             match self
                 .items_tree
                 .iter_visible()
-                .find_position(|node| node.item == focused_item_ref)
+                .find_position(|node| node.item_ref == focused_item_ref)
                 .map(|(vidx, _)| VisibleItemIndex(vidx))
             {
                 Some(vidx) => Some(vidx),
@@ -647,7 +647,7 @@ impl WaveData {
         let (node, index, _, _) = self
             .items_tree
             .get_visible_extra(VisibleItemIndex(vidx.0))?;
-        let level = match self.displayed_items.get(&node.item)? {
+        let level = match self.displayed_items.get(&node.item_ref)? {
             DisplayedItem::Group(_) if node.unfolded => node.level + 1,
             _ => node.level,
         };
@@ -667,7 +667,7 @@ impl WaveData {
         let vidx = self.focused_item?;
         let item_index = self.items_tree.to_displayed(vidx)?;
         let node = self.items_tree.get(item_index)?;
-        let item = self.displayed_items.get(&node.item)?;
+        let item = self.displayed_items.get(&node.item_ref)?;
 
         // TODO add get_next_sibling to tree?
         let (before, level) = match item {
@@ -693,9 +693,10 @@ impl WaveData {
 
     pub fn index_for_ref_or_focus(&self, item_ref: Option<DisplayedItemRef>) -> Option<ItemIndex> {
         if let Some(item_ref) = item_ref {
-            self.items_tree.iter().enumerate().find_map(|(idx, node)| {
-                (node.item == item_ref).then_some(crate::displayed_item_tree::ItemIndex(idx))
-            })
+            self.items_tree
+                .iter()
+                .enumerate()
+                .find_map(|(idx, node)| (node.item_ref == item_ref).then_some(ItemIndex(idx)))
         } else if let Some(focused_item) = self.focused_item {
             self.items_tree
                 .iter_visible_extra()
@@ -771,7 +772,7 @@ impl WaveData {
     pub fn remove_placeholders(&mut self) {
         let removed_refs = self.items_tree.extract_recursive_if(|node| {
             matches!(
-                self.displayed_items.get(&node.item),
+                self.displayed_items.get(&node.item_ref),
                 Some(DisplayedItem::Placeholder(_))
             )
         });
@@ -848,7 +849,7 @@ impl WaveData {
                 if let Some(DisplayedItem::Variable(variable)) = &self
                     .items_tree
                     .get_visible(vidx)
-                    .and_then(|node| self.displayed_items.get(&node.item))
+                    .and_then(|node| self.displayed_items.get(&node.item_ref))
                 {
                     if let Ok(Some(res)) = self.inner.as_waves().unwrap().query_variable(
                         &variable.variable_ref,
@@ -930,13 +931,16 @@ impl WaveData {
             .and_then(|r| r.to_bigint())
     }
 
-    pub fn get_displayed_item_index(&self, item: &DisplayedItemRef) -> Option<VisibleItemIndex> {
+    pub fn get_displayed_item_index(
+        &self,
+        item_ref: &DisplayedItemRef,
+    ) -> Option<VisibleItemIndex> {
         // TODO check where this is called since it could now fail...
         self.items_tree
             .iter_visible()
             .enumerate()
             .find_map(|(vidx, node)| {
-                if node.item == *item {
+                if node.item_ref == *item_ref {
                     Some(VisibleItemIndex(vidx))
                 } else {
                     None

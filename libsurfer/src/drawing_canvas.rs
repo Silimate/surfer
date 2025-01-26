@@ -337,7 +337,7 @@ impl State {
         let commands = waves
             .items_tree
             .iter_visible()
-            .map(|node| (node.item, waves.displayed_items.get(&node.item)))
+            .map(|node| (node.item_ref, waves.displayed_items.get(&node.item_ref)))
             .filter_map(|(id, item)| match item {
                 Some(DisplayedItem::Variable(variable_ref)) => Some((id, variable_ref)),
                 _ => None,
@@ -418,7 +418,7 @@ impl State {
         let displayed_streams = waves
             .items_tree
             .iter_visible()
-            .map(|node| node.item)
+            .map(|node| node.item_ref)
             .collect::<Vec<_>>()
             .par_iter()
             .map(|id| waves.displayed_items.get(id))
@@ -858,7 +858,7 @@ impl State {
             let displayed_item = waves
                 .items_tree
                 .get_visible(drawing_info.item_list_idx())
-                .and_then(|node| waves.displayed_items.get(&node.item));
+                .and_then(|node| waves.displayed_items.get(&node.item_ref));
             let color = displayed_item
                 .and_then(super::displayed_item::DisplayedItem::color)
                 .and_then(|color| self.config.theme.get_color(&color));
@@ -984,7 +984,7 @@ impl State {
             let displayed_item = waves
                 .items_tree
                 .get_visible(drawing_info.item_list_idx())
-                .and_then(|node| waves.displayed_items.get(&node.item));
+                .and_then(|node| waves.displayed_items.get(&node.item_ref));
             let color = displayed_item
                 .and_then(super::displayed_item::DisplayedItem::color)
                 .and_then(|color| self.config.theme.get_color(&color));
@@ -1398,7 +1398,9 @@ impl State {
         if let Some(utimestamp) = timestamp.to_biguint() {
             if let Some(vidx) = waves.get_item_at_y(pos.y) {
                 if let Some(node) = waves.items_tree.get_visible(vidx) {
-                    if let DisplayedItem::Variable(variable) = &waves.displayed_items[&node.item] {
+                    if let DisplayedItem::Variable(variable) =
+                        &waves.displayed_items[&node.item_ref]
+                    {
                         if let Ok(Some(res)) = waves
                             .inner
                             .as_waves()

@@ -330,7 +330,7 @@ impl State {
         waves
             .items_tree
             .iter_visible()
-            .map(|node| node.item)
+            .map(|node| node.item_ref)
             .collect_vec()
     }
 }

@@ -5,6 +5,7 @@ use std::str::FromStr;
 
 use serde::{Deserialize, Serialize};
 
+use crate::displayed_item_tree::Node;
 use crate::wave_container::{ScopeRefExt, VariableRefExt};
 use crate::{displayed_item::DisplayedItem, wave_container::VariableRef, wave_data::WaveData};
 
@@ -43,7 +44,7 @@ impl WaveData {
         let full_names = self
             .items_tree
             .iter()
-            .map(|node| self.displayed_items.get(&node.item))
+            .map(|node| self.displayed_items.get(&node.item_ref))
             .filter_map(|item| match item {
                 Some(DisplayedItem::Variable(variable)) => Some(variable.variable_ref.clone()),
                 _ => None,
@@ -51,9 +52,9 @@ impl WaveData {
             .unique()
             .collect_vec();
 
-        for crate::displayed_item_tree::Node { item, .. } in self.items_tree.iter() {
+        for Node { item_ref, .. } in self.items_tree.iter() {
             self.displayed_items
-                .entry(*item)
+                .entry(*item_ref)
                 .and_modify(|item| match item {
                     DisplayedItem::Variable(variable) => {
                         let local_name = variable.variable_ref.name.clone();
@@ -127,8 +128,8 @@ impl WaveData {
     }
 
     pub fn force_variable_name_type(&mut self, name_type: VariableNameType) {
-        for crate::displayed_item_tree::Node { item, .. } in self.items_tree.iter() {
-            self.displayed_items.entry(*item).and_modify(|item| {
+        for Node { item_ref, .. } in self.items_tree.iter() {
+            self.displayed_items.entry(*item_ref).and_modify(|item| {
                 if let DisplayedItem::Variable(variable) = item {
                     variable.display_name_type = name_type;
                 }

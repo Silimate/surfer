@@ -95,22 +95,29 @@ pub fn get_parser(state: &State) -> Command<Message> {
             .items_tree
             .iter_visible()
             .enumerate()
-            .map(|(vidx, Node { item: item_id, .. })| {
-                let idx = VisibleItemIndex(vidx);
-                let item = &v.displayed_items[item_id];
-                match item {
-                    DisplayedItem::Variable(var) => format!(
-                        "{}_{}",
-                        uint_idx_to_alpha_idx(idx, v.displayed_items.len()),
-                        var.variable_ref.full_path_string()
-                    ),
-                    _ => format!(
-                        "{}_{}",
-                        uint_idx_to_alpha_idx(idx, v.displayed_items.len()),
-                        item.name()
-                    ),
-                }
-            })
+            .map(
+                |(
+                    vidx,
+                    Node {
+                        item_ref: item_id, ..
+                    },
+                )| {
+                    let idx = VisibleItemIndex(vidx);
+                    let item = &v.displayed_items[item_id];
+                    match item {
+                        DisplayedItem::Variable(var) => format!(
+                            "{}_{}",
+                            uint_idx_to_alpha_idx(idx, v.displayed_items.len()),
+                            var.variable_ref.full_path_string()
+                        ),
+                        _ => format!(
+                            "{}_{}",
+                            uint_idx_to_alpha_idx(idx, v.displayed_items.len()),
+                            item.name()
+                        ),
+                    }
+                },
+            )
             .collect_vec(),
         None => vec![],
     };
@@ -163,10 +170,7 @@ pub fn get_parser(state: &State) -> Command<Message> {
         waves
             .items_tree
             .iter()
-            .map(|crate::displayed_item_tree::Node { item, .. }| {
-                let x = waves.displayed_items.get(item);
-                x
-            })
+            .map(|Node { item_ref, .. }| waves.displayed_items.get(item_ref))
             .filter_map(|item| match item {
                 Some(DisplayedItem::Marker(marker)) => Some((marker.name.clone(), marker.idx)),
                 _ => None,

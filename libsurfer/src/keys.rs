@@ -253,13 +253,13 @@ impl State {
                             let mut remove_ids = waves
                                 .items_tree
                                 .iter_selected()
-                                .map(|i| i.item)
+                                .map(|i| i.item_ref)
                                 .collect::<Vec<_>>();
                             if let Some(node) = waves
                                 .focused_item
                                 .and_then(|focus| waves.items_tree.get_visible(focus))
                             {
-                                remove_ids.push(node.item)
+                                remove_ids.push(node.item_ref)
                             }
 
                             msgs.push(Message::RemoveItems(remove_ids));
