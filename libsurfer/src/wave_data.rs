@@ -644,15 +644,13 @@ impl WaveData {
 
     fn vidx_insert_position(&self, vidx: Option<VisibleItemIndex>) -> Option<TargetPosition> {
         let vidx = vidx?;
-        let (node, index, _, _) = self
-            .items_tree
-            .get_visible_extra(VisibleItemIndex(vidx.0))?;
-        let level = match self.displayed_items.get(&node.item_ref)? {
-            DisplayedItem::Group(_) if node.unfolded => node.level + 1,
-            _ => node.level,
+        let info = self.items_tree.get_visible_extra(vidx)?;
+        let level = match self.displayed_items.get(&info.node.item_ref)? {
+            DisplayedItem::Group(_) if info.node.unfolded => info.node.level + 1,
+            _ => info.node.level,
         };
         Some(TargetPosition {
-            before: ItemIndex(index.0 + 1),
+            before: ItemIndex(info.idx.0 + 1),
             level,
         })
     }
@@ -702,9 +700,8 @@ impl WaveData {
                 .find_map(|(idx, node)| (node.item_ref == item_ref).then_some(ItemIndex(idx)))
         } else if let Some(focused_item) = self.focused_item {
             self.items_tree
-                .iter_visible_extra()
-                .enumerate()
-                .find_map(|(vidx, (_, idx, _, _))| (vidx == focused_item.0).then_some(idx))
+                .get_visible_extra(focused_item)
+                .map(|info| info.idx)
         } else {
             None
         }
@@ -732,14 +729,7 @@ impl WaveData {
         self.focused_item = self.focused_item.and_then(|_| {
             self.items_tree
                 .iter_visible_extra()
-                .enumerate()
-                .find_map(|(vidx, (_, index, _, _))| {
-                    if index == insert_index {
-                        Some(VisibleItemIndex(vidx))
-                    } else {
-                        None
-                    }
-                })
+                .find_map(|info| (info.idx == insert_index).then_some(info.vidx))
         });
         self.items_tree.xselect_all(false);
         item_ref

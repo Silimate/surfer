@@ -1591,9 +1591,7 @@ impl State {
                     let mut to_move = waves
                         .items_tree
                         .iter_visible_extra()
-                        .filter_map(
-                            |(node, idx, _, _)| if node.selected { Some(idx) } else { None },
-                        )
+                        .filter_map(|info| info.node.selected.then_some(info.idx))
                         .collect::<Vec<_>>();
                     if let Some(idx) = focused_index {
                         to_move.push(idx)
@@ -1821,11 +1819,11 @@ impl State {
                 };
 
                 if let Some(focused_item) = waves.focused_item {
-                    let (_, focused_index, _, _) = waves
+                    let info = waves
                         .items_tree
                         .get_visible_extra(focused_item)
                         .expect("Inconsistent state");
-                    if waves.items_tree.subtree_contains(item, focused_index) {
+                    if waves.items_tree.subtree_contains(item, info.idx) {
                         waves.focused_item = None;
                     }
                 }

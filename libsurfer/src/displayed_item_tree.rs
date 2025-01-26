@@ -52,7 +52,6 @@ fn next_visible_item(items: &[Node], this_idx: usize) -> usize {
     next_idx
 }
 
-#[must_use = "iterators are lazy and do nothing unless consumed"]
 pub struct VisibleItemIterator<'a> {
     items: &'a Vec<Node>,
     next_idx: usize,
@@ -100,20 +99,30 @@ impl<'a> Iterator for VisibleItemIteratorMut<'a> {
     }
 }
 
-#[must_use = "iterators are lazy and do nothing unless consumed"]
+pub struct Info<'a> {
+    pub node: &'a Node,
+    pub idx: ItemIndex,
+    pub vidx: VisibleItemIndex,
+    pub has_children: bool,
+    pub last: bool,
+}
+
 pub struct VisibleItemIteratorExtraInfo<'a> {
     items: &'a Vec<Node>,
     /// Index of the next element to return, not guaranteed to be in-bounds
     next_idx: usize,
+    next_vidx: usize,
 }
 
 impl<'a> Iterator for VisibleItemIteratorExtraInfo<'a> {
-    type Item = (&'a Node, ItemIndex, bool, bool); // TODO this should include the vidx
+    type Item = Info<'a>; // TODO this should include the vidx
 
     fn next(&mut self) -> Option<Self::Item> {
         let this_idx = self.next_idx;
+        let this_vidx = self.next_vidx;
         if this_idx < self.items.len() {
             self.next_idx = next_visible_item(self.items, this_idx);
+            self.next_vidx += 1;
 
             let this_level = self.items[this_idx].level;
             let has_child = self
@@ -121,12 +130,13 @@ impl<'a> Iterator for VisibleItemIteratorExtraInfo<'a> {
                 .get(this_idx + 1)
                 .map(|item| item.level > this_level)
                 .unwrap_or(false);
-            Some((
-                &self.items[this_idx],
-                ItemIndex(this_idx),
-                has_child,
-                self.next_idx >= self.items.len(),
-            ))
+            Some(Info {
+                node: &self.items[this_idx],
+                idx: ItemIndex(this_idx),
+                vidx: VisibleItemIndex(this_vidx),
+                has_children: has_child,
+                last: self.next_idx >= self.items.len(),
+            })
         } else {
             None
         }
@@ -187,6 +197,7 @@ impl DisplayedItemTree {
         VisibleItemIteratorExtraInfo {
             items: &self.items,
             next_idx: 0,
+            next_vidx: 0,
         }
     }
 
@@ -203,10 +214,7 @@ impl DisplayedItemTree {
         self.iter_visible().nth(index.0)
     }
 
-    pub fn get_visible_extra(
-        &self,
-        index: VisibleItemIndex,
-    ) -> Option<(&Node, ItemIndex, bool, bool)> {
+    pub fn get_visible_extra(&self, index: VisibleItemIndex) -> Option<Info<'_>> {
         self.iter_visible_extra().nth(index.0)
     }
 
@@ -792,17 +800,23 @@ mod tests {
         let tree = test_tree();
         assert_eq!(
             tree.iter_visible_extra()
-                .map(|(x, idx, child, last)| (x.item_ref.0, idx.0, child, last))
+                .map(|info| (
+                    info.node.item_ref.0,
+                    info.idx.0,
+                    info.vidx.0,
+                    info.has_children,
+                    info.last
+                ))
                 .collect_vec(),
             vec![
-                (0, 0, false, false),
-                (1, 1, false, false),
-                (2, 2, true, false),
-                (3, 5, true, false),
-                (30, 6, false, false),
-                (31, 7, false, false),
-                (4, 8, false, false),
-                (5, 9, false, true),
+                (0, 0, 0, false, false),
+                (1, 1, 1, false, false),
+                (2, 2, 2, true, false),
+                (3, 5, 3, true, false),
+                (30, 6, 4, false, false),
+                (31, 7, 5, false, false),
+                (4, 8, 6, false, false),
+                (5, 9, 7, false, true),
             ]
         )
     }

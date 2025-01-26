@@ -947,28 +947,20 @@ impl State {
         let alignment = self.get_name_alignment();
         ui.with_layout(Layout::top_down(alignment).with_cross_justify(true), |ui| {
             let available_rect = ui.available_rect_before_wrap();
-            for (
-                vidx,
-                (
+            for crate::displayed_item_tree::Info {
+                node:
                     crate::displayed_item_tree::Node {
                         item_ref,
                         level,
                         unfolded,
                         ..
                     },
-                    _index,
-                    has_children,
-                    last,
-                ),
-            ) in self
-                .waves
-                .as_ref()
-                .unwrap()
-                .items_tree
-                .iter_visible_extra()
-                .enumerate()
+                vidx,
+                has_children,
+                last,
+                ..
+            } in self.waves.as_ref().unwrap().items_tree.iter_visible_extra()
             {
-                let vidx = VisibleItemIndex(vidx);
                 let Some(displayed_item) =
                     self.waves.as_ref().unwrap().displayed_items.get(item_ref)
                 else {
