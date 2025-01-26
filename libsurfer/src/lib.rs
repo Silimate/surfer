@@ -55,6 +55,7 @@ pub mod wcp;
 pub mod wellen;
 
 use crate::displayed_item_tree::ItemIndex;
+use crate::displayed_item_tree::TargetPosition;
 use std::collections::HashMap;
 use std::sync::atomic::AtomicU32;
 use std::sync::mpsc::{self, Receiver, Sender};
@@ -1695,7 +1696,7 @@ impl State {
             }
             Message::GroupNew {
                 name,
-                target_position,
+                before,
                 items,
             } => {
                 self.save_current_canvas(format!(
@@ -1707,7 +1708,15 @@ impl State {
                     return;
                 };
 
-                let passed_or_focused = target_position.or_else(|| waves.focused_insert_position());
+                let passed_or_focused = before
+                    .and_then(|before| {
+                        waves
+                            .items_tree
+                            .get(before)
+                            .map(|node| node.level)
+                            .map(|level| TargetPosition { before, level })
+                    })
+                    .or_else(|| waves.focused_insert_position());
                 let final_target = passed_or_focused.unwrap_or_else(|| waves.end_insert_position());
 
                 let mut item_refs = items.unwrap_or_else(|| {
@@ -1719,8 +1728,7 @@ impl State {
                 });
 
                 // if we are using the focus as the insert anchor, then move that as well
-                let item_refs = if target_position.is_none() && passed_or_focused.is_some() {
-                    info!("moving focus item");
+                let item_refs = if before.is_none() && passed_or_focused.is_some() {
                     let focus_index = waves
                         .items_tree
                         .to_displayed(waves.focused_item.expect("Inconsistent state"))
@@ -1737,13 +1745,12 @@ impl State {
                     item_refs
                 };
 
-                dump_tree(waves);
-                info!("final_target: {final_target:?}");
-                info!("moving: {item_refs:?}");
+                if item_refs.is_empty() {
+                    return;
+                }
+
                 let group_ref =
                     waves.add_group(name.unwrap_or("Group".to_owned()), Some(final_target));
-                let insert_idx = final_target.before;
-                info!("insert_idx: {insert_idx:?}");
 
                 let item_idxs = waves
                     .items_tree
@@ -1755,7 +1762,6 @@ impl State {
                             .then_some(crate::displayed_item_tree::ItemIndex(idx))
                     })
                     .collect::<Vec<_>>();
-                info!("post indices: {item_idxs:?}");
 
                 if let Err(e) = waves.items_tree.move_items(
                     item_idxs,

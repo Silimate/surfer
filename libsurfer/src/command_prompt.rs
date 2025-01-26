@@ -663,12 +663,8 @@ pub fn get_parser(state: &State) -> Command<Message> {
                     Box::new(|name| {
                         let trimmed = name.trim();
                         Some(Command::Terminal(Message::GroupNew {
-                            name: if !trimmed.is_empty() {
-                                Some(trimmed.to_owned())
-                            } else {
-                                None
-                            },
-                            target_position: None,
+                            name: (!trimmed.is_empty()).then_some(trimmed.to_owned()),
+                            before: None,
                             items: None,
                         }))
                     }),

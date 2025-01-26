@@ -72,6 +72,11 @@ impl State {
                             msgs.push(Message::ShowCommandPrompt(None))
                         }
                     }
+                    (Key::G, true, false, false) => msgs.push(Message::GroupNew {
+                        name: None,
+                        before: None,
+                        items: None,
+                    }),
                     (Key::Escape, true, false, false) => {
                         msgs.push(Message::InvalidateCount);
                         msgs.push(Message::ItemSelectionClear);

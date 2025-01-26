@@ -9,7 +9,7 @@ use serde::Deserialize;
 use std::path::PathBuf;
 use surver::Status;
 
-use crate::displayed_item_tree::VisibleItemIndex;
+use crate::displayed_item_tree::{ItemIndex, VisibleItemIndex};
 use crate::graphics::{Graphic, GraphicId};
 use crate::transaction_container::{
     StreamScopeRef, TransactionContainer, TransactionRef, TransactionStreamRef,
@@ -305,7 +305,7 @@ pub enum Message {
     DumpTree,
     GroupNew {
         name: Option<String>,
-        target_position: Option<crate::displayed_item_tree::TargetPosition>,
+        before: Option<ItemIndex>,
         items: Option<Vec<DisplayedItemRef>>,
     },
     GroupDissolve(Option<DisplayedItemRef>),
