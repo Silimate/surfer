@@ -402,7 +402,7 @@ impl State {
                 }
 
                 egui::SidePanel::left("variable list")
-                    .default_width(200.)
+                    .default_width(100.)
                     .width_range(100.0..=max_width)
                     .show(ctx, |ui| {
                         ui.style_mut().wrap_mode = Some(TextWrapMode::Extend);
@@ -1014,56 +1014,32 @@ impl State {
                                     ui,
                                     ctx,
                                     levels_to_force_expand,
+                                    alignment,
                                 )
                             }
-                            DisplayedItem::Divider(_) => self.draw_plain_item(
-                                msgs,
-                                vidx,
-                                *item_ref,
-                                displayed_item,
-                                &mut item_offsets,
-                                ui,
-                            ),
-                            DisplayedItem::Marker(_) => self.draw_plain_item(
-                                msgs,
-                                vidx,
-                                *item_ref,
-                                displayed_item,
-                                &mut item_offsets,
-                                ui,
-                            ),
-                            DisplayedItem::Placeholder(_) => self.draw_plain_item(
-                                msgs,
-                                vidx,
-                                *item_ref,
-                                displayed_item,
-                                &mut item_offsets,
-                                ui,
-                            ),
-                            DisplayedItem::TimeLine(_) => self.draw_plain_item(
-                                msgs,
-                                vidx,
-                                *item_ref,
-                                displayed_item,
-                                &mut item_offsets,
-                                ui,
-                            ),
-                            DisplayedItem::Stream(_) => self.draw_plain_item(
-                                msgs,
-                                vidx,
-                                *item_ref,
-                                displayed_item,
-                                &mut item_offsets,
-                                ui,
-                            ),
-                            DisplayedItem::Group(_) => self.draw_plain_item(
-                                msgs,
-                                vidx,
-                                *item_ref,
-                                displayed_item,
-                                &mut item_offsets,
-                                ui,
-                            ),
+                            DisplayedItem::Divider(_)
+                            | DisplayedItem::Marker(_)
+                            | DisplayedItem::Placeholder(_)
+                            | DisplayedItem::TimeLine(_)
+                            | DisplayedItem::Stream(_)
+                            | DisplayedItem::Group(_) => {
+                                ui.with_layout(
+                                    ui.layout()
+                                        .with_main_justify(true)
+                                        .with_main_align(alignment),
+                                    |ui| {
+                                        self.draw_plain_item(
+                                            msgs,
+                                            vidx,
+                                            *item_ref,
+                                            displayed_item,
+                                            &mut item_offsets,
+                                            ui,
+                                        )
+                                    },
+                                )
+                                .inner
+                            }
                         };
                         // expand to the left, but not over the icon size
                         let mut expanded_rect = item_rect;
@@ -1469,6 +1445,7 @@ impl State {
         ui: &mut egui::Ui,
         ctx: &egui::Context,
         levels_to_force_expand: Option<usize>,
+        alignment: Align,
     ) -> Rect {
         let displayed_field_ref = DisplayedFieldRef {
             item: displayed_id,
@@ -1487,46 +1464,50 @@ impl State {
                 }
 
                 let response = ui
-                    .with_layout(
-                        Layout::top_down(Align::LEFT).with_cross_justify(true),
-                        |ui| {
-                            header
-                                .show_header(ui, |ui| {
-                                    ui.with_layout(
-                                        Layout::top_down(Align::LEFT).with_cross_justify(true),
-                                        |ui| {
-                                            self.draw_variable_label(
-                                                vidx,
-                                                displayed_item,
-                                                displayed_id,
-                                                field.clone(),
-                                                msgs,
-                                                ui,
-                                                ctx,
-                                            )
-                                        },
-                                    );
-                                })
-                                .body(|ui| {
-                                    for (name, info) in subfields {
-                                        let mut new_path = field.clone();
-                                        new_path.field.push(name.clone());
-                                        self.draw_variable(
-                                            msgs,
+                    .with_layout(Layout::top_down(alignment).with_cross_justify(true), |ui| {
+                        header
+                            .show_header(ui, |ui| {
+                                ui.with_layout(
+                                    Layout::top_down(alignment).with_cross_justify(true),
+                                    |ui| {
+                                        self.draw_variable_label(
                                             vidx,
                                             displayed_item,
                                             displayed_id,
-                                            new_path,
-                                            drawing_infos,
-                                            info,
+                                            field.clone(),
+                                            msgs,
                                             ui,
                                             ctx,
-                                            levels_to_force_expand.map(|l| l.saturating_sub(1)),
-                                        );
-                                    }
-                                })
-                        },
-                    )
+                                        )
+                                    },
+                                );
+                            })
+                            .body(|ui| {
+                                for (name, info) in subfields {
+                                    let mut new_path = field.clone();
+                                    new_path.field.push(name.clone());
+                                    ui.with_layout(
+                                        Layout::top_down(alignment).with_cross_justify(true),
+                                        |ui| {
+                                            self.draw_variable(
+                                                msgs,
+                                                vidx,
+                                                displayed_item,
+                                                displayed_id,
+                                                new_path,
+                                                drawing_infos,
+                                                info,
+                                                ui,
+                                                ctx,
+                                                levels_to_force_expand.map(|l| l.saturating_sub(1)),
+                                                alignment,
+                                            );
+                                        },
+                                    )
+                                    .inner
+                                }
+                            })
+                    })
                     .inner;
                 drawing_infos.push(ItemDrawingInfo::Variable(VariableDrawingInfo {
                     displayed_field_ref,
@@ -1542,15 +1523,19 @@ impl State {
             | VariableInfo::Clock
             | VariableInfo::String
             | VariableInfo::Real => {
-                let label = self.draw_variable_label(
-                    vidx,
-                    displayed_item,
-                    displayed_id,
-                    field.clone(),
-                    msgs,
-                    ui,
-                    ctx,
-                );
+                let label = ui
+                    .with_layout(Layout::top_down(alignment).with_cross_justify(true), |ui| {
+                        self.draw_variable_label(
+                            vidx,
+                            displayed_item,
+                            displayed_id,
+                            field.clone(),
+                            msgs,
+                            ui,
+                            ctx,
+                        )
+                    })
+                    .inner;
                 self.draw_drag_source(msgs, vidx, &label);
                 drawing_infos.push(ItemDrawingInfo::Variable(VariableDrawingInfo {
                     displayed_field_ref,
