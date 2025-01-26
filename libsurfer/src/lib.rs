@@ -424,6 +424,11 @@ impl State {
                         .xselect_visible_range(select_from, select_to, true);
                 }
             }
+            Message::ItemSelectAll => {
+                if let Some(waves) = self.waves.as_mut() {
+                    waves.items_tree.xselect_all(true);
+                }
+            }
             Message::ToggleItemSelected(vidx) => {
                 let Some(waves) = self.waves.as_mut() else {
                     return;
