@@ -24,7 +24,7 @@ use crate::benchmark::NUM_PERF_SAMPLES;
 use crate::displayed_item::{
     draw_rename_window, DisplayedFieldRef, DisplayedItem, DisplayedItemRef,
 };
-use crate::displayed_item_tree::VisibleItemIndex;
+use crate::displayed_item_tree::{ItemIndex, VisibleItemIndex};
 use crate::help::{
     draw_about_window, draw_control_help_window, draw_license_window, draw_quickstart_help_window,
 };
@@ -1651,11 +1651,13 @@ impl State {
         );
         msgs.push(Message::VariableDragTargetChanged(
             crate::displayed_item_tree::TargetPosition {
-                before: waves
-                    .items_tree
-                    .to_displayed(insert_vidx)
-                    .map(|index| index.0)
-                    .unwrap_or_else(|| waves.items_tree.len()),
+                before: ItemIndex(
+                    waves
+                        .items_tree
+                        .to_displayed(insert_vidx)
+                        .map(|index| index.0)
+                        .unwrap_or_else(|| waves.items_tree.len()),
+                ),
                 level: insert_level,
             },
         ));

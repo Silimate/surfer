@@ -33,7 +33,7 @@ pub struct ItemIndex(pub usize);
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Serialize, Deserialize)]
 pub struct TargetPosition {
     /// before which index to insert, may be in a range of 0..=tree.len() to allow for appending
-    pub before: usize,
+    pub before: ItemIndex,
     /// at which level to insert, if None the level is derived from the item before
     pub level: u8, // TODO go back to Option and implement
 }
@@ -243,7 +243,7 @@ impl DisplayedItemTree {
         self.is_valid_position(position)?;
 
         self.items.insert(
-            position.before,
+            position.before.0,
             Node {
                 item_ref: item,
                 level: position.level,
@@ -252,7 +252,7 @@ impl DisplayedItemTree {
             },
         );
 
-        Ok(ItemIndex(position.before))
+        Ok(position.before)
     }
 
     /// Return the index past the end of the subtree started by `idx`
@@ -378,7 +378,7 @@ impl DisplayedItemTree {
                     self.move_items(
                         vec![ItemIndex(idx)],
                         TargetPosition {
-                            before: end + 1,
+                            before: ItemIndex(end + 1),
                             level: *level + 1,
                         },
                     )?;
@@ -389,7 +389,7 @@ impl DisplayedItemTree {
                     self.move_items(
                         vec![ItemIndex(idx)],
                         TargetPosition {
-                            before: self.subtree_end(end),
+                            before: ItemIndex(self.subtree_end(end)),
                             level: this_level,
                         },
                     )?;
@@ -412,7 +412,7 @@ impl DisplayedItemTree {
                         self.move_items(
                             vec![ItemIndex(idx)],
                             TargetPosition {
-                                before: node_idx,
+                                before: ItemIndex(node_idx),
                                 level: node.level,
                             },
                         )?;
@@ -460,13 +460,14 @@ impl DisplayedItemTree {
             }
         }
 
+        let target_idx = target.before.0;
         let pre_split = indices
             .iter()
-            .position(|x| x.0 >= target.before)
+            .position(|x| x.0 >= target_idx)
             .unwrap_or(indices.len());
         let post_split = indices[pre_split..]
             .iter()
-            .position(|x| x.0 > target.before)
+            .position(|x| x.0 > target_idx)
             .unwrap_or(0);
         let (pre_indices, rem) = indices.split_at(pre_split);
         let (stable, post_indices) = rem.split_at(post_split);
@@ -474,7 +475,7 @@ impl DisplayedItemTree {
             panic!("multiple stable elements - this should never happen")
         }
 
-        if self.path_to_root_would_intersect(pre_indices, target.before, target.level) {
+        if self.path_to_root_would_intersect(pre_indices, target_idx, target.level) {
             return Err(MoveError::CircularMove);
         }
 
@@ -484,9 +485,8 @@ impl DisplayedItemTree {
         // - we need to adjust the insertion point since we go in reverse
         //
         // Note: due to intersect check above we can't have a subtree that crosses over the target_idx
-        let mut pre_index_insert = target
-            .before
-            .min(stable.first().map(|x| x.0).unwrap_or(usize::MAX));
+        let mut pre_index_insert =
+            target_idx.min(stable.first().map(|x| x.0).unwrap_or(usize::MAX));
         for &ItemIndex(from_start) in pre_indices.iter().rev() {
             let from_end = self.subtree_end(from_start);
 
@@ -508,9 +508,7 @@ impl DisplayedItemTree {
         // - all indices need to be adjusted for the number of nodes that we moved in front
         //   of them
         let mut idx_offset = 0;
-        let post_index_insert = target
-            .before
-            .max(stable.first().map(|x| x.0 + 1).unwrap_or(0));
+        let post_index_insert = target_idx.max(stable.first().map(|x| x.0 + 1).unwrap_or(0));
         for &ItemIndex(orig_start) in post_indices.iter().rev() {
             let from_start = orig_start + idx_offset;
             let from_end = self.subtree_end(from_start);
@@ -815,7 +813,7 @@ mod tests {
         tree.insert_item(
             DisplayedItemRef(0xff),
             TargetPosition {
-                before: 0,
+                before: ItemIndex(0),
                 level: 0,
             },
         )
@@ -837,7 +835,7 @@ mod tests {
         tree.insert_item(
             DisplayedItemRef(0xff),
             TargetPosition {
-                before: 8,
+                before: ItemIndex(8),
                 level: 1,
             },
         )
@@ -857,7 +855,7 @@ mod tests {
         tree.insert_item(
             DisplayedItemRef(0xff),
             TargetPosition {
-                before: 7,
+                before: ItemIndex(7),
                 level: 2,
             },
         )
@@ -877,7 +875,7 @@ mod tests {
         tree.insert_item(
             DisplayedItemRef(0xff),
             TargetPosition {
-                before: 10,
+                before: ItemIndex(10),
                 level: 0,
             },
         )
@@ -1133,7 +1131,7 @@ mod tests {
         tree.move_items(
             vec![ItemIndex(8)],
             TargetPosition {
-                before: 0,
+                before: ItemIndex(0),
                 level: 0,
             },
         )
@@ -1151,7 +1149,7 @@ mod tests {
         tree.move_items(
             vec![ItemIndex(4)],
             TargetPosition {
-                before: 10,
+                before: ItemIndex(10),
                 level: 0,
             },
         )
@@ -1169,7 +1167,7 @@ mod tests {
         tree.move_items(
             vec![ItemIndex(8), ItemIndex(9)],
             TargetPosition {
-                before: 1,
+                before: ItemIndex(1),
                 level: 0,
             },
         )
@@ -1188,7 +1186,7 @@ mod tests {
         tree.move_items(
             vec![ItemIndex(7), ItemIndex(8)],
             TargetPosition {
-                before: 1,
+                before: ItemIndex(1),
                 level: 0,
             },
         )
@@ -1207,7 +1205,7 @@ mod tests {
         tree.move_items(
             vec![ItemIndex(1), ItemIndex(8)],
             TargetPosition {
-                before: 5,
+                before: ItemIndex(5),
                 level: 1,
             },
         )
@@ -1226,7 +1224,7 @@ mod tests {
         tree.move_items(
             vec![ItemIndex(1), ItemIndex(8)],
             TargetPosition {
-                before: 4,
+                before: ItemIndex(4),
                 level: 2,
             },
         )
@@ -1249,7 +1247,7 @@ mod tests {
         tree.move_items(
             vec![ItemIndex(1)],
             TargetPosition {
-                before: 3,
+                before: ItemIndex(3),
                 level: 0,
             },
         )
@@ -1271,7 +1269,7 @@ mod tests {
         tree.move_items(
             vec![ItemIndex(1)],
             TargetPosition {
-                before: 1,
+                before: ItemIndex(1),
                 level: 0,
             },
         )
@@ -1290,7 +1288,7 @@ mod tests {
         tree.move_items(
             vec![ItemIndex(1)],
             TargetPosition {
-                before: 2,
+                before: ItemIndex(2),
                 level: 0,
             },
         )
@@ -1310,7 +1308,7 @@ mod tests {
         tree.move_items(
             vec![ItemIndex(1), ItemIndex(2)],
             TargetPosition {
-                before: 2,
+                before: ItemIndex(2),
                 level: 0,
             },
         )
@@ -1326,7 +1324,7 @@ mod tests {
         tree.move_items(
             vec![ItemIndex(0), ItemIndex(4), ItemIndex(9)],
             TargetPosition {
-                before: 4,
+                before: ItemIndex(4),
                 level: 2,
             },
         )
@@ -1348,7 +1346,7 @@ mod tests {
         tree.move_items(
             vec![ItemIndex(0), ItemIndex(4), ItemIndex(9)],
             TargetPosition {
-                before: 4,
+                before: ItemIndex(4),
                 level: 1,
             },
         )
@@ -1368,7 +1366,7 @@ mod tests {
         tree.move_items(
             vec![],
             TargetPosition {
-                before: 4,
+                before: ItemIndex(4),
                 level: 0,
             },
         )
@@ -1392,7 +1390,7 @@ mod tests {
         tree.move_items(
             vec![ItemIndex(2), ItemIndex(4)],
             TargetPosition {
-                before: 4,
+                before: ItemIndex(4),
                 level: 2,
             },
         )
@@ -1411,7 +1409,7 @@ mod tests {
         let result = tree.move_items(
             vec![ItemIndex(0), ItemIndex(3), ItemIndex(9)],
             TargetPosition {
-                before: 4,
+                before: ItemIndex(4),
                 level: 2,
             },
         );
@@ -1434,7 +1432,7 @@ mod tests {
         let result = tree.move_items(
             vec![ItemIndex(1), ItemIndex(2)],
             TargetPosition {
-                before: 4,
+                before: ItemIndex(4),
                 level: 2,
             },
         );
@@ -1448,7 +1446,7 @@ mod tests {
         let result = tree.move_items(
             vec![ItemIndex(0)],
             TargetPosition {
-                before: 1,
+                before: ItemIndex(1),
                 level: 1,
             },
         );

@@ -434,7 +434,7 @@ impl WaveData {
 
             indices.push(self.insert_item(new_variable, Some(target_position)));
             target_position = TargetPosition {
-                before: target_position.before + 1,
+                before: ItemIndex(target_position.before.0 + 1),
                 level: target_position.level,
             }
         }
@@ -652,7 +652,7 @@ impl WaveData {
             _ => node.level,
         };
         Some(TargetPosition {
-            before: index.0 + 1,
+            before: ItemIndex(index.0 + 1),
             level,
         })
     }
@@ -681,12 +681,15 @@ impl WaveData {
             }
             _ => (item_index.0 + 1, node.level),
         };
-        Some(TargetPosition { before, level })
+        Some(TargetPosition {
+            before: ItemIndex(before),
+            level,
+        })
     }
 
     pub fn end_insert_position(&self) -> TargetPosition {
         TargetPosition {
-            before: self.items_tree.len(),
+            before: ItemIndex(self.items_tree.len()),
             level: 0,
         }
     }

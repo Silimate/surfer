@@ -54,6 +54,7 @@ pub mod wave_source;
 pub mod wcp;
 pub mod wellen;
 
+use crate::displayed_item_tree::ItemIndex;
 use std::collections::HashMap;
 use std::sync::atomic::AtomicU32;
 use std::sync::mpsc::{self, Receiver, Sender};
@@ -1756,7 +1757,7 @@ impl State {
                 if let Err(e) = waves.items_tree.move_items(
                     item_idxs,
                     crate::displayed_item_tree::TargetPosition {
-                        before: final_target.before + 1,
+                        before: ItemIndex(final_target.before.0 + 1),
                         level: final_target.level.saturating_add(1),
                     },
                 ) {
