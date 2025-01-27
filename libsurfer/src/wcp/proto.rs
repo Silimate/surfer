@@ -1,5 +1,8 @@
-use num::BigInt;
-use serde::{Deserialize, Serialize};
+use num::{BigInt, FromPrimitive};
+use serde::{de, Deserialize, Deserializer, Serialize};
+use serde_json::Number;
+
+use crate::displayed_item;
 
 /// A reference to a currently displayed item. From the protocol perspective,
 /// This can be any integer or a string and what it is is decided by the server,
@@ -9,6 +12,12 @@ use serde::{Deserialize, Serialize};
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Copy)]
 #[serde(transparent)]
 pub struct DisplayedItemRef(pub usize);
+
+impl From<&displayed_item::DisplayedItemRef> for crate::DisplayedItemRef {
+    fn from(value: &displayed_item::DisplayedItemRef) -> Self {
+        crate::DisplayedItemRef(value.0)
+    }
+}
 
 impl From<&DisplayedItemRef> for crate::DisplayedItemRef {
     fn from(value: &DisplayedItemRef) -> Self {
@@ -43,10 +52,10 @@ pub struct ItemInfo {
 #[serde(tag = "command")]
 #[allow(non_camel_case_types)]
 pub enum WcpResponse {
-    get_item_list(Vec<String>),
-    get_item_info(Vec<ItemInfo>),
-    add_variables(Vec<DisplayedItemRef>),
-    add_scope(Vec<DisplayedItemRef>),
+    get_item_list { ids: Vec<DisplayedItemRef> },
+    get_item_info { results: Vec<ItemInfo> },
+    add_variables { ids: Vec<DisplayedItemRef> },
+    add_scope { ids: Vec<DisplayedItemRef> },
     ack,
 }
 
@@ -111,7 +120,7 @@ pub enum WcpCommand {
     /// Responds with [WcpResponse::add_variables] which contains a list of the item references
     /// that can be used to reference the added items later
     /// Responds with an error if no waveforms are loaded
-    add_variables { names: Vec<String> },
+    add_variables { variables: Vec<String> },
     /// Adds all variables in the specified scope to the view.
     /// Responds with [WcpResponse::add_variables] which contains a list of the item references
     /// that can be used to reference the added items later
@@ -125,7 +134,10 @@ pub enum WcpCommand {
     /// Moves the viewport to center it on the specified timestamp. Does not affect the zoom
     /// level.
     /// Responds with [WcpResponse::ack]
-    set_viewport_to { timestamp: BigInt },
+    set_viewport_to {
+        #[serde(deserialize_with = "deserialize_timestamp")]
+        timestamp: BigInt,
+    },
     /// Removes the specified items from the view.
     /// Responds with [WcpResponse::ack]
     /// Does not error if some of the IDs do not exist
@@ -170,5 +182,28 @@ impl WcpCSMessage {
             version: version.to_string(),
             commands,
         }
+    }
+}
+
+fn deserialize_timestamp<'de, D>(deserializer: D) -> Result<BigInt, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let num = Number::deserialize(deserializer)?;
+    if let Some(timestamp) = num.as_u128() {
+        Ok(BigInt::from(timestamp))
+    } else if let Some(timestamp) = num.as_i128() {
+        Ok(BigInt::from(timestamp))
+    } else if let Some(timestamp) = num.as_f64() {
+        BigInt::from_f64(timestamp).ok_or_else(|| {
+            <D::Error as serde::de::Error>::invalid_value(
+                serde::de::Unexpected::Float(timestamp),
+                &"a finite value",
+            )
+        })
+    } else {
+        Err(de::Error::custom(
+            "Error durian deserialization of timestamp value {num}",
+        ))
     }
 }
