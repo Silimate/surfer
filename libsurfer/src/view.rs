@@ -862,6 +862,9 @@ impl State {
         ui.with_layout(
             Layout::top_down(alignment).with_cross_justify(false),
             |ui| {
+                if self.config.layout.show_default_timeline {
+                    ui.add_space(ui.text_style_height(&egui::TextStyle::Body) + 2.0);
+                }
                 for (vidx, _) in self
                     .waves
                     .as_ref()

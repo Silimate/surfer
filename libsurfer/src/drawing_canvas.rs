@@ -612,7 +612,18 @@ impl State {
         let to_screen = RectTransform::from_to(container_rect, response.rect);
         let frame_width = response.rect.width();
         let pointer_pos_global = ui.input(|i| i.pointer.interact_pos());
-        let pointer_pos_canvas = pointer_pos_global.map(|p| to_screen.inverse().transform_pos(p));
+        let pointer_pos_canvas = pointer_pos_global.map(|p| {
+            to_screen
+                .inverse()
+                .transform_pos(if self.config.layout.show_default_timeline {
+                    Pos2 {
+                        x: p.x,
+                        y: p.y - ui.text_style_height(&egui::TextStyle::Body),
+                    }
+                } else {
+                    p
+                })
+        });
         let num_timestamps = waves.num_timestamps().unwrap_or(1.into());
 
         if ui.ui_contains_pointer() {
