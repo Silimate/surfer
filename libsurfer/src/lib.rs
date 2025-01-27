@@ -237,12 +237,12 @@ struct CanvasState {
 
 impl State {
     pub fn update(&mut self, message: Message) {
-        if log::log_enabled!(log::Level::Info)
+        if log::log_enabled!(log::Level::Trace)
             && !matches!(message, Message::CommandPromptUpdate { .. })
         {
             let mut s = format!("{message:?}");
             s.shrink_to(100);
-            log::info!("processing: {}", &s);
+            log::info!("{s}");
         }
         match message {
             Message::SetActiveScope(scope) => {
