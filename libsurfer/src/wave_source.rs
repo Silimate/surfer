@@ -181,10 +181,13 @@ impl State {
         filename: Utf8PathBuf,
         load_options: LoadOptions,
     ) -> Result<()> {
-        if let Some("ftr") = filename.extension() {
-            self.load_transactions_from_file(filename, load_options)
-        } else {
-            self.load_wave_from_file(filename, load_options)
+        match filename.extension() {
+            Some("ftr") => self.load_transactions_from_file(filename, load_options),
+            Some("ron") => {
+                self.load_state_file(Some(filename.into_std_path_buf()));
+                Ok(())
+            }
+            _ => self.load_wave_from_file(filename, load_options),
         }
     }
 
@@ -254,11 +257,41 @@ impl State {
             if bytes.len() == 0 {
                 Err(anyhow!("Dropped an empty file"))
             } else {
-                self.load_from_bytes(
-                    WaveSource::DragAndDrop(path),
-                    bytes.to_vec(),
-                    LoadOptions::clean(),
-                );
+                if let Some(path) = path.clone() {
+                    if path.extension() == Some("ron") {
+                        let sender = self.sys.channels.msg_sender.clone();
+                        perform_async_work(async move {
+                            let new_state = match ron::de::from_bytes(&bytes)
+                                .context(format!("Failed loading {}", path))
+                            {
+                                Ok(s) => s,
+                                Err(e) => {
+                                    error!("Failed to load state: {e:#?}");
+                                    return;
+                                }
+                            };
+
+                            sender
+                                .send(Message::LoadState(
+                                    new_state,
+                                    Some(path.into_std_path_buf()),
+                                ))
+                                .unwrap();
+                        });
+                    } else {
+                        self.load_from_bytes(
+                            WaveSource::DragAndDrop(Some(path)),
+                            bytes.to_vec(),
+                            LoadOptions::clean(),
+                        );
+                    }
+                } else {
+                    self.load_from_bytes(
+                        WaveSource::DragAndDrop(path),
+                        bytes.to_vec(),
+                        LoadOptions::clean(),
+                    );
+                }
                 Ok(())
             }
         } else if let Some(path) = path {
