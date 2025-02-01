@@ -269,15 +269,22 @@ impl WellenContainer {
         // IMPORTANT: lookup by name!
         let h = &self.hierarchy;
 
-        // first we lookup the scope in order to update the scope reference
-        let scope = h.lookup_scope(variable.path.strs())?;
-        let new_scope_ref = variable.path.with_id(ScopeId::Wellen(scope));
+        let (var, new_scope_ref) = if variable.path.strs.is_empty() {
+            let var = h.lookup_var(&[], &variable.name)?;
+            (var, variable.path.clone())
+        } else {
+            // first we lookup the scope in order to update the scope reference
+            let scope = h.lookup_scope(variable.path.strs())?;
+            let new_scope_ref = variable.path.with_id(ScopeId::Wellen(scope));
 
-        // now we lookup the variable
-        let var = h
-            .get(scope)
-            .vars(h)
-            .find(|r| h.get(*r).name(h) == variable.name)?;
+            // now we lookup the variable
+            let var = h
+                .get(scope)
+                .vars(h)
+                .find(|r| h.get(*r).name(h) == variable.name)?;
+            (var, new_scope_ref)
+        };
+
         let new_variable_ref =
             VariableRef::new_with_id(new_scope_ref, variable.name.clone(), VarId::Wellen(var));
         Some(new_variable_ref)
@@ -480,7 +487,7 @@ impl WellenContainer {
     }
 
     pub fn scope_exists(&self, scope: &ScopeRef) -> bool {
-        self.lookup_scope(scope).is_some()
+        scope.strs.is_empty() | self.lookup_scope(scope).is_some()
     }
 
     pub fn get_scope_tooltip_data(&self, scope: &ScopeRef) -> String {
