@@ -492,7 +492,7 @@ impl State {
                 let mut items = if affect_selected {
                     waves
                         .items_tree
-                        .iter_selected()
+                        .iter_visible_selected()
                         .map(|node| node.item_ref)
                         .collect::<Vec<_>>()
                 } else {

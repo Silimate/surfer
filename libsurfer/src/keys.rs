@@ -248,7 +248,7 @@ impl State {
                         if let Some(waves) = &self.waves {
                             let mut remove_ids = waves
                                 .items_tree
-                                .iter_selected()
+                                .iter_visible_selected()
                                 .map(|i| i.item_ref)
                                 .collect::<Vec<_>>();
                             if let Some(node) = waves

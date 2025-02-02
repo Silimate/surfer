@@ -1947,7 +1947,7 @@ pub fn dump_tree(waves: &WaveData) {
         }
 
         if node.level > 0 {
-            match waves.items_tree.items.get(idx + 1) {
+            match waves.items_tree.get(ItemIndex(idx + 1)) {
                 Some(next) if next.level < node.level => result.push_str("╰╴"),
                 _ => result.push_str("├╴"),
             }
