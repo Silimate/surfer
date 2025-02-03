@@ -1979,7 +1979,7 @@ impl State {
                     .item_ref,
             )
             .and_then(super::displayed_item::DisplayedItem::background_color)
-            .and_then(|color| self.config.theme.get_color(&color))
+            .and_then(|color| self.config.theme.get_color(color))
             .unwrap_or_else(|| self.get_default_alternating_background_color(vidx))
     }
 

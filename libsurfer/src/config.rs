@@ -319,7 +319,7 @@ fn get_luminance(color: &Color32) -> f32 {
 }
 
 impl SurferTheme {
-    pub fn get_color(&self, color: &String) -> Option<&Color32> {
+    pub fn get_color(&self, color: &str) -> Option<&Color32> {
         self.colors.get(color)
     }
 
