@@ -229,15 +229,15 @@ pub struct DisplayedGroup {
 }
 
 impl DisplayedItem {
-    pub fn color(&self) -> Option<String> {
+    pub fn color(&self) -> Option<&str> {
         match self {
-            DisplayedItem::Variable(variable) => variable.color.clone(),
-            DisplayedItem::Divider(divider) => divider.color.clone(),
-            DisplayedItem::Marker(marker) => marker.color.clone(),
-            DisplayedItem::TimeLine(timeline) => timeline.color.clone(),
+            DisplayedItem::Variable(variable) => variable.color.as_deref(),
+            DisplayedItem::Divider(divider) => divider.color.as_deref(),
+            DisplayedItem::Marker(marker) => marker.color.as_deref(),
+            DisplayedItem::TimeLine(timeline) => timeline.color.as_deref(),
             DisplayedItem::Placeholder(_) => None,
-            DisplayedItem::Stream(stream) => stream.color.clone(),
-            DisplayedItem::Group(group) => group.color.clone(),
+            DisplayedItem::Stream(stream) => stream.color.as_deref(),
+            DisplayedItem::Group(group) => group.color.as_deref(),
         }
     }
 

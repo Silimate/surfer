@@ -326,7 +326,7 @@ impl State {
 
             let background_color = item
                 .color()
-                .and_then(|color| self.config.theme.get_color(&color))
+                .and_then(|color| self.config.theme.get_color(color))
                 .unwrap_or(&self.config.theme.cursor.color);
 
             let x = waves.numbered_marker_location(drawing_info.idx, viewport, view_width);

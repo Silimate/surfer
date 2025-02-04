@@ -861,7 +861,7 @@ impl State {
                 .and_then(|node| waves.displayed_items.get(&node.item_ref));
             let color = displayed_item
                 .and_then(super::displayed_item::DisplayedItem::color)
-                .and_then(|color| self.config.theme.get_color(&color));
+                .and_then(|color| self.config.theme.get_color(color));
 
             match drawing_info {
                 ItemDrawingInfo::Variable(variable_info) => {
@@ -987,7 +987,7 @@ impl State {
                 .and_then(|node| waves.displayed_items.get(&node.item_ref));
             let color = displayed_item
                 .and_then(super::displayed_item::DisplayedItem::color)
-                .and_then(|color| self.config.theme.get_color(&color));
+                .and_then(|color| self.config.theme.get_color(color));
             // Draws the surrounding border of the stream
             let border_stroke =
                 Stroke::new(self.config.theme.linewidth, self.config.theme.foreground);
