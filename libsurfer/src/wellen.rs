@@ -9,8 +9,8 @@ use surfer_translation_types::{
     VariableDirection, VariableEncoding, VariableIndex, VariableType, VariableValue,
 };
 use wellen::{
-    FileFormat, GetItem as _, Hierarchy, ScopeType, Signal, SignalEncoding, SignalRef,
-    SignalSource, Time, TimeTable, TimeTableIdx, Timescale, TimescaleUnit, Var, VarRef, VarType,
+    FileFormat, Hierarchy, ScopeType, Signal, SignalEncoding, SignalRef, SignalSource, Time,
+    TimeTable, TimeTableIdx, Timescale, TimescaleUnit, Var, VarRef, VarType,
 };
 
 use crate::message::BodyResult;
@@ -222,14 +222,14 @@ impl WellenContainer {
                 .map(|id| {
                     VariableRef::new_with_id(
                         scope_ref.clone(),
-                        h.get(id).name(h).to_string(),
+                        h[id].name(h).to_string(),
                         VarId::Wellen(id),
                     )
                 })
                 .collect::<Vec<_>>()
         } else {
             let scope = match self.lookup_scope(scope_ref) {
-                Some(id) => h.get(id),
+                Some(id) => &h[id],
                 None => {
                     warn!("Found no scope '{scope_ref}'. Defaulting to no variables");
                     return vec![];
@@ -240,7 +240,7 @@ impl WellenContainer {
                 .map(|id| {
                     VariableRef::new_with_id(
                         scope_ref.clone(),
-                        h.get(id).name(h).to_string(),
+                        h[id].name(h).to_string(),
                         VarId::Wellen(id),
                     )
                 })
@@ -255,7 +255,7 @@ impl WellenContainer {
             h.vars().collect::<Vec<_>>().is_empty()
         } else {
             let scope = match self.lookup_scope(scope_ref) {
-                Some(id) => h.get(id),
+                Some(id) => &h[id],
                 None => {
                     warn!("Found no scope '{scope_ref}'. Defaulting to no variables");
                     return true;
@@ -278,10 +278,7 @@ impl WellenContainer {
             let new_scope_ref = variable.path.with_id(ScopeId::Wellen(scope));
 
             // now we lookup the variable
-            let var = h
-                .get(scope)
-                .vars(h)
-                .find(|r| h.get(*r).name(h) == variable.name)?;
+            let var = h[scope].vars(h).find(|r| h[*r].name(h) == variable.name)?;
             (var, new_scope_ref)
         };
 
@@ -292,7 +289,7 @@ impl WellenContainer {
 
     pub fn get_var(&self, r: &VariableRef) -> Result<&Var> {
         let h = &self.hierarchy;
-        self.get_var_ref(r).map(|r| h.get(r))
+        self.get_var_ref(r).map(|r| &h[r])
     }
 
     pub fn get_enum_map(&self, v: &Var) -> HashMap<String, String> {
@@ -328,7 +325,7 @@ impl WellenContainer {
         let signal_refs = variables
             .flat_map(|s| {
                 let r = s.as_ref();
-                self.get_var_ref(r).map(|v| h.get(v).signal_ref())
+                self.get_var_ref(r).map(|v| h[v].signal_ref())
             })
             .collect::<Vec<_>>();
         Ok(self.load_signals(&signal_refs))
@@ -420,7 +417,7 @@ impl WellenContainer {
         // find variable from string
         let var_ref = self.get_var_ref(variable)?;
         // map variable to variable ref
-        let signal_ref = h.get(var_ref).signal_ref();
+        let signal_ref = h[var_ref].signal_ref();
         let sig = match self.signals.get(&signal_ref) {
             Some(sig) => sig,
             None => {
@@ -470,19 +467,19 @@ impl WellenContainer {
     pub fn root_scopes(&self) -> Vec<ScopeRef> {
         let h = &self.hierarchy;
         h.scopes()
-            .map(|id| ScopeRef::from_strs_with_id(&[h.get(id).name(h)], ScopeId::Wellen(id)))
+            .map(|id| ScopeRef::from_strs_with_id(&[h[id].name(h)], ScopeId::Wellen(id)))
             .collect::<Vec<_>>()
     }
 
     pub fn child_scopes(&self, scope_ref: &ScopeRef) -> Result<Vec<ScopeRef>> {
         let h = &self.hierarchy;
         let scope = match self.lookup_scope(scope_ref) {
-            Some(id) => h.get(id),
+            Some(id) => &h[id],
             None => return Err(anyhow!("Failed to find scope {scope_ref:?}")),
         };
         Ok(scope
             .scopes(h)
-            .map(|id| scope_ref.with_subscope(h.get(id).name(h).to_string()))
+            .map(|id| scope_ref.with_subscope(h[id].name(h).to_string()))
             .collect::<Vec<_>>())
     }
 
@@ -494,7 +491,7 @@ impl WellenContainer {
         let mut out = String::new();
         if let Some(scope_ref) = self.lookup_scope(scope) {
             let h = &self.hierarchy;
-            let scope = h.get(scope_ref);
+            let scope = &h[scope_ref];
             writeln!(&mut out, "{}", scope_type_to_string(scope.scope_type())).unwrap();
             if let Some((path, line)) = scope.instantiation_source_loc(h) {
                 writeln!(&mut out, "{path}:{line}").unwrap();

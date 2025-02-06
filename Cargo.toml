@@ -84,4 +84,4 @@ toml = { version = "0.8.12", default-features = false, features = ["parse"] }
 tokio = { version = "1.42", features = ["rt", "time", "macros"] }
 wasm-bindgen-futures = "0.4"
 web-time = "1.1.0"
-wellen = { version = "0.13.12", features = ["serde1"] }
+wellen = { version = "0.14.3", features = ["serde1"] }
