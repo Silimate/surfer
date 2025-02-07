@@ -79,9 +79,9 @@ pub(crate) fn render_and_compare_inner(
     });
 
     let mut state = state();
-    state.config.layout.show_statusbar = false;
-    // disable the default timeline (except if it was toggled in the test case)
-    state.config.layout.show_default_timeline = !state.config.layout.show_default_timeline;
+    state.show_statusbar = Some(false);
+    // disable the default timeline
+    state.show_default_timeline = Some(!state.show_default_timeline());
 
     let size_i = (size.x as i32, size.y as i32);
 

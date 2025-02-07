@@ -614,7 +614,7 @@ impl State {
         let pointer_pos_canvas = pointer_pos_global.map(|p| {
             to_screen
                 .inverse()
-                .transform_pos(if self.config.layout.show_default_timeline {
+                .transform_pos(if self.show_default_timeline() {
                     Pos2 {
                         x: p.x,
                         y: p.y - ui.text_style_height(&egui::TextStyle::Body),
@@ -787,7 +787,7 @@ impl State {
             y_zero,
         );
 
-        if self.config.layout.show_default_timeline {
+        if self.show_default_timeline() {
             let rect = Rect {
                 min: Pos2 { x: 0.0, y: y_zero },
                 max: Pos2 {

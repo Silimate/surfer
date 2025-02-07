@@ -100,13 +100,13 @@ pub struct SurferLayout {
     /// Flag to show/hide the overview
     show_overview: bool,
     /// Flag to show/hide the statusbar
-    pub show_statusbar: bool,
+    show_statusbar: bool,
     /// Flag to show/hide the indices of variables in the variable list
     show_variable_indices: bool,
     /// Flag to show/hide the variable direction icon
     show_variable_direction: bool,
     /// Flag to show/hide a default timeline
-    pub show_default_timeline: bool,
+    show_default_timeline: bool,
     /// Flag to show/hide empty scopes
     show_empty_scopes: bool,
     /// Flag to show parameters in scope view
@@ -146,6 +146,9 @@ impl SurferLayout {
     }
     pub fn show_scope_tooltip(&self) -> bool {
         self.show_scope_tooltip
+    }
+    pub fn show_default_timeline(&self) -> bool {
+        self.show_default_timeline
     }
     pub fn show_toolbar(&self) -> bool {
         self.show_toolbar

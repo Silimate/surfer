@@ -443,7 +443,11 @@ impl State {
                 }
             }
             Message::ToggleDefaultTimeline => {
-                self.config.layout.show_default_timeline = !self.config.layout.show_default_timeline
+                let new = match self.show_default_timeline {
+                    Some(prev) => !prev,
+                    None => !self.config.layout.show_default_timeline(),
+                };
+                self.show_default_timeline = Some(new);
             }
             Message::UnfocusItem => {
                 if let Some(waves) = self.waves.as_mut() {

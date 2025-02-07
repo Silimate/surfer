@@ -91,4 +91,10 @@ impl State {
         self.show_parameters_in_scopes
             .unwrap_or_else(|| self.config.layout.show_parameters_in_scopes())
     }
+
+    #[inline]
+    pub fn show_default_timeline(&self) -> bool {
+        self.show_default_timeline
+            .unwrap_or_else(|| self.config.layout.show_default_timeline())
+    }
 }
