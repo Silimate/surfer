@@ -849,32 +849,13 @@ dependencies = [
 ]
 
 [[package]]
-name = "codespan"
-version = "0.12.0"
-source = "git+https://gitlab.com/spade-lang/codespan.git?branch=master#a5656af9ed33460258fd1921bc6bede1ba0fb00e"
-dependencies = [
- "codespan-reporting 0.12.0",
- "serde",
-]
-
-[[package]]
 name = "codespan-reporting"
 version = "0.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3538270d33cc669650c4b093848450d380def10c331d38c768e34cac80576e6e"
 dependencies = [
  "termcolor",
- "unicode-width",
-]
-
-[[package]]
-name = "codespan-reporting"
-version = "0.12.0"
-source = "git+https://gitlab.com/spade-lang/codespan.git?branch=master#a5656af9ed33460258fd1921bc6bede1ba0fb00e"
-dependencies = [
- "serde",
- "termcolor",
- "unicode-width",
+ "unicode-width 0.1.14",
 ]
 
 [[package]]
@@ -918,6 +899,15 @@ checksum = "117725a109d387c937a1533ce01b450cbde6b88abceea8473c4d7a85853cda3c"
 dependencies = [
  "lazy_static",
  "windows-sys 0.59.0",
+]
+
+[[package]]
+name = "colored"
+version = "3.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fde0e0ec90c9dfb3b4b1a0891a7dcd0e2bffde2f7efed5fe7c9bb00e5bfb915e"
+dependencies = [
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -1660,7 +1650,7 @@ version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4316185f709b23713e41e3195f90edef7fb00c3ed4adc79769cf09cc762a3b29"
 dependencies = [
- "colored",
+ "colored 2.2.0",
  "log",
 ]
 
@@ -2728,9 +2718,9 @@ dependencies = [
  "serde_stacker",
  "skia-safe",
  "softposit",
- "spade",
  "spade-common",
  "spade-hir-lowering",
+ "spade-lang",
  "spade-types",
  "surfer-translation-types",
  "surver",
@@ -2794,18 +2784,18 @@ checksum = "a7a70ba024b9dc04c27ea2f0c0548feb474ec5c54bba33a7f72f873a39d07b24"
 
 [[package]]
 name = "logos"
-version = "0.14.2"
+version = "0.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1c6b6e02facda28ca5fb8dbe4b152496ba3b1bd5a4b40bb2b1b2d8ad74e0f39b"
+checksum = "ab6f536c1af4c7cc81edf73da1f8029896e7e1e16a219ef09b184e76a296f3db"
 dependencies = [
  "logos-derive",
 ]
 
 [[package]]
 name = "logos-codegen"
-version = "0.14.2"
+version = "0.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b32eb6b5f26efacd015b000bfc562186472cd9b34bdba3f6b264e2a052676d10"
+checksum = "189bbfd0b61330abea797e5e9276408f2edbe4f822d7ad08685d67419aafb34e"
 dependencies = [
  "beef",
  "fnv",
@@ -2813,14 +2803,15 @@ dependencies = [
  "proc-macro2",
  "quote",
  "regex-syntax 0.8.5",
+ "rustc_version",
  "syn",
 ]
 
 [[package]]
 name = "logos-derive"
-version = "0.14.2"
+version = "0.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3e5d0c5463c911ef55624739fc353238b4e310f0144be1f875dc42fec6bfd5ec"
+checksum = "ebfe8e1a19049ddbfccbd14ac834b215e11b85b90bab0c2dba7c7b92fb5d5cba"
 dependencies = [
  "logos-codegen",
 ]
@@ -2944,7 +2935,7 @@ dependencies = [
  "bit-set",
  "bitflags 2.8.0",
  "cfg_aliases 0.1.1",
- "codespan-reporting 0.11.1",
+ "codespan-reporting",
  "hexf-parse",
  "indexmap",
  "log",
@@ -4073,6 +4064,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c7fb8039b3032c191086b10f11f319a6e99e1e82889c5cc6046f515c9db1d497"
 
 [[package]]
+name = "rustc_version"
+version = "0.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cfcb3a22ef46e85b45de6ee7e79d063319ebb6594faafcf1c225ea92ab6e9b92"
+dependencies = [
+ "semver",
+]
+
+[[package]]
 name = "rustix"
 version = "0.38.38"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4188,6 +4188,12 @@ dependencies = [
  "core-foundation-sys",
  "libc",
 ]
+
+[[package]]
+name = "semver"
+version = "1.0.25"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f79dfe2d285b0488816f30e700a7438c5a73d816b5b7d3ac72fbc48b0d185e03"
 
 [[package]]
 name = "serde"
@@ -4421,23 +4427,128 @@ dependencies = [
 ]
 
 [[package]]
-name = "spade"
-version = "0.10.0"
-source = "git+https://gitlab.com/spade-lang/spade?rev=84f6e75016f40d9b3f82d8085e9b08393c56db95#84f6e75016f40d9b3f82d8085e9b08393c56db95"
+name = "spade-ast"
+version = "0.12.1"
+source = "git+https://gitlab.com/spade-lang/spade?rev=10e9fdd6d28e2555b7ae92c185116f8a1349f880#10e9fdd6d28e2555b7ae92c185116f8a1349f880"
+dependencies = [
+ "itertools 0.14.0",
+ "num",
+ "spade-common",
+]
+
+[[package]]
+name = "spade-ast-lowering"
+version = "0.12.1"
+source = "git+https://gitlab.com/spade-lang/spade?rev=10e9fdd6d28e2555b7ae92c185116f8a1349f880#10e9fdd6d28e2555b7ae92c185116f8a1349f880"
+dependencies = [
+ "itertools 0.14.0",
+ "local-impl",
+ "num",
+ "spade-ast",
+ "spade-common",
+ "spade-diagnostics",
+ "spade-hir",
+ "spade-macros",
+ "spade-types",
+ "tracing",
+]
+
+[[package]]
+name = "spade-codespan"
+version = "0.12.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9a555a20c7418a13173066e6f75c895e1efd2e953175b512e0fa66e423f44c1a"
+dependencies = [
+ "serde",
+ "spade-codespan-reporting",
+]
+
+[[package]]
+name = "spade-codespan-reporting"
+version = "0.12.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cca921204e75137850d7557cbd6467d1357af0e2d82f9a8cad75ba941fccb1e2"
+dependencies = [
+ "serde",
+ "termcolor",
+ "unicode-width 0.2.0",
+]
+
+[[package]]
+name = "spade-common"
+version = "0.12.1"
+source = "git+https://gitlab.com/spade-lang/spade?rev=10e9fdd6d28e2555b7ae92c185116f8a1349f880#10e9fdd6d28e2555b7ae92c185116f8a1349f880"
+dependencies = [
+ "logos",
+ "num",
+ "serde",
+ "spade-codespan",
+ "spade-codespan-reporting",
+]
+
+[[package]]
+name = "spade-diagnostics"
+version = "0.12.1"
+source = "git+https://gitlab.com/spade-lang/spade?rev=10e9fdd6d28e2555b7ae92c185116f8a1349f880#10e9fdd6d28e2555b7ae92c185116f8a1349f880"
+dependencies = [
+ "itertools 0.14.0",
+ "spade-codespan",
+ "spade-codespan-reporting",
+ "spade-common",
+]
+
+[[package]]
+name = "spade-hir"
+version = "0.12.1"
+source = "git+https://gitlab.com/spade-lang/spade?rev=10e9fdd6d28e2555b7ae92c185116f8a1349f880#10e9fdd6d28e2555b7ae92c185116f8a1349f880"
+dependencies = [
+ "colored 3.0.0",
+ "itertools 0.14.0",
+ "num",
+ "serde",
+ "spade-common",
+ "spade-diagnostics",
+ "spade-types",
+ "tap",
+ "tracing",
+]
+
+[[package]]
+name = "spade-hir-lowering"
+version = "0.12.1"
+source = "git+https://gitlab.com/spade-lang/spade?rev=10e9fdd6d28e2555b7ae92c185116f8a1349f880#10e9fdd6d28e2555b7ae92c185116f8a1349f880"
+dependencies = [
+ "itertools 0.14.0",
+ "local-impl",
+ "num",
+ "serde",
+ "spade-common",
+ "spade-diagnostics",
+ "spade-hir",
+ "spade-mir",
+ "spade-typeinference",
+ "spade-types",
+ "tracing",
+]
+
+[[package]]
+name = "spade-lang"
+version = "0.12.1"
+source = "git+https://gitlab.com/spade-lang/spade?rev=10e9fdd6d28e2555b7ae92c185116f8a1349f880#10e9fdd6d28e2555b7ae92c185116f8a1349f880"
 dependencies = [
  "clap",
- "codespan",
- "codespan-reporting 0.12.0",
  "color-eyre",
- "colored",
+ "colored 3.0.0",
  "indoc",
- "itertools 0.13.0",
+ "itertools 0.14.0",
  "logos",
  "ron",
  "serde",
  "serde_json",
  "spade-ast",
  "spade-ast-lowering",
+ "spade-codespan",
+ "spade-codespan-reporting",
  "spade-common",
  "spade-diagnostics",
  "spade-hir",
@@ -4447,102 +4558,15 @@ dependencies = [
  "spade-parser",
  "spade-typeinference",
  "spade-types",
- "spade-wordlength-inference",
  "tracing",
  "tracing-subscriber",
  "tracing-tree",
 ]
 
 [[package]]
-name = "spade-ast"
-version = "0.10.0"
-source = "git+https://gitlab.com/spade-lang/spade?rev=84f6e75016f40d9b3f82d8085e9b08393c56db95#84f6e75016f40d9b3f82d8085e9b08393c56db95"
-dependencies = [
- "itertools 0.13.0",
- "num",
- "spade-common",
-]
-
-[[package]]
-name = "spade-ast-lowering"
-version = "0.10.0"
-source = "git+https://gitlab.com/spade-lang/spade?rev=84f6e75016f40d9b3f82d8085e9b08393c56db95#84f6e75016f40d9b3f82d8085e9b08393c56db95"
-dependencies = [
- "itertools 0.13.0",
- "local-impl",
- "num",
- "spade-ast",
- "spade-common",
- "spade-diagnostics",
- "spade-hir",
- "spade-macros",
- "spade-types",
- "tracing",
-]
-
-[[package]]
-name = "spade-common"
-version = "0.10.0"
-source = "git+https://gitlab.com/spade-lang/spade?rev=84f6e75016f40d9b3f82d8085e9b08393c56db95#84f6e75016f40d9b3f82d8085e9b08393c56db95"
-dependencies = [
- "codespan",
- "codespan-reporting 0.12.0",
- "logos",
- "num",
- "serde",
-]
-
-[[package]]
-name = "spade-diagnostics"
-version = "0.10.0"
-source = "git+https://gitlab.com/spade-lang/spade?rev=84f6e75016f40d9b3f82d8085e9b08393c56db95#84f6e75016f40d9b3f82d8085e9b08393c56db95"
-dependencies = [
- "codespan",
- "codespan-reporting 0.12.0",
- "itertools 0.13.0",
- "spade-common",
-]
-
-[[package]]
-name = "spade-hir"
-version = "0.10.0"
-source = "git+https://gitlab.com/spade-lang/spade?rev=84f6e75016f40d9b3f82d8085e9b08393c56db95#84f6e75016f40d9b3f82d8085e9b08393c56db95"
-dependencies = [
- "colored",
- "itertools 0.13.0",
- "num",
- "serde",
- "spade-common",
- "spade-diagnostics",
- "spade-types",
- "tap",
- "thiserror 1.0.65",
- "tracing",
-]
-
-[[package]]
-name = "spade-hir-lowering"
-version = "0.10.0"
-source = "git+https://gitlab.com/spade-lang/spade?rev=84f6e75016f40d9b3f82d8085e9b08393c56db95#84f6e75016f40d9b3f82d8085e9b08393c56db95"
-dependencies = [
- "itertools 0.13.0",
- "local-impl",
- "num",
- "serde",
- "spade-common",
- "spade-diagnostics",
- "spade-hir",
- "spade-mir",
- "spade-typeinference",
- "spade-types",
- "spade-wordlength-inference",
- "tracing",
-]
-
-[[package]]
 name = "spade-macros"
-version = "0.10.0"
-source = "git+https://gitlab.com/spade-lang/spade?rev=84f6e75016f40d9b3f82d8085e9b08393c56db95#84f6e75016f40d9b3f82d8085e9b08393c56db95"
+version = "0.12.1"
+source = "git+https://gitlab.com/spade-lang/spade?rev=10e9fdd6d28e2555b7ae92c185116f8a1349f880#10e9fdd6d28e2555b7ae92c185116f8a1349f880"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -4551,46 +4575,45 @@ dependencies = [
 
 [[package]]
 name = "spade-mir"
-version = "0.10.0"
-source = "git+https://gitlab.com/spade-lang/spade?rev=84f6e75016f40d9b3f82d8085e9b08393c56db95#84f6e75016f40d9b3f82d8085e9b08393c56db95"
+version = "0.12.1"
+source = "git+https://gitlab.com/spade-lang/spade?rev=10e9fdd6d28e2555b7ae92c185116f8a1349f880#10e9fdd6d28e2555b7ae92c185116f8a1349f880"
 dependencies = [
- "codespan-reporting 0.12.0",
  "derive-where",
  "indoc",
- "itertools 0.13.0",
+ "itertools 0.14.0",
  "nesty",
  "num",
  "serde",
+ "spade-codespan-reporting",
  "spade-common",
  "spade-diagnostics",
 ]
 
 [[package]]
 name = "spade-parser"
-version = "0.10.0"
-source = "git+https://gitlab.com/spade-lang/spade?rev=84f6e75016f40d9b3f82d8085e9b08393c56db95#84f6e75016f40d9b3f82d8085e9b08393c56db95"
+version = "0.12.1"
+source = "git+https://gitlab.com/spade-lang/spade?rev=10e9fdd6d28e2555b7ae92c185116f8a1349f880#10e9fdd6d28e2555b7ae92c185116f8a1349f880"
 dependencies = [
- "codespan",
- "colored",
- "itertools 0.13.0",
+ "colored 3.0.0",
+ "itertools 0.14.0",
  "local-impl",
  "logos",
  "num",
  "spade-ast",
+ "spade-codespan",
  "spade-common",
  "spade-diagnostics",
  "spade-macros",
- "thiserror 1.0.65",
  "tracing",
 ]
 
 [[package]]
 name = "spade-typeinference"
-version = "0.10.0"
-source = "git+https://gitlab.com/spade-lang/spade?rev=84f6e75016f40d9b3f82d8085e9b08393c56db95#84f6e75016f40d9b3f82d8085e9b08393c56db95"
+version = "0.12.1"
+source = "git+https://gitlab.com/spade-lang/spade?rev=10e9fdd6d28e2555b7ae92c185116f8a1349f880#10e9fdd6d28e2555b7ae92c185116f8a1349f880"
 dependencies = [
- "colored",
- "itertools 0.13.0",
+ "colored 3.0.0",
+ "itertools 0.14.0",
  "num",
  "serde",
  "spade-common",
@@ -4598,32 +4621,17 @@ dependencies = [
  "spade-hir",
  "spade-macros",
  "spade-types",
- "thiserror 1.0.65",
  "tracing",
 ]
 
 [[package]]
 name = "spade-types"
-version = "0.10.0"
-source = "git+https://gitlab.com/spade-lang/spade?rev=84f6e75016f40d9b3f82d8085e9b08393c56db95#84f6e75016f40d9b3f82d8085e9b08393c56db95"
+version = "0.12.1"
+source = "git+https://gitlab.com/spade-lang/spade?rev=10e9fdd6d28e2555b7ae92c185116f8a1349f880#10e9fdd6d28e2555b7ae92c185116f8a1349f880"
 dependencies = [
  "num",
  "serde",
  "spade-common",
-]
-
-[[package]]
-name = "spade-wordlength-inference"
-version = "0.10.0"
-source = "git+https://gitlab.com/spade-lang/spade?rev=84f6e75016f40d9b3f82d8085e9b08393c56db95#84f6e75016f40d9b3f82d8085e9b08393c56db95"
-dependencies = [
- "num",
- "spade-common",
- "spade-diagnostics",
- "spade-hir",
- "spade-macros",
- "spade-typeinference",
- "spade-types",
 ]
 
 [[package]]
@@ -5225,6 +5233,12 @@ name = "unicode-width"
 version = "0.1.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7dd6e30e90baa6f72411720665d41d89b9a3d039dc45b8faea1ddd07f617f6af"
+
+[[package]]
+name = "unicode-width"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1fc81956842c57dac11422a97c3b8195a1ff727f06e85c84ed2e8aa277c9a0fd"
 
 [[package]]
 name = "unicode-xid"

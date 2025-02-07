@@ -1,5 +1,5 @@
 $date
-	Mon Oct 28 11:20:28 2024
+	Fri Feb  7 16:00:22 2025
 $end
 $version
 	Icarus Verilog
@@ -11,13 +11,13 @@ $scope module proj::pipeline_ready_valid::ready_valid_pipeline $end
 $var wire 1 ! \#s1_enable $end
 $var wire 1 " \#s2_enable $end
 $var wire 1 # \#s3_enable $end
-$var wire 1 $ _e_1214 $end
-$var wire 1 % _e_1216 $end
-$var wire 1 & _e_1219 $end
-$var wire 1 ' _e_1221 $end
-$var wire 1 ( _e_1224 $end
-$var wire 1 ) _e_1226 $end
-$var wire 1 * _e_1230 $end
+$var wire 1 $ _e_1565 $end
+$var wire 1 % _e_1567 $end
+$var wire 1 & _e_1570 $end
+$var wire 1 ' _e_1572 $end
+$var wire 1 ( _e_1575 $end
+$var wire 1 ) _e_1577 $end
+$var wire 1 * _e_1581 $end
 $var wire 1 + clk $end
 $var wire 1 , clk_i $end
 $var wire 4 - enables [3:0] $end
@@ -30,44 +30,44 @@ $var wire 2 3 s3 [1:0] $end
 $var wire 2 4 s2 [1:0] $end
 $var wire 2 5 s1 [1:0] $end
 $var wire 2 6 s0 [1:0] $end
-$var wire 1 7 _e_997 $end
-$var wire 1 8 _e_994 $end
-$var wire 1 9 _e_991 $end
-$var wire 1 : _e_988 $end
-$var wire 1 ; _e_985 $end
-$var wire 1 < _e_982 $end
-$var wire 1 = _e_979 $end
-$var wire 18 > _e_978 [17:0] $end
-$var wire 1 ? _e_960 $end
-$var wire 1 @ _e_951 $end
-$var wire 1 A _e_942 $end
-$var wire 1 B _e_1229 $end
-$var wire 1 C _e_1228 $end
-$var wire 1 D _e_1227 $end
-$var wire 1 E _e_1225 $end
-$var wire 1 F _e_1223 $end
-$var wire 1 G _e_1222 $end
-$var wire 1 H _e_1220 $end
-$var wire 1 I _e_1218 $end
-$var wire 1 J _e_1217 $end
-$var wire 1 K _e_1215 $end
-$var wire 1 L _e_1213 $end
-$var wire 1 M _e_1211 $end
-$var wire 8 N _e_1210 [7:0] $end
-$var wire 8 O _e_1209 [7:0] $end
-$var wire 8 P _e_1208 [7:0] $end
-$var wire 8 Q _e_1207 [7:0] $end
-$var wire 1 R _e_1006 $end
-$var wire 1 S _e_1003 $end
-$var wire 1 T _e_1000 $end
+$var wire 1 7 _e_1580 $end
+$var wire 1 8 _e_1579 $end
+$var wire 1 9 _e_1578 $end
+$var wire 1 : _e_1576 $end
+$var wire 1 ; _e_1574 $end
+$var wire 1 < _e_1573 $end
+$var wire 1 = _e_1571 $end
+$var wire 1 > _e_1569 $end
+$var wire 1 ? _e_1568 $end
+$var wire 1 @ _e_1566 $end
+$var wire 1 A _e_1564 $end
+$var wire 1 B _e_1562 $end
+$var wire 8 C _e_1561 [7:0] $end
+$var wire 8 D _e_1560 [7:0] $end
+$var wire 8 E _e_1559 [7:0] $end
+$var wire 8 F _e_1558 [7:0] $end
+$var wire 1 G _e_1148 $end
+$var wire 1 H _e_1145 $end
+$var wire 1 I _e_1142 $end
+$var wire 1 J _e_1139 $end
+$var wire 1 K _e_1136 $end
+$var wire 1 L _e_1133 $end
+$var wire 1 M _e_1130 $end
+$var wire 1 N _e_1127 $end
+$var wire 1 O _e_1124 $end
+$var wire 1 P _e_1121 $end
+$var wire 18 Q _e_1120 [17:0] $end
+$var wire 1 R _e_1102 $end
+$var wire 1 S _e_1093 $end
+$var wire 1 T _e_1084 $end
 $var wire 1 U \#s4_enable $end
-$var parameter 1 V _e_1212 $end
-$var parameter 1 W _e_939 $end
-$var parameter 2 X _e_945 $end
-$var parameter 2 Y _e_954 $end
-$var parameter 2 Z _e_963 $end
-$var parameter 2 [ _e_972 $end
-$var parameter 1 \ _e_976 $end
+$var parameter 1 V _e_1081 $end
+$var parameter 2 W _e_1087 $end
+$var parameter 2 X _e_1096 $end
+$var parameter 2 Y _e_1105 $end
+$var parameter 2 Z _e_1114 $end
+$var parameter 1 [ _e_1118 $end
+$var parameter 1 \ _e_1563 $end
 $var reg 1 ] \#s1_valid $end
 $var reg 1 ^ \#s2_valid $end
 $var reg 1 _ \#s3_valid $end
@@ -81,11 +81,11 @@ $enddefinitions $end
 $comment Show the parameter values. $end
 $dumpall
 1\
-b11 [
-b10 Z
-b1 Y
-b0 X
-1W
+1[
+b11 Z
+b10 Y
+b1 X
+b0 W
 1V
 $end
 #0
@@ -102,32 +102,32 @@ x]
 1T
 1S
 1R
-bz Q
-bx P
-bx O
-bx N
-1M
-0L
+b1xxxx11111xxxxxxxx Q
+1P
+xO
+xN
+xM
+xL
 1K
-xJ
-0I
+1J
+1I
 1H
-xG
-0F
-1E
-xD
-0C
+1G
+bz F
+bx E
+bx D
+bx C
 1B
-1A
+0A
 1@
-1?
-b1xxxx11111xxxxxxxx >
+x?
+0>
 1=
 x<
-x;
-x:
+0;
+1:
 x9
-18
+08
 17
 b11 6
 b1x 5
@@ -137,7 +137,7 @@ b1x 2
 bz 1
 bz 0
 b1xxxx11111xxxxxxxx /
-bz .
+b1111 .
 b1111 -
 1,
 1+
@@ -153,56 +153,59 @@ x'
 1!
 $end
 #500
-b0 Q
+b0 F
 b0 0
+b0 1
 0+
 0,
 #1000
-1'
-1J
 b11xxx11111xxxxxxxx /
-b11xxx11111xxxxxxxx >
-1<
-b0 P
+b11xxx11111xxxxxxxx Q
+1'
+1O
+1?
 b11 5
+b0 E
 1]
 b0 a
 1+
 1,
 #1500
-b1 Q
+b1 F
 b1 0
+b1 1
 0+
 0,
 #2000
-1)
-b1 P
-b0 O
-1G
 b111xx11111xxxxxxxx /
-b111xx11111xxxxxxxx >
-1;
+b111xx11111xxxxxxxx Q
+1)
+1N
+b1 E
+b0 D
+1<
+b11 4
 b1 a
 b0 b
-b11 4
 1^
 1+
 1,
 #2500
-b10 Q
+b10 F
 b10 0
+b10 1
 0+
 0,
 #3000
-1*
-1D
 b1111x11111xxxxxxxx /
-b1111x11111xxxxxxxx >
-1:
-b0 N
-b1 O
-b10 P
+b1111x11111xxxxxxxx Q
+1*
+1M
+19
 b11 3
+b0 C
+b1 D
+b10 E
 1_
 b0 c
 b1 b
@@ -210,36 +213,38 @@ b10 a
 1+
 1,
 #3500
-b11 Q
+b11 F
 b11 0
+b11 1
 0+
 0,
 #4000
-b11 P
-b10 O
-b1 N
-19
+b111111111100000000 /
+b111111111100000000 Q
+1L
+b11 E
+b10 D
+b1 C
+b11 2
 b11 a
 b10 b
 b1 c
-b111111111100000000 /
-b111111111100000000 >
 b0 d
-b11 2
 1`
 1+
 1,
 #4500
-b100 Q
+b100 F
 b100 0
+b100 1
 0+
 0,
 #5000
-b10 N
-b11 O
-b100 P
 b111111111100000001 /
-b111111111100000001 >
+b111111111100000001 Q
+b10 C
+b11 D
+b100 E
 b1 d
 b10 c
 b11 b
@@ -247,19 +252,20 @@ b100 a
 1+
 1,
 #5500
-b101 Q
+b101 F
 b101 0
+b101 1
 0+
 0,
 #6000
-b101 P
-b100 O
-b11 N
+b111111111100000010 /
+b111111111100000010 Q
+b101 E
+b100 D
+b11 C
 b101 a
 b100 b
 b11 c
-b111111111100000010 /
-b111111111100000010 >
 b10 d
 1+
 1,
@@ -267,10 +273,10 @@ b10 d
 0+
 0,
 #7000
-b100 N
-b101 O
 b111111111100000011 /
-b111111111100000011 >
+b111111111100000011 Q
+b100 C
+b101 D
 b11 d
 b100 c
 b101 b
@@ -280,10 +286,10 @@ b101 b
 0+
 0,
 #8000
-b101 N
-b101 c
 b111111111100000100 /
-b111111111100000100 >
+b111111111100000100 Q
+b101 C
+b101 c
 b100 d
 1+
 1,
@@ -292,7 +298,7 @@ b100 d
 0,
 #9000
 b111111111100000101 /
-b111111111100000101 >
+b111111111100000101 Q
 b101 d
 1+
 1,
