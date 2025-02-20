@@ -1,8 +1,9 @@
-use crate::displayed_item::DisplayedItemRef;
-use crate::MoveDir;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use std::ops::Range;
+
+use crate::displayed_item::DisplayedItemRef;
+use crate::MoveDir;
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct Node {
@@ -527,21 +528,24 @@ impl DisplayedItemTree {
 
     pub fn xfold_recursive(&mut self, ItemIndex(item): ItemIndex, unfolded: bool) {
         let end = self.subtree_end(item);
-        for x in &mut self.items[item..end] {
+        self.items[item].unfolded = unfolded;
+        for x in &mut self.items[item + 1..end] {
             x.unfolded = unfolded;
-            if !unfolded && x.level > 0 {
+            if !unfolded {
                 x.selected = false;
             }
         }
     }
 
-    // TODO should these functions fail if the item is not visible?
-    pub fn xselect(&mut self, ItemIndex(item): ItemIndex, selected: bool) {
-        self.items[item].selected = selected;
+    pub fn xselect(&mut self, vidx: VisibleItemIndex, selected: bool) {
+        if let Some(idx) = self.to_displayed(vidx) {
+            self.items[idx.0].selected = selected;
+        }
     }
 
-    pub fn xselect_all(&mut self, selected: bool) {
-        for x in &mut self.items {
+    /// Select/Deselect all visible items
+    pub fn xselect_all_visible(&mut self, selected: bool) {
+        for x in &mut self.iter_visible_mut() {
             x.selected = selected;
         }
     }
@@ -1005,7 +1009,8 @@ mod tests {
         );
     }
 
-    pub fn dump_tree(tree: &DisplayedItemTree) {
+    /// helper for debugging unittests
+    fn dump_tree(tree: &DisplayedItemTree) {
         let mut result = String::new();
         for (idx, node) in tree.iter().enumerate() {
             for _ in 0..node.level.saturating_sub(1) {
@@ -1042,13 +1047,11 @@ mod tests {
             (20, 1, true, false),
             (3, 0, true, false),
         ]);
-        dump_tree(&tree);
         let new_idx = tree
             .move_item(VisibleItemIndex(1), MoveDir::Down, |node| {
                 node.item_ref.0 == 2
             })
             .expect("move must succeed");
-        dump_tree(&tree);
         assert_eq!(new_idx.0, 2);
         assert_eq!(tree.items[3].level, 0);
         assert_eq!(
@@ -1059,7 +1062,6 @@ mod tests {
         let new_idx = tree
             .move_item(new_idx, MoveDir::Down, |node| node.item_ref.0 == 2)
             .expect("move must succeed");
-        dump_tree(&tree);
         assert_eq!(new_idx.0, 3);
         assert_eq!(tree.items[3].level, 0);
         assert_eq!(

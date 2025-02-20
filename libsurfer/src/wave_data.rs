@@ -731,7 +731,7 @@ impl WaveData {
                 .iter_visible_extra()
                 .find_map(|info| (info.idx == insert_index).then_some(info.vidx))
         });
-        self.items_tree.xselect_all(false);
+        self.items_tree.xselect_all_visible(false);
         item_ref
     }
 

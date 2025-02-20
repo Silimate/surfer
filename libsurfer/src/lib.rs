@@ -427,7 +427,7 @@ impl State {
             }
             Message::ItemSelectAll => {
                 if let Some(waves) = self.waves.as_mut() {
-                    waves.items_tree.xselect_all(true);
+                    waves.items_tree.xselect_all_visible(true);
                 }
             }
             Message::ToggleItemSelected(vidx) => {
@@ -497,15 +497,10 @@ impl State {
                 });
 
                 if select {
-                    if let Some(idx) = waves
-                        .focused_item
-                        .and_then(|vidx| waves.items_tree.to_displayed(vidx))
-                    {
-                        waves.items_tree.xselect(idx, true)
+                    if let Some(vidx) = waves.focused_item {
+                        waves.items_tree.xselect(vidx, true)
                     };
-                    if let Some(idx) = waves.items_tree.to_displayed(new_focus_vidx) {
-                        waves.items_tree.xselect(idx, true)
-                    }
+                    waves.items_tree.xselect(new_focus_vidx, true)
                 }
                 waves.focused_item = Some(new_focus_vidx);
             }
@@ -785,7 +780,7 @@ impl State {
             }
             Message::ItemSelectionClear => {
                 if let Some(waves) = self.waves.as_mut() {
-                    waves.items_tree.xselect_all(false);
+                    waves.items_tree.xselect_all_visible(false);
                 }
             }
             Message::ItemColorChange(vidx, color_name) => {
@@ -1778,7 +1773,7 @@ impl State {
                     waves.remove_displayed_item(group_ref);
                     error!("failed to move items into group: {e:?}")
                 }
-                waves.items_tree.xselect_all(false);
+                waves.items_tree.xselect_all_visible(false);
             }
             Message::GroupDissolve(item_ref) => {
                 self.save_current_canvas("Dissolve group".to_owned());
