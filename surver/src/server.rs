@@ -9,9 +9,9 @@ use hyper::service::service_fn;
 use hyper::{Request, Response, StatusCode};
 use hyper_util::rt::TokioIo;
 use log::{error, info, warn};
-use rand::distributions::{Alphanumeric, DistString};
 use std::collections::HashMap;
 use std::io::{BufRead, Seek};
+use std::iter::repeat_with;
 use std::net::SocketAddr;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::mpsc::Sender;
@@ -293,7 +293,9 @@ pub async fn server_main(
     // if no token was provided, we generate one
     let token = token.unwrap_or_else(|| {
         // generate a random ASCII token
-        Alphanumeric.sample_string(&mut rand::thread_rng(), RAND_TOKEN_LEN)
+        repeat_with(fastrand::alphanumeric)
+            .take(RAND_TOKEN_LEN)
+            .collect()
     });
 
     if token.len() < MIN_TOKEN_LEN {
