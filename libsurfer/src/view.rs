@@ -660,7 +660,10 @@ impl State {
             }
         });
         if self.show_scope_tooltip() {
-            response = response.on_hover_text(scope_tooltip_text(wave, scope));
+            response = response.on_hover_ui(|ui| {
+                ui.set_max_width(ui.spacing().tooltip_width);
+                ui.add(egui::Label::new(scope_tooltip_text(wave, scope)));
+            });
         }
         response
             .clicked()
@@ -838,7 +841,10 @@ impl State {
                     if self.show_tooltip() {
                         // Should be possible to reuse the meta from above?
                         let meta = wave_container.variable_meta(&variable).ok();
-                        response = response.on_hover_text(variable_tooltip_text(&meta, &variable));
+                        response = response.on_hover_ui(|ui| {
+                            ui.set_max_width(ui.spacing().tooltip_width);
+                            ui.add(egui::Label::new(variable_tooltip_text(&meta, &variable)));
+                        });
                     }
                     response.drag_started().then(|| {
                         msgs.push(Message::VariableDragStarted(VisibleItemIndex(
@@ -1390,18 +1396,21 @@ impl State {
         });
 
         if self.show_tooltip() {
-            let tooltip = if let Some(waves) = &self.waves {
-                if field.field.is_empty() {
-                    let wave_container = waves.inner.as_waves().unwrap();
-                    let meta = wave_container.variable_meta(&field.root).ok();
-                    variable_tooltip_text(&meta, &field.root)
+            variable_label = variable_label.on_hover_ui(|ui| {
+                let tooltip = if let Some(waves) = &self.waves {
+                    if field.field.is_empty() {
+                        let wave_container = waves.inner.as_waves().unwrap();
+                        let meta = wave_container.variable_meta(&field.root).ok();
+                        variable_tooltip_text(&meta, &field.root)
+                    } else {
+                        "From translator".to_string()
+                    }
                 } else {
-                    "From translator".to_string()
-                }
-            } else {
-                "No VCD loaded".to_string()
-            };
-            variable_label = variable_label.on_hover_text(tooltip);
+                    "No VCD loaded".to_string()
+                };
+                ui.set_max_width(ui.spacing().tooltip_width);
+                ui.add(egui::Label::new(tooltip));
+            });
         }
 
         if variable_label.clicked() {

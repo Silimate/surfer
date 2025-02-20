@@ -1507,19 +1507,40 @@ fn handle_transaction_tooltip(
     gen_ref: &TransactionStreamRef,
     tx_ref: &TransactionRef,
 ) -> Response {
-    let tx = waves
-        .inner
-        .as_transactions()
-        .unwrap()
-        .get_generator(gen_ref.gen_id.unwrap())
-        .unwrap()
-        .transactions
-        .iter()
-        .find(|transaction| transaction.get_tx_id() == tx_ref.id)
-        .unwrap();
+    response
+        .on_hover_ui(|ui| {
+            let tx = waves
+                .inner
+                .as_transactions()
+                .unwrap()
+                .get_generator(gen_ref.gen_id.unwrap())
+                .unwrap()
+                .transactions
+                .iter()
+                .find(|transaction| transaction.get_tx_id() == tx_ref.id)
+                .unwrap();
 
-    let response = response.on_hover_text(transaction_tooltip_text(waves, tx));
-    response.on_hover_ui(|ui| transaction_tooltip_table(ui, tx))
+            ui.set_max_width(ui.spacing().tooltip_width);
+            ui.add(egui::Label::new(transaction_tooltip_text(waves, tx)));
+        })
+        .on_hover_ui(|ui| {
+            // Seemingly a bit redundant to determine tx twice, but since the
+            // alternative is to do it every frame for every transaction, this
+            // is most likely still a better approach.
+            // Feel free to use some Rust magic to only do it once though...
+            let tx = waves
+                .inner
+                .as_transactions()
+                .unwrap()
+                .get_generator(gen_ref.gen_id.unwrap())
+                .unwrap()
+                .transactions
+                .iter()
+                .find(|transaction| transaction.get_tx_id() == tx_ref.id)
+                .unwrap();
+
+            transaction_tooltip_table(ui, tx)
+        })
 }
 
 fn transaction_tooltip_text(waves: &WaveData, tx: &Transaction) -> String {
