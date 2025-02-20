@@ -38,59 +38,6 @@ pub struct TargetPosition {
     pub level: u8, // TODO go back to Option and implement
 }
 
-/// Find the index of the next visible item, or return items.len()
-///
-/// Precondition: `this_idx` must be a valid `items` index
-fn next_visible_item(items: &[Node], this_idx: usize) -> usize {
-    let this_level = items[this_idx].level;
-    let mut next_idx = this_idx + 1;
-    if !items[this_idx].unfolded {
-        while next_idx < items.len() && items[next_idx].level > this_level {
-            next_idx += 1;
-        }
-    }
-    next_idx
-}
-
-/// Check whether `target_position` is a valid location for insertion
-///
-/// This means we have to check if the requested indentation level is correct.
-fn check_location(items: &[Node], target_position: TargetPosition) -> Result<(), MoveError> {
-    if target_position.before.0 > items.len() {
-        return Err(MoveError::InvalidIndex);
-    }
-    let before = target_position
-        .before
-        .0
-        .checked_sub(1)
-        .and_then(|i| items.get(i));
-    let after = items.get(target_position.before.0);
-    let valid_range = match (before.map(|n| n.level), after.map(|n| n.level)) {
-        // If we want to be the first element, no indent possible
-        (None, _) => 0..=0,
-        // If we want to be the last element it's allowed to be completely unindent, indent into
-        // the last element, and everything in between
-        (Some(before), None) => 0..=before.saturating_add(1),
-        // if the latter element is indented further then the one before, we must indent
-        // otherwise we'd change the parent of the after subtree
-        (Some(before), Some(after)) if after > before => after..=after,
-        // if before and after are at the same level, we can insert on the same level,
-        // or we may indent one level
-        (Some(before), Some(after)) if after == before => before..=after.saturating_add(1),
-        // if before is the last element of a subtree and after is unindented
-        // then we can insert anywhere between the after element (not further out bec.
-        // that would change parents of the elements after), indent into the before element
-        // or anything in between
-        (Some(before), Some(after)) => after..=before.saturating_add(1),
-    };
-
-    if !valid_range.contains(&target_position.level) {
-        Err(MoveError::InvalidLevel)
-    } else {
-        Ok(())
-    }
-}
-
 pub struct VisibleItemIterator<'a> {
     items: &'a Vec<Node>,
     next_idx: usize,
@@ -623,6 +570,59 @@ impl DisplayedItemTree {
     ) -> bool {
         let end = self.subtree_end(candidate);
         (root..end).contains(&candidate)
+    }
+}
+
+/// Find the index of the next visible item, or return items.len()
+///
+/// Precondition: `this_idx` must be a valid `items` index
+fn next_visible_item(items: &[Node], this_idx: usize) -> usize {
+    let this_level = items[this_idx].level;
+    let mut next_idx = this_idx + 1;
+    if !items[this_idx].unfolded {
+        while next_idx < items.len() && items[next_idx].level > this_level {
+            next_idx += 1;
+        }
+    }
+    next_idx
+}
+
+/// Check whether `target_position` is a valid location for insertion
+///
+/// This means we have to check if the requested indentation level is correct.
+fn check_location(items: &[Node], target_position: TargetPosition) -> Result<(), MoveError> {
+    if target_position.before.0 > items.len() {
+        return Err(MoveError::InvalidIndex);
+    }
+    let before = target_position
+        .before
+        .0
+        .checked_sub(1)
+        .and_then(|i| items.get(i));
+    let after = items.get(target_position.before.0);
+    let valid_range = match (before.map(|n| n.level), after.map(|n| n.level)) {
+        // If we want to be the first element, no indent possible
+        (None, _) => 0..=0,
+        // If we want to be the last element it's allowed to be completely unindent, indent into
+        // the last element, and everything in between
+        (Some(before), None) => 0..=before.saturating_add(1),
+        // if the latter element is indented further then the one before, we must indent
+        // otherwise we'd change the parent of the after subtree
+        (Some(before), Some(after)) if after > before => after..=after,
+        // if before and after are at the same level, we can insert on the same level,
+        // or we may indent one level
+        (Some(before), Some(after)) if after == before => before..=after.saturating_add(1),
+        // if before is the last element of a subtree and after is unindented
+        // then we can insert anywhere between the after element (not further out bec.
+        // that would change parents of the elements after), indent into the before element
+        // or anything in between
+        (Some(before), Some(after)) => after..=before.saturating_add(1),
+    };
+
+    if !valid_range.contains(&target_position.level) {
+        Err(MoveError::InvalidLevel)
+    } else {
+        Ok(())
     }
 }
 
