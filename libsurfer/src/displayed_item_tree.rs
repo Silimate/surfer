@@ -182,38 +182,6 @@ impl<'a> Iterator for VisibleItemIteratorExtraInfo<'a> {
     }
 }
 
-/// Iterates through all parents that an item has
-///
-/// Note: The start position does not need to exist in the tree.
-/// All valid insert positions can be used as if they were inserted at
-/// the initial location. (up to one item after last item, and one level
-/// deeper than the node before)
-///
-/// For this reason the `level` is explicitly stored.
-struct ParentIterator<'a> {
-    items: &'a Vec<Node>,
-    current_idx: usize,
-    level: u8,
-}
-
-impl Iterator for ParentIterator<'_> {
-    type Item = ItemIndex;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.level == 0 {
-            return None;
-        }
-        for (idx, x) in self.items[..self.current_idx].iter().enumerate().rev() {
-            if x.level < self.level {
-                self.current_idx = idx;
-                self.level = self.items[idx].level;
-                return Some(ItemIndex(idx));
-            }
-        }
-        None
-    }
-}
-
 /// Tree if items to be displayed
 ///
 /// Items are stored in a flat list, with the level property indicating the nesting level
@@ -272,17 +240,6 @@ impl DisplayedItemTree {
 
     pub fn iter_visible_selected(&self) -> impl Iterator<Item = &Node> + use<'_> {
         self.iter_visible().filter(|i| i.selected)
-    }
-
-    fn iter_parents(
-        &self,
-        ItemIndex(start): ItemIndex,
-    ) -> impl Iterator<Item = ItemIndex> + use<'_> {
-        ParentIterator {
-            items: &self.items,
-            current_idx: start,
-            level: self.items[start].level,
-        }
     }
 
     /// Iterate through items, skipping invisible items, return index of n-th visible item
@@ -355,7 +312,7 @@ impl DisplayedItemTree {
         self.items.remove(item).item_ref
     }
 
-    pub fn extract_recursive_if<F>(&mut self, f: F) -> Vec<DisplayedItemRef>
+    pub fn drain_recursive_if<F>(&mut self, f: F) -> Vec<DisplayedItemRef>
     where
         F: Fn(&Node) -> bool,
     {
@@ -602,14 +559,13 @@ impl DisplayedItemTree {
         }
     }
 
-    pub fn is_visible(&self, index: ItemIndex) -> bool {
-        self.iter_parents(index).all(|x| self.items[x.0].unfolded)
-    }
-
     pub fn xfold(&mut self, ItemIndex(item): ItemIndex, unfolded: bool) {
         self.items[item].unfolded = unfolded;
         if !unfolded {
-            self.xselect_subtree(ItemIndex(item), false);
+            let end = self.subtree_end(item);
+            for x in &mut self.items[item..end] {
+                x.selected = false;
+            }
         }
     }
 
@@ -622,7 +578,7 @@ impl DisplayedItemTree {
         }
     }
 
-    pub fn xfold_subtree(&mut self, ItemIndex(item): ItemIndex, unfolded: bool) {
+    pub fn xfold_recursive(&mut self, ItemIndex(item): ItemIndex, unfolded: bool) {
         let end = self.subtree_end(item);
         for x in &mut self.items[item..end] {
             x.unfolded = unfolded;
@@ -643,13 +599,6 @@ impl DisplayedItemTree {
         }
     }
 
-    pub fn xselect_subtree(&mut self, ItemIndex(item): ItemIndex, selected: bool) {
-        let end = self.subtree_end(item);
-        for x in &mut self.items[item..end] {
-            x.selected = selected;
-        }
-    }
-
     /// Change selection for visible items, in inclusive range
     pub fn xselect_visible_range(
         &mut self,
@@ -664,15 +613,6 @@ impl DisplayedItemTree {
         };
         for node in self.iter_visible_mut().skip(from).take(to - from) {
             node.selected = selected
-        }
-    }
-
-    pub fn for_each_mut<F>(&mut self, mut f: F)
-    where
-        F: FnMut(&mut Node),
-    {
-        for x in &mut self.items {
-            f(x);
         }
     }
 

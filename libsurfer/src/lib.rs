@@ -1838,7 +1838,7 @@ impl State {
                     }
                 }
                 if recursive {
-                    waves.items_tree.xfold_subtree(item, unfold);
+                    waves.items_tree.xfold_recursive(item, unfold);
                 } else {
                     waves.items_tree.xfold(item, unfold);
                 }
