@@ -89,7 +89,7 @@ pub fn draw_about_window(ctx: &Context, msgs: &mut Vec<Message>) {
                     .on_hover_text("Click to copy git version")
                     .clicked()
                 {
-                    ctx.output_mut(|o| o.copied_text = env!("VERGEN_GIT_DESCRIBE").to_string());
+                    ctx.copy_text(env!("VERGEN_GIT_DESCRIBE").to_string());
                 }
                 ui.label(format!(
                     "Build date: {date}",

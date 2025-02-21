@@ -29,7 +29,7 @@ use crate::{
 use color_eyre::{eyre::Context, Result};
 use egui::{
     style::{Selection, WidgetVisuals, Widgets},
-    Rounding, Stroke, Visuals,
+    CornerRadius, Stroke, Visuals,
 };
 use fzcmd::parse_command;
 use itertools::Itertools;
@@ -436,7 +436,7 @@ impl State {
                 color: self.config.theme.border_color,
                 width: 1.0,
             },
-            rounding: Rounding::same(2.),
+            corner_radius: CornerRadius::same(2),
             expansion: 0.0,
         };
 
@@ -445,8 +445,6 @@ impl State {
             extreme_bg_color: self.config.theme.secondary_ui_color.background,
             panel_fill: self.config.theme.secondary_ui_color.background,
             window_fill: self.config.theme.primary_ui_color.background,
-            window_rounding: Rounding::ZERO,
-            menu_rounding: Rounding::ZERO,
             window_stroke: Stroke {
                 width: 1.0,
                 color: self.config.theme.border_color,

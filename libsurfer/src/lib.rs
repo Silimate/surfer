@@ -1634,7 +1634,7 @@ impl State {
                             );
                             if let Some(variable_value) = variable_value {
                                 if let Some(ctx) = &self.sys.context {
-                                    ctx.output_mut(|o| o.copied_text = variable_value);
+                                    ctx.copy_text(variable_value);
                                 }
                             }
                         }

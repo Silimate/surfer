@@ -17,10 +17,10 @@ impl State {
             .frame(Frame {
                 fill: self.config.theme.primary_ui_color.background,
                 inner_margin: Margin {
-                    left: 5.0,
-                    right: 5.0,
-                    top: 0.0,
-                    bottom: 5.0,
+                    left: 5,
+                    right: 5,
+                    top: 0,
+                    bottom: 5,
                 },
                 ..Default::default()
             })

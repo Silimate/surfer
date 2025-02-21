@@ -821,7 +821,7 @@ pub fn show_command_prompt(
         .min_width(window_size.map_or(200., |s| s.x * 0.3))
         .resizable(true)
         .show(ctx, |ui| {
-            egui::Frame::none().show(ui, |ui| {
+            egui::Frame::NONE.show(ui, |ui| {
                 let input = &mut *state.sys.command_prompt_text.borrow_mut();
                 let new_c = *state.sys.char_to_add_to_prompt.borrow();
                 if let Some(c) = new_c {
@@ -1145,9 +1145,10 @@ impl egui::Widget for SuggestionLabel {
 
                 ui.painter().rect(
                     rect,
-                    visuals.rounding,
+                    visuals.corner_radius,
                     visuals.weak_bg_fill,
                     egui::Stroke::NONE,
+                    egui::StrokeKind::Middle,
                 );
             }
 

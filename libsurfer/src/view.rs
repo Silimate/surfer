@@ -5,10 +5,10 @@ use egui::ViewportCommand;
 use egui::{Frame, Layout, Painter, RichText, ScrollArea, Sense, TextStyle, UiBuilder, WidgetText};
 use egui_extras::{Column, TableBuilder};
 use egui_remixicon::icons;
-use emath::{Align, Pos2, Rect, RectTransform, Vec2};
+use emath::{Align, GuiRounding, Pos2, Rect, RectTransform, Vec2};
 use epaint::{
     text::{LayoutJob, TextWrapMode},
-    Margin, Rounding, Stroke,
+    CornerRadiusF32, Margin, Stroke,
 };
 use fzcmd::expand_command;
 use itertools::Itertools;
@@ -501,7 +501,7 @@ impl State {
                 .is_some_and(|waves| !waves.any_displayed())
         {
             egui::CentralPanel::default()
-                .frame(Frame::none().fill(self.config.theme.canvas_colors.background))
+                .frame(Frame::NONE.fill(self.config.theme.canvas_colors.background))
                 .show(ctx, |ui| {
                     ui.add_space(max_height * 0.1);
                     ui.vertical_centered(|ui| {
@@ -1584,20 +1584,18 @@ impl State {
         // - limited to half the height of the item text
         // - extended to cover the empty space to the left
         // - for the last element, expanded till the bottom
-        let before_rect = ui.painter().round_rect_to_pixels(
+        let before_rect = rect_with_margin
+            .with_max_y(rect_with_margin.left_center().y)
+            .with_min_x(available_rect.left())
+            .round_to_pixels(ui.painter().pixels_per_point());
+        let after_rect = if last {
+            rect_with_margin.with_max_y(ui.max_rect().max.y)
+        } else {
             rect_with_margin
-                .with_max_y(rect_with_margin.left_center().y)
-                .with_min_x(available_rect.left()),
-        );
-        let after_rect = ui.painter().round_rect_to_pixels(
-            if last {
-                rect_with_margin.with_max_y(ui.max_rect().max.y)
-            } else {
-                rect_with_margin
-            }
-            .with_min_y(rect_with_margin.left_center().y)
-            .with_min_x(available_rect.left()),
-        );
+        }
+        .with_min_y(rect_with_margin.left_center().y)
+        .with_min_x(available_rect.left())
+        .round_to_pixels(ui.painter().pixels_per_point());
 
         let (insert_vidx, line_y) = if ui.rect_contains_pointer(before_rect) {
             (vidx, rect_with_margin.top())
@@ -1790,7 +1788,7 @@ impl State {
 
         painter.rect_filled(
             rect,
-            Rounding::ZERO,
+            CornerRadiusF32::ZERO,
             self.config.theme.secondary_ui_color.background,
         );
         let ctx = DrawingContext {
@@ -1969,7 +1967,7 @@ impl State {
         let min = (ctx.to_screen)(0.0, drawing_info.top() - y_zero - gap);
         let max = (ctx.to_screen)(frame_width, drawing_info.bottom() - y_zero + gap);
         ctx.painter
-            .rect_filled(Rect { min, max }, Rounding::ZERO, *background_color);
+            .rect_filled(Rect { min, max }, CornerRadiusF32::ZERO, *background_color);
     }
 
     pub fn get_background_color(

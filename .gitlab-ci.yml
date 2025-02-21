@@ -237,7 +237,7 @@ linux_build:
         - git fetch --tags
         - rustc -V
         - cargo -V
-        - cargo build --release --locked --features accesskit
+        - cargo build --release --locked --features accesskit --timings --color always
         - mkdir dist
         - cp target/release/surfer dist/surfer
         - cp target/release/surver dist/surver
@@ -264,7 +264,7 @@ rocky_build:
         - git fetch --tags
         - rustc -V
         - cargo -V
-        - cargo build --release --locked --features accesskit --timings
+        - cargo build --release --locked --features accesskit --timings --color always
         - cp target/release/surfer dist/surfer
         - cp target/release/surver dist/surver
         - cd dist
@@ -286,7 +286,7 @@ windows_build:
         - rustc -V
         - cargo -V
         - rustup target add x86_64-pc-windows-gnu
-        - cargo build --target x86_64-pc-windows-gnu --release --locked --features accesskit
+        - cargo build --target x86_64-pc-windows-gnu --release --locked --features accesskit --color always
         - mkdir dist
         - cp target/x86_64-pc-windows-gnu/release/surfer.exe dist/surfer.exe
         - cp target/x86_64-pc-windows-gnu/release/surver.exe dist/surver.exe
@@ -315,7 +315,7 @@ macos-aarch64_build:
         - rustc -V
         - git fetch --tags
     script:
-        - cargo build --release --locked --features accesskit
+        - cargo build --release --locked --features accesskit --color always
         - ls -alrt target/release/surfer
         - mkdir dist
         - cp target/release/surfer dist/surfer

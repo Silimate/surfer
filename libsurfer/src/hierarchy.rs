@@ -16,7 +16,7 @@ pub fn separate(state: &mut State, ui: &mut Ui, msgs: &mut Vec<Message>) {
         .resizable(true)
         .default_height(total_space / 2.0)
         .max_height(total_space - 64.0)
-        .frame(Frame::none().inner_margin(Margin::same(5.0)))
+        .frame(Frame::new().inner_margin(Margin::same(5)))
         .show_inside(ui, |ui| {
             ui.heading("Scopes");
             ui.add_space(3.0);
@@ -32,7 +32,7 @@ pub fn separate(state: &mut State, ui: &mut Ui, msgs: &mut Vec<Message>) {
                 });
         });
     CentralPanel::default()
-        .frame(Frame::none().inner_margin(Margin::same(5.0)))
+        .frame(Frame::new().inner_margin(Margin::same(5)))
         .show_inside(ui, |ui| {
             ui.with_layout(Layout::left_to_right(Align::TOP), |ui| {
                 let filter = &mut *state.sys.variable_name_filter.borrow_mut();
@@ -101,24 +101,22 @@ pub fn tree(state: &mut State, ui: &mut Ui, msgs: &mut Vec<Message>) {
     ui.with_layout(
         Layout::top_down(Align::LEFT).with_cross_justify(true),
         |ui| {
-            Frame::none()
-                .inner_margin(Margin::same(5.0))
-                .show(ui, |ui| {
-                    let filter = &mut *state.sys.variable_name_filter.borrow_mut();
-                    ui.with_layout(Layout::left_to_right(Align::TOP), |ui| {
-                        ui.heading("Hierarchy");
-                        ui.add_space(3.0);
-                        state.draw_variable_name_filter_edit(ui, filter, msgs);
-                    });
+            Frame::new().inner_margin(Margin::same(5)).show(ui, |ui| {
+                let filter = &mut *state.sys.variable_name_filter.borrow_mut();
+                ui.with_layout(Layout::left_to_right(Align::TOP), |ui| {
+                    ui.heading("Hierarchy");
                     ui.add_space(3.0);
-
-                    ScrollArea::both().id_salt("hierarchy").show(ui, |ui| {
-                        ui.style_mut().wrap_mode = Some(TextWrapMode::Extend);
-                        if let Some(waves) = &state.waves {
-                            state.draw_all_scopes(msgs, waves, true, ui, filter);
-                        }
-                    });
+                    state.draw_variable_name_filter_edit(ui, filter, msgs);
                 });
+                ui.add_space(3.0);
+
+                ScrollArea::both().id_salt("hierarchy").show(ui, |ui| {
+                    ui.style_mut().wrap_mode = Some(TextWrapMode::Extend);
+                    if let Some(waves) = &state.waves {
+                        state.draw_all_scopes(msgs, waves, true, ui, filter);
+                    }
+                });
+            });
         },
     );
 }

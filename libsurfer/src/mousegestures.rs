@@ -500,6 +500,7 @@ fn draw_gesture_text(
         2.0,
         theme.primary_ui_color.background,
         Stroke::default(),
+        egui::StrokeKind::Inside,
     );
 
     ctx.painter

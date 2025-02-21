@@ -3,7 +3,9 @@ use ecolor::Color32;
 use egui::{PointerButton, Response, Sense, Ui};
 use egui_extras::{Column, TableBuilder};
 use emath::{Align2, Pos2, Rect, RectTransform, Vec2};
-use epaint::{CubicBezierShape, FontId, PathShape, PathStroke, RectShape, Rounding, Shape, Stroke};
+use epaint::{
+    CornerRadiusF32, CubicBezierShape, FontId, PathShape, PathStroke, RectShape, Shape, Stroke,
+};
 use ftr_parser::types::{Transaction, TxGenerator};
 use itertools::Itertools;
 use log::{error, warn};
@@ -679,7 +681,7 @@ impl State {
         }
         painter.rect_filled(
             response.rect,
-            Rounding::ZERO,
+            CornerRadiusF32::ZERO,
             self.config.theme.canvas_colors.background,
         );
 
@@ -1055,9 +1057,10 @@ impl State {
                                         Stroke::new(1.5, tx_fill_color.gamma_multiply(1.2));
                                     ctx.painter.rect(
                                         transaction_rect,
-                                        Rounding::same(5.0),
+                                        CornerRadiusF32::same(5.0),
                                         tx_fill_color,
                                         stroke,
+                                        egui::StrokeKind::Middle,
                                     );
                                 } else {
                                     let tx_fill_color = color
@@ -1067,9 +1070,10 @@ impl State {
                                     let stroke = Stroke::new(1.5, tx_fill_color);
                                     ctx.painter.rect(
                                         transaction_rect,
-                                        Rounding::ZERO,
+                                        CornerRadiusF32::ZERO,
                                         tx_fill_color,
                                         stroke,
+                                        egui::StrokeKind::Middle,
                                     );
                                 }
                             }
@@ -1212,9 +1216,10 @@ impl State {
                             offset + ctx.cfg.line_height + ctx.theme.linewidth / 2.,
                         ),
                     },
-                    Rounding::ZERO,
+                    CornerRadiusF32::ZERO,
                     old_bg,
                     Stroke::NONE,
+                    egui::StrokeKind::Middle,
                 ));
             }
 
@@ -1279,9 +1284,10 @@ impl State {
             points: [start, anchor1, anchor2, end],
             closed: false,
             fill: Default::default(),
-            stroke: stroke.clone(),
+            stroke: stroke,
         }));
 
+        let stroke = Stroke::new(1.3, color);
         self.draw_arrowheads(anchor2, end, arrowhead_angle, ctx, stroke);
     }
 
@@ -1293,7 +1299,7 @@ impl State {
         vec_tip: Pos2,
         angle: f64, // given in degrees
         ctx: &DrawingContext,
-        stroke: PathStroke,
+        stroke: Stroke,
     ) {
         // FIXME: should probably make scale a function parameter
         let scale = 8.;
@@ -1341,7 +1347,7 @@ impl State {
     ) {
         let size = response.rect.size();
         response.context_menu(|ui| {
-            let offset = ui.spacing().menu_margin.left;
+            let offset = ui.spacing().menu_margin.left as f32;
             let top_left = to_screen.inverse().transform_rect(ui.min_rect()).left_top()
                 - Pos2 {
                     x: offset,

@@ -1,6 +1,6 @@
 use egui::{Context, Grid, RichText, WidgetText, Window};
 use emath::{Align2, Pos2, Rect, Vec2};
-use epaint::{FontId, Rounding, Stroke};
+use epaint::{CornerRadius, FontId, Stroke};
 use itertools::Itertools;
 use num::BigInt;
 
@@ -188,8 +188,11 @@ impl WaveData {
             let min = Pos2::new(rect.min.x - 2., min.y);
             let max = Pos2::new(rect.max.x + 2., max.y);
 
-            ctx.painter
-                .rect_filled(Rect { min, max }, Rounding::default(), *background_color);
+            ctx.painter.rect_filled(
+                Rect { min, max },
+                CornerRadius::default(),
+                *background_color,
+            );
 
             // Draw actual text on top of rectangle
             ctx.painter.text(
@@ -354,8 +357,11 @@ impl State {
             let min = (ctx.to_screen)(x - offset_width, y_offset - gap);
             let max = (ctx.to_screen)(x + offset_width, y_bottom + gap);
 
-            ctx.painter
-                .rect_filled(Rect { min, max }, Rounding::default(), *background_color);
+            ctx.painter.rect_filled(
+                Rect { min, max },
+                CornerRadius::default(),
+                *background_color,
+            );
 
             // Draw actual text on top of rectangle
             ctx.painter.galley(

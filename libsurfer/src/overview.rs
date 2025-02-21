@@ -3,7 +3,7 @@ use crate::view::{DrawConfig, DrawingContext};
 use crate::{wave_data::WaveData, State};
 use egui::{Context, Frame, PointerButton, Sense, TopBottomPanel, Ui};
 use emath::{Align2, Pos2, Rect, RectTransform, Vec2};
-use epaint::Rounding;
+use epaint::CornerRadiusF32;
 
 impl State {
     pub fn add_overview_panel(&self, ctx: &Context, waves: &WaveData, msgs: &mut Vec<Message>) {
@@ -56,7 +56,7 @@ impl State {
             let max = (ctx.to_screen)(maxx, container_rect.max.y);
             ctx.painter.rect_filled(
                 Rect { min, max },
-                Rounding::ZERO,
+                CornerRadiusF32::ZERO,
                 self.config
                     .theme
                     .canvas_colors
