@@ -1009,35 +1009,6 @@ mod tests {
         );
     }
 
-    /// helper for debugging unittests
-    fn dump_tree(tree: &DisplayedItemTree) {
-        let mut result = String::new();
-        for (idx, node) in tree.iter().enumerate() {
-            for _ in 0..node.level.saturating_sub(1) {
-                result.push(' ');
-            }
-
-            if node.level > 0 {
-                match tree.get(ItemIndex(idx + 1)) {
-                    Some(next) if next.level < node.level => result.push_str("╰╴"),
-                    _ => result.push_str("├╴"),
-                }
-            }
-
-            result.push_str(&format!(
-                "   ({:?}) {} {}",
-                node.item_ref,
-                node.unfolded.then(|| "U").unwrap_or(" "),
-                node.selected.then(|| "S").unwrap_or(" ")
-            ));
-            if node.selected {
-                result.push_str(" !SEL! ")
-            }
-            result.push('\n');
-        }
-        println!("tree: \n{}", &result);
-    }
-
     #[test]
     fn test_move_item_down_folded_group() {
         let mut tree = build_tree(&[
