@@ -136,6 +136,13 @@ pub struct SurferLayout {
     highlight_focused: bool,
     /// Move the focus to the newly inserted marker?
     move_focus_on_inserted_marker: bool,
+    /// Fill high values in boolean waveforms
+    #[serde(default = "default_true")]
+    fill_high_values: bool,
+}
+
+fn default_true() -> bool {
+    true
 }
 
 impl SurferLayout {
@@ -189,6 +196,9 @@ impl SurferLayout {
     }
     pub fn move_focus_on_inserted_marker(&self) -> bool {
         self.move_focus_on_inserted_marker
+    }
+    pub fn fill_high_values(&self) -> bool {
+        self.fill_high_values
     }
 }
 

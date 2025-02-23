@@ -338,7 +338,14 @@ impl SystemState {
                 .then(|| {
                     ui.close_menu();
                     msgs.push(Message::SetHighlightFocused(!self.highlight_focused()))
-                })
+                });
+
+            ui.radio(self.fill_high_values(), "Fill high values")
+                .clicked()
+                .then(|| {
+                    ui.close_menu();
+                    msgs.push(Message::SetFillHighValues(!self.fill_high_values()));
+                });
         });
         ui.menu_button("Help", |ui| {
             b("Quick start", Message::SetQuickStartVisible(true)).add_closing_menu(msgs, ui);

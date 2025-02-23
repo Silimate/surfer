@@ -60,6 +60,8 @@ pub struct UserState {
     pub(crate) show_parameters_in_scopes: Option<bool>,
     #[serde(default)]
     pub(crate) highlight_focused: Option<bool>,
+    #[serde(default)]
+    pub(crate) fill_high_values: Option<bool>,
 
     pub(crate) waves: Option<WaveData>,
     pub(crate) drag_started: bool,

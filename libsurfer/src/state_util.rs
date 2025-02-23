@@ -117,4 +117,11 @@ impl SystemState {
             .highlight_focused
             .unwrap_or_else(|| self.user.config.layout.highlight_focused())
     }
+
+    #[inline]
+    pub fn fill_high_values(&self) -> bool {
+        self.user
+            .fill_high_values
+            .unwrap_or_else(|| self.user.config.layout.fill_high_values())
+    }
 }

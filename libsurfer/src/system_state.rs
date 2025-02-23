@@ -150,6 +150,7 @@ impl SystemState {
                 show_empty_scopes: None,
                 show_parameters_in_scopes: None,
                 highlight_focused: None,
+                fill_high_values: None,
                 drag_started: false,
                 drag_source_idx: None,
                 drag_target_idx: None,
