@@ -25,6 +25,7 @@ cursor = { color="000000", width=3 } # fg-main
 gesture = { color="000000", width=2 } # fg-main
 linewidth = 3
 alt_frequency = 0
+highlight_background = "DAE8FF"
 
 # Note: The "bg-graph-1"-variants of the bg-colors are used
 # because they are lighter and thus have more contrast against

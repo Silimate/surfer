@@ -310,6 +310,7 @@ macro_rules! snapshot_ui_with_theme {
             Message::AddTimeLine(None),
             Message::FocusItem(VisibleItemIndex(0)),
             Message::MoveCursorToTransition { next: true, variable: None, skip_zero: true },
+            Message::SetHighlightFocused(true),
             Message::SelectTheme(Some($theme.to_string()))
         ]}
     };

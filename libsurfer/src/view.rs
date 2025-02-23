@@ -1976,6 +1976,11 @@ impl State {
         drawing_info: &ItemDrawingInfo,
         vidx: VisibleItemIndex,
     ) -> Color32 {
+        if let Some(focused) = waves.focused_item {
+            if self.highlight_focused() && focused == vidx {
+                return self.config.theme.highlight_background;
+            }
+        }
         *waves
             .displayed_items
             .get(

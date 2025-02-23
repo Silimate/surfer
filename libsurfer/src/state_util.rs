@@ -97,4 +97,10 @@ impl State {
         self.show_default_timeline
             .unwrap_or_else(|| self.config.layout.show_default_timeline())
     }
+
+    #[inline]
+    pub fn highlight_focused(&self) -> bool {
+        self.highlight_focused
+            .unwrap_or_else(|| self.config.layout.highlight_focused())
+    }
 }

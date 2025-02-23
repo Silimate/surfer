@@ -325,6 +325,13 @@ impl State {
                 ui.close_menu();
                 msgs.push(Message::ToggleParametersInScopes);
             });
+
+            ui.radio(self.highlight_focused(), "Highlight focused")
+                .clicked()
+                .then(|| {
+                    ui.close_menu();
+                    msgs.push(Message::SetHighlightFocused(!self.highlight_focused()))
+                })
         });
         ui.menu_button("Help", |ui| {
             b("Quick start", Message::SetQuickStartVisible(true)).add_closing_menu(msgs, ui);

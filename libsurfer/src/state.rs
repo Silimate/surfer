@@ -57,6 +57,8 @@ pub struct State {
     pub(crate) show_variable_direction: Option<bool>,
     pub(crate) show_empty_scopes: Option<bool>,
     pub(crate) show_parameters_in_scopes: Option<bool>,
+    #[serde(default)]
+    pub(crate) highlight_focused: Option<bool>,
 
     pub(crate) waves: Option<WaveData>,
     pub(crate) drag_started: bool,
@@ -159,6 +161,7 @@ impl State {
             show_variable_indices: None,
             show_empty_scopes: None,
             show_parameters_in_scopes: None,
+            highlight_focused: None,
             drag_started: false,
             drag_source_idx: None,
             drag_target_idx: None,

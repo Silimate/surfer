@@ -123,12 +123,15 @@ pub struct SurferLayout {
     pub waveforms_text_size: f32,
     /// Line height in points for waves
     pub waveforms_line_height: f32,
-    /// Lline height in points for transaction streams
+    /// Line height in points for transaction streams
     pub transactions_line_height: f32,
     /// UI zoom factors
     pub zoom_factors: Vec<f32>,
     /// Default UI zoom factor
     pub default_zoom_factor: f32,
+    #[serde(default)]
+    /// Highlight the waveform of the focused item?
+    highlight_focused: bool,
 }
 
 impl SurferLayout {
@@ -176,6 +179,9 @@ impl SurferLayout {
     }
     pub fn show_parameters_in_scopes(&self) -> bool {
         self.show_parameters_in_scopes
+    }
+    pub fn highlight_focused(&self) -> bool {
+        self.highlight_focused
     }
 }
 
@@ -277,6 +283,8 @@ pub struct SurferTheme {
 
     #[serde(default = "default_colors", deserialize_with = "deserialize_color_map")]
     pub colors: HashMap<String, Color32>,
+    #[serde(deserialize_with = "deserialize_hex_color")]
+    pub highlight_background: Color32,
 
     /// variable line width
     pub linewidth: f32,

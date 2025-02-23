@@ -27,6 +27,7 @@ viewport_separator = { color="d4d4d4", width=4 }
 drag_threshold = 1.0
 drag_hint_color = "bfbfbf"
 drag_hint_width = 2.0
+highlight_background = "37485E"
 
 [colors]
 Green = "6a9955"

@@ -200,6 +200,7 @@ pub enum Message {
     ToggleDefaultTimeline,
     SetTimeUnit(TimeUnit),
     SetTimeStringFormatting(Option<TimeStringFormatting>),
+    SetHighlightFocused(bool),
     CommandPromptClear,
     CommandPromptUpdate {
         suggestions: Vec<(String, Vec<bool>)>,

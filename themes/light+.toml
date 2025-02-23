@@ -19,6 +19,7 @@ variable_weak = "808080"
 waveform_opacity = 0.5
 cursor = { color="b63935", width=2 }
 linewidth = 2
+highlight_background = "DAE8FF"
 
 [colors]
 Green = "6a9955"

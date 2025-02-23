@@ -1163,6 +1163,9 @@ impl State {
                     waves.compute_variable_display_names();
                 }
             }
+            Message::SetHighlightFocused(highlight) => {
+                self.highlight_focused = Some(highlight);
+            }
             Message::ShowCommandPrompt(text) => {
                 if let Some(init_text) = text {
                     self.sys.command_prompt.new_cursor_pos = Some(init_text.len());

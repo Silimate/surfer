@@ -16,6 +16,7 @@ variable_undefined = "46000c"
 variable_highimp = "000347"
 cursor = { color="b63935", width=2 }
 linewidth = 2
+highlight_background = "0F3B37"
 
 [colors]
 Green = "859900"
