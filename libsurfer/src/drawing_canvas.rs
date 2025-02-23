@@ -1327,7 +1327,7 @@ impl State {
 
         ctx.painter.add(Shape::line_segment(
             [vec_tip, Pos2::new(arrowhead_left_x, arrowhead_left_y)],
-            stroke.clone(),
+            stroke,
         ));
 
         ctx.painter.add(Shape::line_segment(
