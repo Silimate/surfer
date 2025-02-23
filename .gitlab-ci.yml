@@ -243,9 +243,11 @@ linux_build:
         - cp target/release/surver dist/surver
         - cd dist
         - zip ../surfer_linux.zip surfer surver
+        - cd ..
     artifacts:
         paths:
-            - surfer_linux.zip
+            - dist/surfer_linux.zip
+            - target/cargo-timings/*.html
         expire_in: 1 week
 
 rocky_build:
@@ -262,14 +264,16 @@ rocky_build:
         - git fetch --tags
         - rustc -V
         - cargo -V
-        - cargo build --release --locked --features accesskit
+        - cargo build --release --locked --features accesskit --timings
         - cp target/release/surfer dist/surfer
         - cp target/release/surver dist/surver
         - cd dist
         - zip ../surfer_linux_rocky.zip surfer surver
+        - cd ..
     artifacts:
         paths:
-            - surfer_linux_rocky.zip
+            - dist/surfer_linux_rocky.zip
+            - target/cargo-timings/*.html
         expire_in: 1 week
 
 windows_build:
