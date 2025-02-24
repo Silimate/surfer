@@ -42,14 +42,6 @@ workflow:
     expire_in: 1h
     when: on_failure
 
-.if-release:
-  rules:
-    - if: $CI_COMMIT_BRANCH == "main"
-      when: always
-    - if: $CI_COMMIT_TAG
-      when: always
-    - when: never
-
 clippy:
     stage: test
     extends: .build-dependencies
@@ -230,7 +222,7 @@ typos-and-todos:
 
 linux_build:
     stage: deploy
-    extends: .if-release
+    needs: [test]
     script:
         - apt-get update -y
         - apt-get install -y openssl libssl-dev zip
@@ -243,17 +235,16 @@ linux_build:
         - cp target/release/surver dist/surver
         - cd dist
         - zip ../surfer_linux.zip surfer surver
-        - cd ..
     artifacts:
         paths:
-            - dist/surfer_linux.zip
+            - surfer_linux.zip
             - target/cargo-timings/*.html
         expire_in: 1 week
 
 rocky_build:
     image: rockylinux:8
+    needs: [test]
     stage: deploy
-    extends: .if-release
     script:
         - curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
         - . "/builds/surfer-project/surfer/cargo/env"
@@ -269,16 +260,15 @@ rocky_build:
         - cp target/release/surver dist/surver
         - cd dist
         - zip ../surfer_linux_rocky.zip surfer surver
-        - cd ..
     artifacts:
         paths:
-            - dist/surfer_linux_rocky.zip
+            - surfer_linux_rocky.zip
             - target/cargo-timings/*.html
         expire_in: 1 week
 
 windows_build:
     stage: deploy
-    extends: .if-release
+    needs: [test-windows]
     script:
         - apt-get update -y
         - apt-get install -y mingw-w64 zip
@@ -299,7 +289,7 @@ windows_build:
 
 macos-aarch64_build:
     stage: deploy
-    extends: .if-release
+    needs: [test-macos-aarch64]
     variables:
         HOMEBREW_NO_AUTO_UPDATE: 1
         HOMEBREW_NO_ENV_HINTS: 1

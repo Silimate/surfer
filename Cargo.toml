@@ -14,7 +14,6 @@ rust-version = "1.82"
 repository = "https://gitlab.com/surfer-project/surfer/"
 
 [profile.release]
-debug = true
 opt-level = 3 # fast and small wasm
 lto = true
 
