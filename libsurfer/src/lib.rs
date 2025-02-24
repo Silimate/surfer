@@ -443,11 +443,7 @@ impl State {
                 }
             }
             Message::ToggleDefaultTimeline => {
-                let new = match self.show_default_timeline {
-                    Some(prev) => !prev,
-                    None => !self.config.layout.show_default_timeline(),
-                };
-                self.show_default_timeline = Some(new);
+                self.show_default_timeline = Some(!self.show_default_timeline());
             }
             Message::UnfocusItem => {
                 if let Some(waves) = self.waves.as_mut() {
@@ -1142,88 +1138,25 @@ impl State {
                 info!("Translator {} loaded", t.name());
                 self.sys.translators.add_or_replace(AnyTranslator::Full(t));
             }
-            Message::ToggleSidePanel => {
-                let new = match self.show_hierarchy {
-                    Some(prev) => !prev,
-                    None => !self.config.layout.show_hierarchy(),
-                };
-                self.show_hierarchy = Some(new);
-            }
-            Message::ToggleMenu => {
-                let new = match self.show_menu {
-                    Some(prev) => !prev,
-                    None => !self.config.layout.show_menu(),
-                };
-                self.show_menu = Some(new);
-            }
-            Message::ToggleToolbar => {
-                let new = match self.show_toolbar {
-                    Some(prev) => !prev,
-                    None => !self.config.layout.show_toolbar(),
-                };
-                self.show_toolbar = Some(new);
-            }
-            Message::ToggleEmptyScopes => {
-                let new = match self.show_empty_scopes {
-                    Some(prev) => !prev,
-                    None => !self.config.layout.show_empty_scopes(),
-                };
-                self.show_empty_scopes = Some(new);
-            }
+            Message::ToggleSidePanel => self.show_hierarchy = Some(!self.show_hierarchy()),
+            Message::ToggleMenu => self.show_menu = Some(!self.show_menu()),
+            Message::ToggleToolbar => self.show_toolbar = Some(!self.show_toolbar()),
+            Message::ToggleEmptyScopes => self.show_empty_scopes = Some(!self.show_empty_scopes()),
             Message::ToggleParametersInScopes => {
-                let new = match self.show_parameters_in_scopes {
-                    Some(prev) => !prev,
-                    None => !self.config.layout.show_parameters_in_scopes(),
-                };
-                self.show_parameters_in_scopes = Some(new);
+                self.show_parameters_in_scopes = Some(!self.show_parameters_in_scopes())
             }
-            Message::ToggleStatusbar => {
-                let new = match self.show_statusbar {
-                    Some(prev) => !prev,
-                    None => !self.config.layout.show_statusbar(),
-                };
-                self.show_statusbar = Some(new);
-            }
-            Message::ToggleTickLines => {
-                let new = match self.show_ticks {
-                    Some(prev) => !prev,
-                    None => !self.config.layout.show_ticks(),
-                };
-                self.show_ticks = Some(new);
-            }
-            Message::ToggleVariableTooltip => {
-                let new = match self.show_tooltip {
-                    Some(prev) => !prev,
-                    None => !self.config.layout.show_tooltip(),
-                };
-                self.show_tooltip = Some(new);
-            }
+            Message::ToggleStatusbar => self.show_statusbar = Some(!self.show_statusbar()),
+            Message::ToggleTickLines => self.show_ticks = Some(!self.show_ticks()),
+            Message::ToggleVariableTooltip => self.show_tooltip = Some(self.show_tooltip()),
             Message::ToggleScopeTooltip => {
-                let new = match self.show_scope_tooltip {
-                    Some(prev) => !prev,
-                    None => !self.config.layout.show_scope_tooltip(),
-                };
-                self.show_scope_tooltip = Some(new);
+                self.show_scope_tooltip = Some(!self.show_scope_tooltip())
             }
-            Message::ToggleOverview => {
-                let new = match self.show_overview {
-                    Some(prev) => !prev,
-                    None => !self.config.layout.show_overview(),
-                };
-                self.show_overview = Some(new);
-            }
+            Message::ToggleOverview => self.show_overview = Some(!self.show_overview()),
             Message::ToggleDirection => {
-                let new = match self.show_variable_direction {
-                    Some(prev) => !prev,
-                    None => !self.config.layout.show_variable_direction(),
-                };
-                self.show_variable_direction = Some(new);
+                self.show_variable_direction = Some(!self.show_variable_direction())
             }
             Message::ToggleIndices => {
-                let new = match self.show_variable_indices {
-                    Some(prev) => !prev,
-                    None => !self.config.layout.show_variable_indices(),
-                };
+                let new = !self.show_variable_indices();
                 self.show_variable_indices = Some(new);
                 if let Some(waves) = self.waves.as_mut() {
                     waves.display_variable_indices = new;
