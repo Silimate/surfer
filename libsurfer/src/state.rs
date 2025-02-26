@@ -8,7 +8,6 @@ use crate::displayed_item_tree::VisibleItemIndex;
 #[cfg(feature = "spade")]
 use crate::translation::spade::SpadeTranslator;
 use crate::{
-    channels::IngressReceiver,
     command_prompt::get_parser,
     config,
     data_container::DataContainer,
@@ -611,10 +610,9 @@ impl State {
         }
     }
 
-    #[cfg_attr(target_arch = "wasm32", allow(dead_code))]
+    #[cfg(not(target_arch = "wasm32"))]
     pub(crate) fn start_wcp_server(&mut self, address: Option<String>, initiate: bool) {
-        use std::thread;
-
+        use crate::channels::IngressReceiver;
         use wcp::wcp_server::WcpServer;
 
         use crate::wcp;
@@ -641,7 +639,7 @@ impl State {
         let ctx = self.sys.context.clone();
         let address = address.unwrap_or(self.config.wcp.address.clone());
         self.sys.wcp_server_address = Some(address.clone());
-        self.sys.wcp_server_thread = Some(thread::spawn(move || {
+        self.sys.wcp_server_thread = Some(tokio::spawn(async move {
             let server = WcpServer::new(
                 address,
                 initiate,
@@ -650,9 +648,10 @@ impl State {
                 stop_signal_copy,
                 running_signal_copy,
                 ctx,
-            );
+            )
+            .await;
             match server {
-                Ok(mut server) => server.run(),
+                Ok(mut server) => server.run().await,
                 Err(m) => {
                     error!("Could not start WCP server. {m:?}")
                 }
@@ -664,22 +663,17 @@ impl State {
     pub(crate) fn stop_wcp_server(&mut self) {
         // stop wcp server if there is one running
 
-        use std::net::TcpStream;
-        if let Some(address) = &self.sys.wcp_server_address {
-            if self.sys.wcp_server_thread.is_some() {
-                // signal the server to stop
-                self.sys
-                    .wcp_stop_signal
-                    .store(true, std::sync::atomic::Ordering::Relaxed);
-                // wake up server to register stop signal
-                let _ = TcpStream::connect(address);
+        if self.sys.wcp_server_address.is_some() && self.sys.wcp_server_thread.is_some() {
+            // signal the server to stop
+            self.sys
+                .wcp_stop_signal
+                .store(true, std::sync::atomic::Ordering::Relaxed);
 
-                self.sys.wcp_server_thread = None;
-                self.sys.wcp_server_address = None;
-                self.sys.channels.wcp_s2c_sender = None;
-                self.sys.channels.wcp_c2s_receiver = None;
-                info!("Stopped WCP server");
-            }
+            self.sys.wcp_server_thread = None;
+            self.sys.wcp_server_address = None;
+            self.sys.channels.wcp_s2c_sender = None;
+            self.sys.channels.wcp_c2s_receiver = None;
+            info!("Stopped WCP server");
         }
     }
 }

@@ -1,22 +1,70 @@
+use bytes::{Buf, BytesMut};
 use color_eyre::eyre::Result;
 use eframe::egui::Context;
-use serde::Deserialize;
+use serde::Serialize;
 use serde_json::Error as serde_Error;
-use std::{
-    io::prelude::*,
-    net::{TcpListener, TcpStream},
-    sync::{
-        atomic::{AtomicBool, Ordering},
-        Arc,
-    },
-    time::Duration,
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc,
 };
+use std::time::Duration;
+use tokio::net::tcp::{ReadHalf, WriteHalf};
+use tokio::net::{TcpListener, TcpStream};
 
 use log::{error, info, warn};
+use tokio::io::{AsyncReadExt, AsyncWriteExt, BufReader};
 use tokio::sync::mpsc::Receiver;
 use tokio::sync::mpsc::Sender;
 
 use super::{proto::WcpCSMessage, proto::WcpCommand, proto::WcpSCMessage};
+
+struct WcpCSReader<'a> {
+    reader: BufReader<ReadHalf<'a>>,
+    buffer: BytesMut,
+}
+
+impl<'a> WcpCSReader<'a> {
+    pub fn new(stream: ReadHalf<'a>) -> Self {
+        WcpCSReader {
+            reader: BufReader::new(stream),
+            buffer: BytesMut::with_capacity(8 * 1024),
+        }
+    }
+
+    pub async fn read_frame(&mut self) -> Result<Option<WcpCSMessage>, serde_Error> {
+        loop {
+            if let Some(frame) = self.try_decode_frame()? {
+                return Ok(Some(frame));
+            }
+
+            match self.reader.read_buf(&mut self.buffer).await {
+                Ok(0) => {
+                    return Err(serde_Error::io(std::io::Error::new(
+                        std::io::ErrorKind::UnexpectedEof,
+                        "EOF",
+                    )))
+                }
+                Ok(_) => (),
+                Err(e) => return Err(serde_Error::io(e)),
+            }
+        }
+    }
+
+    fn try_decode_frame(&mut self) -> Result<Option<WcpCSMessage>, serde_Error> {
+        match self.buffer.iter().position(|&x| x == 0) {
+            Some(position) => {
+                let frame_data = self.buffer.split_to(position);
+                self.buffer.advance(1);
+                let msg: Result<WcpCSMessage, _> = serde_json::from_slice(&frame_data);
+                match msg {
+                    Ok(msg) => Ok(Some(msg)),
+                    Err(e) => Err(e),
+                }
+            }
+            None => Ok(None),
+        }
+    }
+}
 
 pub struct WcpServer {
     listener: Option<TcpListener>,
@@ -29,7 +77,7 @@ pub struct WcpServer {
 }
 
 impl WcpServer {
-    pub fn new(
+    pub async fn new(
         address: String,
         initiate: bool,
         s2c_sender: Sender<WcpCSMessage>,
@@ -41,11 +89,11 @@ impl WcpServer {
         let listener;
         let stream;
         if initiate {
-            let the_stream = TcpStream::connect(address)?;
+            let the_stream = TcpStream::connect(address).await?;
             stream = Some(the_stream);
             listener = None;
         } else {
-            let the_listener = TcpListener::bind(address)?;
+            let the_listener = TcpListener::bind(address).await?;
             info!(
                 "WCP Server listening on port {}",
                 the_listener.local_addr().unwrap()
@@ -64,64 +112,86 @@ impl WcpServer {
         })
     }
 
-    pub fn run(&mut self) {
+    pub async fn run(&mut self) {
         if self.listener.is_some() {
-            self.listen();
+            self.listen().await;
         } else if self.stream.is_some() {
-            self.initiate();
+            self.initiate().await;
         } else {
             error!("Internal error: calling `run` with both listener and stream unset");
         }
+        self.stop_signal.store(true, Ordering::Relaxed);
     }
 
-    fn listen(&mut self) {
+    async fn listen(&mut self) {
         let listener = self.listener.take().unwrap();
-        info!("WCP Listening on Port {:#?}", listener);
-        let listener = listener.try_clone().unwrap();
-
-        for stream in listener.incoming() {
-            // check if the server should stop
-            if self.stop_signal.load(Ordering::Relaxed) {
-                break;
-            }
-
-            match stream {
-                Ok(stream) => self.handle_connection(stream),
-                Err(ref e)
-                    if [std::io::ErrorKind::WouldBlock, std::io::ErrorKind::TimedOut]
-                        .contains(&e.kind()) =>
-                {
-                    continue
+        loop {
+            let stop_signal_clone = self.stop_signal.clone();
+            let stop_signal_waiter = async {
+                while !stop_signal_clone.load(Ordering::Relaxed) {
+                    tokio::time::sleep(Duration::from_millis(100)).await;
                 }
-                Err(e) => warn!("WCP Connection failed: {e}"),
+            };
+
+            tokio::select! {
+                result = listener.accept() => {
+                    match result {
+                        Ok((stream, _addr)) => self.handle_connection(stream).await,
+                        Err(ref e)
+                            if [std::io::ErrorKind::WouldBlock, std::io::ErrorKind::TimedOut]
+                                .contains(&e.kind()) =>
+                        {
+                            continue
+                        }
+                        Err(e) => warn!("WCP Connection failed: {e}"),
+                    }
+                }
+
+                _ = stop_signal_waiter => {
+                    break;
+                }
             }
         }
         info!("WCP shutting down");
         self.running_signal.store(false, Ordering::Relaxed);
     }
 
-    fn initiate(&mut self) {
+    async fn initiate(&mut self) {
         let stream = self.stream.take().unwrap();
-        match self.handle_client(stream) {
+        match self.handle_client(stream).await {
             Err(error) => warn!("WCP Client disconnected with error: {error:#?}"),
             Ok(()) => info!("WCP client disconnected"),
         }
     }
 
-    fn handle_connection(&mut self, stream: TcpStream) {
+    async fn handle_connection(&mut self, stream: TcpStream) {
         info!("WCP New connection: {}", stream.peer_addr().unwrap());
-        if let Err(error) = stream.set_read_timeout(Some(Duration::from_secs(2))) {
-            error!("Failed to set timeout: {error:#?}")
-        }
 
         //handle connection from client
-        match self.handle_client(stream) {
+        match self.handle_client(stream).await {
             Err(error) => warn!("WCP Client disconnected with error: {error:#?}"),
             Ok(()) => info!("WCP client disconnected"),
         }
     }
 
-    fn handle_client(&mut self, mut stream: TcpStream) -> Result<(), serde_Error> {
+    async fn send_message<M: Serialize>(&mut self, stream: &mut WriteHalf<'_>, message: &M) {
+        match serde_json::to_string(message) {
+            Ok(message) => {
+                if let Err(error) = stream.write_all(message.as_bytes()).await {
+                    warn!("WCP Sending of message failed: {error:#?}")
+                }
+            }
+            Err(error) => warn!("Serializing message failed: {error:#?}"),
+        }
+        if let Err(e) = stream.write_all(b"\0").await {
+            warn!("Failed to send WCP message: {e:#?}");
+        }
+        if let Err(e) = stream.flush().await {
+            warn!("Failed to send WCP message: {e:#?}");
+        }
+    }
+
+    async fn handle_client(&mut self, mut stream: TcpStream) -> Result<(), serde_Error> {
         let commands = vec![
             "add_variables",
             "set_viewport_to",
@@ -141,98 +211,55 @@ impl WcpServer {
         .map(str::to_string)
         .collect();
 
+        let (reader, mut writer) = stream.split();
+        let mut reader = WcpCSReader::new(reader);
+
         //send greeting
         let greeting = WcpSCMessage::create_greeting(0, commands);
-        if let Err(error) = serde_json::to_writer(&stream, &greeting) {
-            warn!("WCP Sending of greeting failed: {error:#?}")
-        }
-        let _ = stream.write(b"\0");
-        stream.flush().unwrap();
+        self.send_message(&mut writer, &greeting).await;
 
         loop {
-            // check if the server should stop
-            if self.stop_signal.load(Ordering::Relaxed) {
-                return Err(serde_Error::io(std::io::Error::new(
-                    std::io::ErrorKind::ConnectionAborted,
-                    "Server terminated",
-                )));
-            }
-            //get message from client
-            let msg: WcpCSMessage = match self.get_json_message(&stream) {
-                Ok(msg) => msg,
-                Err(e) => {
-                    match e.classify() {
-                        //error when the client disconnects
-                        serde_json::error::Category::Eof => return Err(e),
-                        _ => match e.io_error_kind() {
-                            Some(std::io::ErrorKind::WouldBlock | std::io::ErrorKind::TimedOut) => {
-                                continue;
-                            }
-                            //if a recoverable IO error or a decoding error get next message and send error
-                            Some(std::io::ErrorKind::Interrupted) | None => {
-                                warn!("WCP S>C error: {e:?}\n");
+            let stop_signal_clone = self.stop_signal.clone();
+            let stop_signal_waiter = async {
+                while !stop_signal_clone.load(Ordering::Relaxed) {
+                    tokio::time::sleep(Duration::from_millis(100)).await;
+                }
+            };
 
-                                let _ = serde_json::to_writer(
-                                    &stream,
-                                    &WcpSCMessage::create_error(
-                                        "parsing error".to_string(),
-                                        vec![],
-                                        "parsing error".to_string(),
-                                    ),
-                                );
-                                continue;
-                            }
-                            _ => return Err(e),
-                        },
+            tokio::select! {
+                msg = reader.read_frame() => {
+                    let msg = match msg? {
+                        Some(msg) => msg,
+                        None => continue,
+                    };
+
+                    if let WcpCSMessage::command(WcpCommand::shutdowmn) = msg {
+                        return Ok(());
+                    }
+
+                    if let Err(e) = self.sender.send(msg).await {
+                        error!("Failed to send wcp message into main thread {e}")
+                    };
+
+                    // request repaint of the Surfer UI
+                    if let Some(ctx) = &self.ctx {
+                        ctx.request_repaint();
                     }
                 }
-            };
 
-            if let WcpCSMessage::command(WcpCommand::shutdowmn) = msg {
-                return Ok(());
-            }
-
-            if let Err(e) = self.sender.blocking_send(msg) {
-                error!("Failed to send wcp message into main thread {e}")
-            };
-
-            // request repaint of the Surfer UI
-            if let Some(ctx) = &self.ctx {
-                ctx.request_repaint();
-            }
-
-            // FIXME: Handle timeout
-            let resp = match self.receiver.blocking_recv() {
-                Some(resp) => resp,
-                None => {
-                    warn!("WCP No response from handler");
-                    WcpSCMessage::create_error(
-                        "No response".to_string(),
-                        vec![],
-                        "No response from handler".to_string(),
-                    )
+                s2c = self.receiver.recv() => {
+                    if let Some(s2c) = s2c {
+                        self.send_message(&mut writer, &s2c).await;
+                    }
                 }
-            };
-            //send response back to client
-            serde_json::to_writer(&stream, &resp)?;
-            let _ = stream.write(b"\0");
-            let _ = stream.flush();
-        }
-    }
 
-    fn get_json_message(&mut self, mut stream: &TcpStream) -> Result<WcpCSMessage, serde_Error> {
-        let mut de = serde_json::Deserializer::from_reader(&mut stream);
-        let cmd = WcpCSMessage::deserialize(&mut de);
-        let mut buffer = [0; 1];
-        if let Ok(0) = stream.read(&mut buffer) {
-            return Ok(WcpCSMessage::command(WcpCommand::shutdowmn));
+                _ = stop_signal_waiter => {
+                    return Err(serde_Error::io(std::io::Error::new(
+                        std::io::ErrorKind::ConnectionAborted,
+                        "Server terminated",
+                    )));
+                }
+            }
         }
-        if buffer[0] != 0 {
-            warn!(
-                "WCP read wrong terminating byte. Expected '0' got '{}' instead",
-                buffer[0]
-            );
-        }
-        cmd
     }
 }

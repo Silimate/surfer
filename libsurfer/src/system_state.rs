@@ -2,8 +2,8 @@ use std::{
     cell::RefCell,
     collections::VecDeque,
     sync::{atomic::AtomicBool, Arc},
-    thread::JoinHandle,
 };
+use tokio::task::JoinHandle;
 
 use egui::{Pos2, Rect};
 
