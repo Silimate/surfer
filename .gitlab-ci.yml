@@ -265,6 +265,9 @@ rocky_build:
             - surfer_linux_rocky.zip
             - target/cargo-timings/*.html
         expire_in: 1 week
+    # Do not run this in user repos as it tends to give errors
+    rules:
+        - if: '$CI_PROJECT_NAMESPACE == "surfer-project"'
 
 windows_build:
     stage: deploy
@@ -318,6 +321,10 @@ macos-aarch64_build:
             - surfer_macos-aarch64.zip
             - target/cargo-timings/*.html
         expire_in: 1 week
+  # macOS runners are not available for "normal" GitLab users, but we are
+  # part of the open source program.
+    rules:
+        - if: '$CI_PROJECT_NAMESPACE == "surfer-project"'
 
 trigger-docs:
     stage: deploy

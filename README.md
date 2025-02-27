@@ -106,12 +106,7 @@ It is possible to run Surfer in WSL (Windows Subsystem for  Linux). However, the
 reported that most likely are caused by the gui framework used (as in, Surfer cannot really affect it).
 These are the suggested solutions if it does not work for you:
 
-1. Run the Windows version (this is really the preferred way anyway as it will be faster):
-   - It is possible to start the Windows version from WSL
-     - Creating a symlink from WSL to the Windows version or copying the Windows version to WSL are good options to make it possible to simply run `surfer` from the command line
-   - However, there are some caveats:
-      - The file browser will open as if it was opened from Windows, so one will have to find the files in WSL or provide them when starting Surfer
-      - There is a bug making it impossible to open files located in `/mnt`, typically files on the Windows file system so should rarely be a problem in practice (if you have the files in the Windows file system run the Windows version directly)
+1. There is a script, `surfer.sh` in the repository, that can be used to start the Windows version from WSL, avoiding the second caveat mentioned below. Read the instructions in the script. This is the preferred way as the Windows version is faster.
 2. Start Surfer in (experimental) server mode, see below, in WSL and open the Windows version using the URL provided from running the previous command.
 3. Compile Surfer with a change in `Cargo.toml` as below (replace the line defining `eframe` version, using the current version if the line below has an older version).  Installing `libgtk-3-dev` may be required if errors remain (although most likely it is a dependency of that package that is really required).
 
