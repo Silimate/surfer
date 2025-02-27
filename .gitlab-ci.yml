@@ -276,7 +276,7 @@ windows_build:
         - rustc -V
         - cargo -V
         - rustup target add x86_64-pc-windows-gnu
-        - cargo build --target x86_64-pc-windows-gnu --release --locked --features accesskit --color always
+        - cargo build --target x86_64-pc-windows-gnu --release --locked --features accesskit --color always --timings
         - mkdir dist
         - cp target/x86_64-pc-windows-gnu/release/surfer.exe dist/surfer.exe
         - cp target/x86_64-pc-windows-gnu/release/surver.exe dist/surver.exe
@@ -285,6 +285,7 @@ windows_build:
     artifacts:
         paths:
             - surfer_win.zip
+            - target/cargo-timings/*.html
         expire_in: 1 week
 
 macos-aarch64_build:
@@ -305,7 +306,7 @@ macos-aarch64_build:
         - rustc -V
         - git fetch --tags
     script:
-        - cargo build --release --locked --features accesskit --color always
+        - cargo build --release --locked --features accesskit --color always --timings
         - ls -alrt target/release/surfer
         - mkdir dist
         - cp target/release/surfer dist/surfer
@@ -315,6 +316,7 @@ macos-aarch64_build:
     artifacts:
         paths:
             - surfer_macos-aarch64.zip
+            - target/cargo-timings/*.html
         expire_in: 1 week
 
 trigger-docs:
