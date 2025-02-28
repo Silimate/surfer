@@ -80,8 +80,8 @@ impl WcpServer {
     pub async fn new(
         address: String,
         initiate: bool,
-        s2c_sender: Sender<WcpCSMessage>,
-        c2s_receiver: Receiver<WcpSCMessage>,
+        c2s_sender: Sender<WcpCSMessage>,
+        s2c_receiver: Receiver<WcpSCMessage>,
         stop_signal: Arc<AtomicBool>,
         running_signal: Arc<AtomicBool>,
         ctx: Option<Arc<Context>>,
@@ -104,8 +104,8 @@ impl WcpServer {
         Ok(WcpServer {
             listener,
             stream,
-            sender: s2c_sender,
-            receiver: c2s_receiver,
+            sender: c2s_sender,
+            receiver: s2c_receiver,
             stop_signal,
             running_signal,
             ctx,
