@@ -1,12 +1,14 @@
 use crate::message::Message;
-use crate::wcp::proto::WcpSCMessage;
+use crate::wcp::proto::{WcpCSMessage, WcpSCMessage};
 use crate::State;
 
 use serde_json::Error as serde_Error;
 use test_log::test;
+use tokio::io::AsyncWriteExt;
 use tokio::net::{TcpListener, TcpStream};
 use tokio::time::{sleep, timeout, Duration};
 
+use itertools::Itertools;
 use lazy_static::lazy_static;
 use std::future::Future;
 use std::sync::atomic::Ordering;
@@ -21,26 +23,68 @@ fn get_test_port() -> usize {
     *port
 }
 
-async fn get_json_response(stream: &TcpStream) -> Result<WcpSCMessage, serde_Error> {
-    stream.readable().await.expect("Failed to be readable");
-    let mut data = vec![0; 1024];
-    match stream.try_read(&mut data) {
-        Ok(size) => {
-            let cmd: Result<WcpSCMessage, _> = serde_json::from_slice(&data[..size - 1]);
-            assert_eq!(data[size - 1], 0);
-            cmd
+async fn get_json_response(
+    stream: &TcpStream,
+    state: &mut State,
+) -> Result<WcpSCMessage, serde_Error> {
+    loop {
+        state.handle_wcp_commands();
+        let mut data = vec![0; 1024];
+        match stream.try_read(&mut data) {
+            Ok(0) => panic!("EOF"),
+            Ok(size) => {
+                let cmd: Result<WcpSCMessage, _> = serde_json::from_slice(&data[..size - 1]);
+                assert_eq!(data[size - 1], 0);
+                return cmd;
+            }
+            Err(ref e) if e.kind() == std::io::ErrorKind::WouldBlock => (),
+            Err(e) => panic!("Read failure: {e}"),
         }
-        Err(e) => panic!("Read failure: {e}"),
+        tokio::time::sleep(Duration::from_millis(100)).await;
     }
 }
 
+async fn greet(stream: &mut TcpStream) {
+    let commands = vec![
+        "add_variables",
+        "set_viewport_to",
+        "cursor_set",
+        "reload",
+        "add_scopes",
+        "get_item_list",
+        "set_item_color",
+        "get_item_info",
+        "clear_item",
+        "focus_item",
+        "clear",
+        "load",
+        "zoom_to_fit",
+    ]
+    .into_iter()
+    .map(str::to_string)
+    .collect_vec();
+
+    let msg = serde_json::to_string(&WcpCSMessage::create_greeting(0, commands)).unwrap();
+    stream
+        .write_all(msg.as_bytes())
+        .await
+        .expect("Failed to send greeting");
+    stream.write_all(b"\0").await.expect("Failed to null byte");
+    stream.flush().await.expect("Failed to flush");
+}
+
 async fn connect(port: usize) -> TcpStream {
+    let mut stream: TcpStream;
     loop {
         if let Ok(c) = TcpStream::connect(format!("127.0.0.1:{port}")).await {
-            return c;
+            stream = c;
+            break;
         }
         sleep(Duration::from_millis(100)).await;
     }
+    greet(&mut stream).await;
+
+    stream
 }
 
 async fn expect_disconnect(stream: &TcpStream) {
@@ -83,7 +127,7 @@ fn stop_and_reconnect() {
                 initiate: false,
             });
             let stream = connect(port).await;
-            get_json_response(&stream)
+            get_json_response(&stream, &mut state)
                 .await
                 .expect("failed to get WCP greeting");
             state.update(Message::StopWcpServer);
@@ -109,7 +153,7 @@ fn reconnect() {
         });
         for _ in 0..2 {
             let stream = connect(port).await;
-            get_json_response(&stream)
+            get_json_response(&stream, &mut state)
                 .await
                 .expect("failed to get WCP greeting");
         }
@@ -127,8 +171,9 @@ fn initiate() {
             address: Some(address),
             initiate: true,
         });
-        if let Ok((stream, _addr)) = listener.accept().await {
-            get_json_response(&stream)
+        if let Ok((mut stream, _addr)) = listener.accept().await {
+            greet(&mut stream).await;
+            get_json_response(&stream, &mut state)
                 .await
                 .expect("failed to get WCP greeting");
         } else {
@@ -160,7 +205,7 @@ fn long_pause() {
             initiate: false,
         });
         let stream = connect(port).await;
-        get_json_response(&stream)
+        get_json_response(&stream, &mut state)
             .await
             .expect("failed to get WCP greeting");
 

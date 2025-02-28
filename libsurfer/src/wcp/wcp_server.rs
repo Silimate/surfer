@@ -192,31 +192,8 @@ impl WcpServer {
     }
 
     async fn handle_client(&mut self, mut stream: TcpStream) -> Result<(), serde_Error> {
-        let commands = vec![
-            "add_variables",
-            "set_viewport_to",
-            "cursor_set",
-            "reload",
-            "add_scopes",
-            "get_item_list",
-            "set_item_color",
-            "get_item_info",
-            "clear_item",
-            "focus_item",
-            "clear",
-            "load",
-            "zoom_to_fit",
-        ]
-        .into_iter()
-        .map(str::to_string)
-        .collect();
-
         let (reader, mut writer) = stream.split();
         let mut reader = WcpCSReader::new(reader);
-
-        //send greeting
-        let greeting = WcpSCMessage::create_greeting(0, commands);
-        self.send_message(&mut writer, &greeting).await;
 
         loop {
             let stop_signal_clone = self.stop_signal.clone();
