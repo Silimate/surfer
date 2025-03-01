@@ -1077,8 +1077,15 @@ impl State {
                     });
 
                 if self.sys.wcp_running_signal.load(Ordering::Relaxed) {
+                    let source = match source {
+                        WaveSource::File(path) => path.to_string(),
+                        WaveSource::Url(url) => url,
+                        _ => "".to_string(),
+                    };
                     self.sys.channels.wcp_s2c_sender.as_ref().map(|ch| {
-                        block_on(ch.send(WcpSCMessage::event(WcpEvent::waveforms_loaded)))
+                        block_on(
+                            ch.send(WcpSCMessage::event(WcpEvent::waveforms_loaded { source })),
+                        )
                     });
                 }
 

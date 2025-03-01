@@ -182,7 +182,11 @@ async fn load_file(
     .await?;
     expect_ack(rx).await?;
 
-    expect_response!(rx, WcpSCMessage::event(WcpEvent::waveforms_loaded));
+    expect_response!(
+        rx,
+        WcpSCMessage::event(WcpEvent::waveforms_loaded { source })
+    );
+    assert_eq!(source, file.to_string());
 
     Ok(())
 }
@@ -226,7 +230,8 @@ wcp_test! {
         })).await?;
         expect_ack(&mut rx).await?;
 
-        expect_response!(rx, WcpSCMessage::event(WcpEvent::waveforms_loaded));
+        expect_response!(rx, WcpSCMessage::event(WcpEvent::waveforms_loaded{source}));
+        assert_eq!(source, "../examples/counter.vcd".to_string());
 
         tx.send(WcpCSMessage::command(
             proto::WcpCommand::add_scope {scope: "tb".to_string()})).await?;
