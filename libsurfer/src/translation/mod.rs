@@ -367,8 +367,8 @@ impl TranslatorList {
     #[cfg(feature = "python")]
     pub fn load_python_translator(&mut self, filename: camino::Utf8PathBuf) -> Result<()> {
         log::debug!("Reading Python code from disk: {filename}");
-        let code = std::fs::read_to_string(&filename)?;
-        let mut translators = python_translators::PythonTranslator::new(&code)?;
+        let code = std::ffi::CString::new(std::fs::read_to_string(&filename)?)?;
+        let mut translators = python_translators::PythonTranslator::new(&code.as_c_str())?;
         if translators.len() != 1 {
             color_eyre::eyre::bail!("Only one Python translator per file is supported for now");
         }

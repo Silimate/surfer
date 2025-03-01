@@ -3,6 +3,7 @@ use color_eyre::Result;
 use log::{error, info};
 use pyo3::types::{PyAnyMethods, PyDict, PyModule, PyStringMethods};
 use pyo3::{Bound, Py, Python};
+use std::ffi::{CStr, CString};
 use surfer_translation_types::python::{surfer_pyo3_module, PythonValueKind};
 use surfer_translation_types::{BasicTranslator, ValueKind, VariableValue};
 
@@ -14,26 +15,29 @@ pub struct PythonTranslator {
 }
 
 impl PythonTranslator {
-    pub fn new(code: &str) -> Result<Vec<Self>> {
+    pub fn new(code: &CStr) -> Result<Vec<Self>> {
         info!("Loading Python translator");
         Python::with_gil(|py| -> pyo3::PyResult<_> {
-            let surfer_module = PyModule::new_bound(py, "surfer")?;
+            let surfer_module = PyModule::new(py, "surfer")?;
             surfer_pyo3_module(&surfer_module)?;
-            let sys = PyModule::import_bound(py, "sys")?;
+            let sys = PyModule::import(py, "sys")?;
             let py_modules: Bound<'_, PyDict> = sys.getattr("modules")?.downcast_into()?;
             py_modules.set_item("surfer", surfer_module)?;
-            let module = PyModule::from_code_bound(py, code, "plugin.py", "plugin")?;
+            let filename = CString::new("plugin.py")?;
+            let modulename = CString::new("plugin")?;
+            let module = PyModule::from_code(py, code, filename.as_c_str(), modulename.as_c_str())?;
 
             let translators = module
                 .getattr("translators")?
-                .iter()?
+                .try_iter()?
                 .map(|t| Ok(t?.str()?.to_string_lossy().to_string()))
                 .collect::<pyo3::PyResult<Vec<_>>>()?;
-            let module = module.unbind();
+
+            //            let module = module.unbind();
             Ok(translators
                 .into_iter()
                 .map(|class_name| Self {
-                    module: module.clone(),
+                    module: module.clone().unbind(),
                     class_name,
                 })
                 .collect())

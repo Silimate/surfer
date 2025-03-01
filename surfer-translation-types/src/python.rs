@@ -1,21 +1,22 @@
 use ecolor::Color32;
+use pyo3::prelude::*;
 
 use crate::ValueKind;
 
-#[pyo3::pymodule]
+#[pymodule]
 #[pyo3(name = "surfer")]
-pub fn surfer_pyo3_module(m: &pyo3::Bound<'_, pyo3::types::PyModule>) -> pyo3::PyResult<()> {
-    m.add_class::<PythonBasicTranslator>().unwrap();
-    m.add_class::<PythonValueKind>().unwrap();
+pub fn surfer_pyo3_module(m: &Bound<'_, PyModule>) -> PyResult<()> {
+    m.add_class::<PythonBasicTranslator>()?;
+    m.add_class::<PythonValueKind>()?;
     Ok(())
 }
 
-#[pyo3::pyclass(name = "BasicTranslator", subclass)]
+#[pyclass(name = "BasicTranslator", subclass)]
 struct PythonBasicTranslator {}
 // NOTE: No implementation for the PythonBasicTranslator here. Will be done later.
 
 #[derive(Clone)]
-#[pyo3::pyclass(name = "ValueKind")]
+#[pyclass(name = "ValueKind")]
 pub enum PythonValueKind {
     Normal {},
     Undef {},
