@@ -267,6 +267,7 @@ pub enum Message {
         next: bool,
     },
     VariableValueToClipbord(Option<VisibleItemIndex>),
+    VariableHierarchicalPathToClipboard(Option<VisibleItemIndex>),
     InvalidateDrawCommands,
     AddGraphic(GraphicId, Graphic),
     RemoveGraphic(GraphicId),

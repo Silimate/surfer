@@ -94,6 +94,7 @@ use crate::translation::{all_translators, AnyTranslator};
 use crate::variable_name_filter::VariableNameFilterType;
 use crate::viewport::Viewport;
 use crate::wasm_util::{perform_work, UrlArgs};
+use crate::wave_container::VariableRefExt;
 use crate::wave_container::{ScopeRefExt, WaveContainer};
 use crate::wave_data::{ScopeType, WaveData};
 use crate::wave_source::{LoadOptions, WaveFormat, WaveSource};
@@ -1571,6 +1572,24 @@ impl State {
                             if let Some(variable_value) = variable_value {
                                 if let Some(ctx) = &self.sys.context {
                                     ctx.copy_text(variable_value);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            Message::VariableHierarchicalPathToClipboard(vidx) => {
+                if let Some(waves) = &self.waves {
+                    if let Some(vidx) = vidx.or(waves.focused_item) {
+                        if let Some(item_ref) =
+                            waves.items_tree.get_visible(vidx).map(|node| node.item_ref)
+                        {
+                            if let Some(DisplayedItem::Variable(variable)) =
+                                waves.displayed_items.get(&item_ref)
+                            {
+                                let full_path = variable.variable_ref.full_path_string();
+                                if let Some(ctx) = &self.sys.context {
+                                    ctx.copy_text(full_path);
                                 }
                             }
                         }

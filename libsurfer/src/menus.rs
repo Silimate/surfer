@@ -473,7 +473,10 @@ impl State {
                 msgs.push(Message::VariableValueToClipbord(Some(vidx)));
             }
         }
-
+        if ui.button("Copy hierarchical path").clicked() {
+            ui.close_menu();
+            msgs.push(Message::VariableHierarchicalPathToClipboard(Some(vidx)));
+        }
         ui.separator();
         ui.menu_button("Insert", |ui| {
             if ui.button("Divider").clicked() {
