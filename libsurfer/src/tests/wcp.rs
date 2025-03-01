@@ -10,6 +10,7 @@ use color_eyre::eyre::bail;
 use color_eyre::Result;
 use futures::Future;
 use num::BigInt;
+use std::sync::atomic::Ordering;
 use tokio::sync::mpsc::{Receiver, Sender};
 
 macro_rules! expect_response {
@@ -73,6 +74,7 @@ where
         state.sys.channels.wcp_s2c_sender = Some(sc_tx);
         let (cs_tx, cs_rx) = tokio::sync::mpsc::channel(100);
         state.sys.channels.wcp_c2s_receiver = Some(IngressReceiver::new(cs_rx));
+        state.sys.wcp_running_signal.store(true, Ordering::Relaxed);
 
         {
             let client = client.clone();

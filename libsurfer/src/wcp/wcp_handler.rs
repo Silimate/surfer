@@ -222,7 +222,6 @@ impl State {
                         self.send_response(WcpResponse::ack);
                     }
                     WcpCommand::load { source } => {
-                        self.sys.wcp_server_load_outstanding = true;
                         match string_to_wavesource(source) {
                             WaveSource::Url(url) => {
                                 self.update(Message::LoadWaveformFileFromUrl(

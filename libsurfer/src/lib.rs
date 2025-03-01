@@ -57,7 +57,7 @@ pub mod wellen;
 use crate::displayed_item_tree::ItemIndex;
 use crate::displayed_item_tree::TargetPosition;
 use std::collections::HashMap;
-use std::sync::atomic::AtomicU32;
+use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::sync::{Arc, RwLock};
 
@@ -1076,8 +1076,7 @@ impl State {
                         None
                     });
 
-                if self.sys.wcp_server_load_outstanding {
-                    self.sys.wcp_server_load_outstanding = false;
+                if self.sys.wcp_running_signal.load(Ordering::Relaxed) {
                     self.sys.channels.wcp_s2c_sender.as_ref().map(|ch| {
                         block_on(ch.send(WcpSCMessage::event(WcpEvent::waveforms_loaded)))
                     });

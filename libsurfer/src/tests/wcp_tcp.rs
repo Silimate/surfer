@@ -1,5 +1,6 @@
 use crate::message::Message;
-use crate::wcp::proto::{WcpCSMessage, WcpSCMessage};
+use crate::wave_source::LoadOptions;
+use crate::wcp::proto::{WcpCSMessage, WcpCommand, WcpSCMessage};
 use crate::State;
 
 use serde_json::Error as serde_Error;
@@ -29,6 +30,7 @@ async fn get_json_response(
 ) -> Result<WcpSCMessage, serde_Error> {
     loop {
         state.handle_wcp_commands();
+        state.handle_async_messages();
         let mut data = vec![0; 1024];
         match stream.try_read(&mut data) {
             Ok(0) => panic!("EOF"),
@@ -42,6 +44,16 @@ async fn get_json_response(
         }
         tokio::time::sleep(Duration::from_millis(100)).await;
     }
+}
+
+async fn send_message(stream: &mut TcpStream, msg: &WcpCSMessage) {
+    let msg = serde_json::to_string(msg).unwrap();
+    stream
+        .write_all(msg.as_bytes())
+        .await
+        .expect("Failed to message");
+    stream.write_all(b"\0").await.expect("Failed to null byte");
+    stream.flush().await.expect("Failed to flush");
 }
 
 async fn greet(stream: &mut TcpStream) {
@@ -64,13 +76,7 @@ async fn greet(stream: &mut TcpStream) {
     .map(str::to_string)
     .collect_vec();
 
-    let msg = serde_json::to_string(&WcpCSMessage::create_greeting(0, commands)).unwrap();
-    stream
-        .write_all(msg.as_bytes())
-        .await
-        .expect("Failed to send greeting");
-    stream.write_all(b"\0").await.expect("Failed to null byte");
-    stream.flush().await.expect("Failed to flush");
+    send_message(stream, &WcpCSMessage::create_greeting(0, commands)).await;
 }
 
 async fn connect(port: usize) -> TcpStream {
@@ -232,5 +238,39 @@ fn start_stop() {
         if let Ok(_) = TcpStream::connect(format!("127.0.0.1:{port}")).await {
             panic!("Connected after stopping server");
         }
+    });
+}
+
+#[test]
+fn response_and_event() {
+    run_test(async {
+        let mut state = State::new_default_config().unwrap();
+        let port = get_test_port();
+        state.update(Message::StartWcpServer {
+            address: Some(format!("127.0.0.1:{port}").to_string()),
+            initiate: false,
+        });
+        let msg_sender = state.sys.channels.msg_sender.clone();
+        let mut stream = connect(port).await;
+        get_json_response(&stream, &mut state)
+            .await
+            .expect("failed to get WCP greeting");
+        send_message(
+            &mut stream,
+            &(WcpCSMessage::command(WcpCommand::get_item_list)),
+        )
+        .await;
+        get_json_response(&stream, &mut state)
+            .await
+            .expect("failed to get get_item_list response");
+        msg_sender
+            .send(Message::LoadFile(
+                "../examples/counter.vcd".into(),
+                LoadOptions::clean(),
+            ))
+            .unwrap();
+        get_json_response(&stream, &mut state)
+            .await
+            .expect("failed to get waveforms_loaded response");
     });
 }
