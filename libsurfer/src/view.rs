@@ -765,11 +765,16 @@ impl State {
             return;
         };
 
-        for child_scope in child_scopes {
+        let child_scopes_sorted = child_scopes
+            .iter()
+            .sorted_by(|a, b| numeric_sort::cmp(&a.name(), &b.name()))
+            .collect_vec();
+
+        for child_scope in child_scopes_sorted {
             self.draw_selectable_child_or_orphan_scope(
                 msgs,
                 wave,
-                &child_scope,
+                child_scope,
                 draw_variables,
                 ui,
                 filter,
