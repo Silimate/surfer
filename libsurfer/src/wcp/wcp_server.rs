@@ -73,6 +73,7 @@ pub struct WcpServer {
     receiver: Receiver<WcpSCMessage>,
     stop_signal: Arc<AtomicBool>,
     running_signal: Arc<AtomicBool>,
+    greeted_signal: Arc<AtomicBool>,
     ctx: Option<Arc<Context>>,
 }
 
@@ -84,6 +85,7 @@ impl WcpServer {
         s2c_receiver: Receiver<WcpSCMessage>,
         stop_signal: Arc<AtomicBool>,
         running_signal: Arc<AtomicBool>,
+        greeted_signal: Arc<AtomicBool>,
         ctx: Option<Arc<Context>>,
     ) -> Result<Self> {
         let listener;
@@ -108,6 +110,7 @@ impl WcpServer {
             receiver: s2c_receiver,
             stop_signal,
             running_signal,
+            greeted_signal,
             ctx,
         })
     }
@@ -120,6 +123,9 @@ impl WcpServer {
         } else {
             error!("Internal error: calling `run` with both listener and stream unset");
         }
+        info!("WCP shutting down");
+        self.greeted_signal.store(false, Ordering::Relaxed);
+        self.running_signal.store(false, Ordering::Relaxed);
         self.stop_signal.store(true, Ordering::Relaxed);
     }
 
@@ -151,9 +157,8 @@ impl WcpServer {
                     break;
                 }
             }
+            self.greeted_signal.store(false, Ordering::Relaxed);
         }
-        info!("WCP shutting down");
-        self.running_signal.store(false, Ordering::Relaxed);
     }
 
     async fn initiate(&mut self) {

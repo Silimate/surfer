@@ -1076,7 +1076,7 @@ impl State {
                         None
                     });
 
-                if self.sys.wcp_running_signal.load(Ordering::Relaxed) {
+                if self.sys.wcp_greeted_signal.load(Ordering::Relaxed) {
                     let source = match source {
                         WaveSource::File(path) => path.to_string(),
                         WaveSource::Url(url) => url,

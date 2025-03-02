@@ -10,6 +10,7 @@ use crate::{
 use futures::executor::block_on;
 use itertools::Itertools;
 use log::{trace, warn};
+use std::sync::atomic::Ordering;
 use surfer_translation_types::ScopeRef;
 
 use super::proto::{ItemInfo, WcpCSMessage, WcpCommand, WcpResponse, WcpSCMessage};
@@ -39,6 +40,15 @@ impl State {
     }
 
     fn handle_wcp_cs_message(&mut self, message: &WcpCSMessage) {
+        if !self.sys.wcp_greeted_signal.load(Ordering::Relaxed) {
+            match message {
+                WcpCSMessage::greeting { .. } => (),
+                _ => {
+                    self.send_error("WCP server has not received greeting messages", vec![], "");
+                    return;
+                }
+            }
+        }
         match message {
             WcpCSMessage::command(command) => {
                 match command {
@@ -271,6 +281,7 @@ impl State {
                         ),
                     )
                 } else {
+                    self.sys.wcp_greeted_signal.store(true, Ordering::Relaxed);
                     self.send_greeting()
                 }
             }

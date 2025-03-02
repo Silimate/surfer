@@ -414,3 +414,16 @@ wcp_test! {
         Ok(())
     }
 }
+
+wcp_test! {
+    no_greeting,
+    (tx, rx) {
+        send_commands(&tx, vec![
+            WcpCommand::clear,
+        ]).await?;
+        expect_response!(rx, WcpSCMessage::error{error, ..});
+        assert_eq!(error, "WCP server has not received greeting messages");
+
+        Ok(())
+    }
+}

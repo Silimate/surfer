@@ -666,6 +666,8 @@ impl State {
         stop_signal_copy.store(false, std::sync::atomic::Ordering::Relaxed);
         let running_signal_copy = self.sys.wcp_running_signal.clone();
         running_signal_copy.store(true, std::sync::atomic::Ordering::Relaxed);
+        let greeted_signal_copy = self.sys.wcp_greeted_signal.clone();
+        greeted_signal_copy.store(true, std::sync::atomic::Ordering::Relaxed);
 
         let ctx = self.sys.context.clone();
         let address = address.unwrap_or(self.config.wcp.address.clone());
@@ -678,6 +680,7 @@ impl State {
                 wcp_s2c_receiver,
                 stop_signal_copy,
                 running_signal_copy,
+                greeted_signal_copy,
                 ctx,
             )
             .await;
