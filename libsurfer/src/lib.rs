@@ -220,6 +220,17 @@ impl Channels {
     }
 }
 
+pub struct WcpClientCapabilities {
+    pub waveforms_loaded: bool,
+}
+impl WcpClientCapabilities {
+    fn new() -> Self {
+        Self {
+            waveforms_loaded: false,
+        }
+    }
+}
+
 /// Stores the current canvas state to enable undo/redo operations
 struct CanvasState {
     message: String,
@@ -1076,7 +1087,9 @@ impl State {
                         None
                     });
 
-                if self.sys.wcp_greeted_signal.load(Ordering::Relaxed) {
+                if self.sys.wcp_greeted_signal.load(Ordering::Relaxed)
+                    && self.sys.wcp_client_capabilities.waveforms_loaded
+                {
                     let source = match source {
                         WaveSource::File(path) => path.to_string(),
                         WaveSource::Url(url) => url,

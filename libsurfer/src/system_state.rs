@@ -13,7 +13,7 @@ use crate::{
     message::Message,
     translation::{all_translators, TranslatorList},
     wave_source::LoadProgress,
-    CachedDrawData, CanvasState, Channels,
+    CachedDrawData, CanvasState, Channels, WcpClientCapabilities,
 };
 
 #[cfg(feature = "performance_plot")]
@@ -48,6 +48,7 @@ pub struct SystemState {
     #[allow(unused)]
     pub(crate) wcp_running_signal: Arc<AtomicBool>,
     pub(crate) wcp_greeted_signal: Arc<AtomicBool>,
+    pub(crate) wcp_client_capabilities: WcpClientCapabilities,
 
     /// The draw commands for every variable currently selected
     // For performance reasons, these need caching so we have them in a RefCell for interior
@@ -114,6 +115,7 @@ impl SystemState {
             wcp_stop_signal: Arc::new(AtomicBool::new(false)),
             wcp_running_signal: Arc::new(AtomicBool::new(false)),
             wcp_greeted_signal: Arc::new(AtomicBool::new(false)),
+            wcp_client_capabilities: WcpClientCapabilities::new(),
             gesture_start_location: None,
             batch_commands: VecDeque::new(),
             batch_commands_completed: false,

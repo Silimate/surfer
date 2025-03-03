@@ -4,7 +4,7 @@ use crate::{
     wave_container::{ScopeRefExt, VariableRef, VariableRefExt},
     wave_data::WaveData,
     wave_source::{string_to_wavesource, LoadOptions, WaveSource},
-    State,
+    State, WcpClientCapabilities,
 };
 
 use futures::executor::block_on;
@@ -267,10 +267,7 @@ impl State {
                 };
             }
             // FIXME: We should actually check the supported commands here
-            WcpCSMessage::greeting {
-                version,
-                commands: _,
-            } => {
+            WcpCSMessage::greeting { version, commands } => {
                 if version != "0" {
                     self.send_error(
                         "greeting",
@@ -281,6 +278,10 @@ impl State {
                         ),
                     )
                 } else {
+                    self.sys.wcp_client_capabilities = WcpClientCapabilities::new();
+                    if commands.iter().any(|s| s == "waveforms_loaded") {
+                        self.sys.wcp_client_capabilities.waveforms_loaded = true;
+                    }
                     self.sys.wcp_greeted_signal.store(true, Ordering::Relaxed);
                     self.send_greeting()
                 }

@@ -57,24 +57,10 @@ async fn send_message(stream: &mut TcpStream, msg: &WcpCSMessage) {
 }
 
 async fn greet(stream: &mut TcpStream) {
-    let commands = vec![
-        "add_variables",
-        "set_viewport_to",
-        "cursor_set",
-        "reload",
-        "add_scopes",
-        "get_item_list",
-        "set_item_color",
-        "get_item_info",
-        "clear_item",
-        "focus_item",
-        "clear",
-        "load",
-        "zoom_to_fit",
-    ]
-    .into_iter()
-    .map(str::to_string)
-    .collect_vec();
+    let commands = vec!["waveforms_loaded"]
+        .into_iter()
+        .map(str::to_string)
+        .collect_vec();
 
     send_message(stream, &WcpCSMessage::create_greeting(0, commands)).await;
 }

@@ -5,6 +5,7 @@ use crate::message::Message;
 use crate::tests::snapshot::render_and_compare;
 use crate::wcp::proto::{self, WcpCSMessage, WcpCommand, WcpEvent, WcpResponse, WcpSCMessage};
 use crate::State;
+use itertools::Itertools;
 
 use color_eyre::eyre::bail;
 use color_eyre::Result;
@@ -135,9 +136,13 @@ async fn send_commands(tx: &Sender<WcpCSMessage>, cmds: Vec<WcpCommand>) -> Resu
 }
 
 async fn greet(tx: &Sender<WcpCSMessage>, rx: &mut Receiver<WcpSCMessage>) -> Result<()> {
+    let commands = vec!["waveforms_loaded"]
+        .into_iter()
+        .map(str::to_string)
+        .collect_vec();
     tx.send(WcpCSMessage::greeting {
         version: "0".to_string(),
-        commands: vec![],
+        commands,
     })
     .await?;
 
