@@ -1,11 +1,14 @@
 //! Menu handling.
 use color_eyre::eyre::WrapErr;
 use egui::{menu, Button, Context, TextWrapMode, TopBottomPanel, Ui};
+use futures::executor::block_on;
 use itertools::Itertools;
+use std::sync::atomic::Ordering;
 use surfer_translation_types::{TranslationPreference, Translator};
 
 use crate::displayed_item_tree::VisibleItemIndex;
 use crate::wave_container::{FieldRef, VariableRefExt};
+use crate::wcp::{proto::WcpEvent, proto::WcpSCMessage};
 use crate::{
     clock_highlighting::clock_highlight_type_menu,
     config::{ArrowKeyBindings, HierarchyStyle},
@@ -435,6 +438,17 @@ impl State {
                         });
                 }
             });
+
+            if self.sys.wcp_greeted_signal.load(Ordering::Relaxed)
+                && self.sys.wcp_client_capabilities.goto_source
+                && ui.button("Go to source").clicked()
+            {
+                let variable = variable.variable_ref.full_path_string();
+                self.sys.channels.wcp_s2c_sender.as_ref().map(|ch| {
+                    block_on(ch.send(WcpSCMessage::event(WcpEvent::goto_source { variable })))
+                });
+                ui.close_menu();
+            }
         }
 
         if ui.button("Rename").clicked() {

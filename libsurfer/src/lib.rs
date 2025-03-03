@@ -222,11 +222,13 @@ impl Channels {
 
 pub struct WcpClientCapabilities {
     pub waveforms_loaded: bool,
+    pub goto_source: bool,
 }
 impl WcpClientCapabilities {
     fn new() -> Self {
         Self {
             waveforms_loaded: false,
+            goto_source: false,
         }
     }
 }

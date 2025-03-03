@@ -136,7 +136,7 @@ async fn send_commands(tx: &Sender<WcpCSMessage>, cmds: Vec<WcpCommand>) -> Resu
 }
 
 async fn greet(tx: &Sender<WcpCSMessage>, rx: &mut Receiver<WcpSCMessage>) -> Result<()> {
-    let commands = vec!["waveforms_loaded"]
+    let commands = vec!["waveforms_loaded", "goto_source"]
         .into_iter()
         .map(str::to_string)
         .collect_vec();
