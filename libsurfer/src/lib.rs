@@ -1552,49 +1552,51 @@ impl State {
                 self.drag_target_idx = None;
             }
             Message::VariableValueToClipbord(vidx) => {
-                if let Some(waves) = &self.waves {
-                    if let Some(vidx) = vidx.or(waves.focused_item) {
-                        if let Some(item_ref) =
-                            waves.items_tree.get_visible(vidx).map(|node| node.item_ref)
+                self.handle_variable_clipboard_operation(
+                    vidx,
+                    |waves, item_ref: DisplayedItemRef| {
+                        if let Some(DisplayedItem::Variable(_)) =
+                            waves.displayed_items.get(&item_ref)
                         {
-                            let Some(DisplayedItem::Variable(_displayed_variable)) =
-                                waves.displayed_items.get(&item_ref)
-                            else {
-                                return;
-                            };
-
                             let field_ref = item_ref.into();
-                            let variable_value = self.get_variable_value(
+                            self.get_variable_value(
                                 waves,
                                 &field_ref,
                                 &waves.cursor.as_ref().and_then(num::BigInt::to_biguint),
-                            );
-                            if let Some(variable_value) = variable_value {
-                                if let Some(ctx) = &self.sys.context {
-                                    ctx.copy_text(variable_value);
-                                }
-                            }
+                            )
+                        } else {
+                            None
                         }
-                    }
-                }
+                    },
+                );
             }
-            Message::VariableHierarchicalPathToClipboard(vidx) => {
-                if let Some(waves) = &self.waves {
-                    if let Some(vidx) = vidx.or(waves.focused_item) {
-                        if let Some(item_ref) =
-                            waves.items_tree.get_visible(vidx).map(|node| node.item_ref)
+            Message::VariableNameToClipboard(vidx) => {
+                self.handle_variable_clipboard_operation(
+                    vidx,
+                    |waves, item_ref: DisplayedItemRef| {
+                        if let Some(DisplayedItem::Variable(variable)) =
+                            waves.displayed_items.get(&item_ref)
                         {
-                            if let Some(DisplayedItem::Variable(variable)) =
-                                waves.displayed_items.get(&item_ref)
-                            {
-                                let full_path = variable.variable_ref.full_path_string();
-                                if let Some(ctx) = &self.sys.context {
-                                    ctx.copy_text(full_path);
-                                }
-                            }
+                            Some(variable.variable_ref.name.clone())
+                        } else {
+                            None
                         }
-                    }
-                }
+                    },
+                );
+            }
+            Message::VariableFullNameToClipboard(vidx) => {
+                self.handle_variable_clipboard_operation(
+                    vidx,
+                    |waves, item_ref: DisplayedItemRef| {
+                        if let Some(DisplayedItem::Variable(variable)) =
+                            waves.displayed_items.get(&item_ref)
+                        {
+                            Some(variable.variable_ref.full_path_string())
+                        } else {
+                            None
+                        }
+                    },
+                );
             }
             Message::SetViewportStrategy(s) => {
                 if let Some(waves) = &mut self.waves {
@@ -1885,6 +1887,25 @@ impl State {
                 self.sys.items_to_expand.borrow_mut().push((item, levels))
             }
             Message::AddCharToPrompt(c) => *self.sys.char_to_add_to_prompt.borrow_mut() = Some(c),
+        }
+    }
+
+    fn handle_variable_clipboard_operation<F>(&self, vidx: Option<VisibleItemIndex>, get_text: F)
+    where
+        F: FnOnce(&WaveData, DisplayedItemRef) -> Option<String>,
+    {
+        let Some(waves) = &self.waves else { return };
+        let Some(vidx) = vidx.or(waves.focused_item) else {
+            return;
+        };
+        let Some(item_ref) = waves.items_tree.get_visible(vidx).map(|node| node.item_ref) else {
+            return;
+        };
+
+        if let Some(text) = get_text(waves, item_ref) {
+            if let Some(ctx) = &self.sys.context {
+                ctx.copy_text(text);
+            }
         }
     }
 }

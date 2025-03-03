@@ -466,16 +466,24 @@ impl State {
             msgs.push(Message::InvalidateCount);
             ui.close_menu();
         }
-        if waves.cursor.is_some() && path.is_some() {
-            ui.separator();
-            if ui.button("Copy variable value").clicked() {
-                ui.close_menu();
-                msgs.push(Message::VariableValueToClipbord(Some(vidx)));
-            }
-        }
-        if ui.button("Copy hierarchical path").clicked() {
-            ui.close_menu();
-            msgs.push(Message::VariableHierarchicalPathToClipboard(Some(vidx)));
+        if path.is_some() {
+            // Actual signal. Not one of: divider, timeline, marker.
+            ui.menu_button("Copy", |ui| {
+                if waves.cursor.is_some() {
+                    if ui.button("Value").clicked() {
+                        ui.close_menu();
+                        msgs.push(Message::VariableValueToClipbord(Some(vidx)));
+                    }
+                }
+                if ui.button("Name").clicked() {
+                    ui.close_menu();
+                    msgs.push(Message::VariableNameToClipboard(Some(vidx)));
+                }
+                if ui.button("Full name").clicked() {
+                    ui.close_menu();
+                    msgs.push(Message::VariableFullNameToClipboard(Some(vidx)));
+                }
+            });
         }
         ui.separator();
         ui.menu_button("Insert", |ui| {
