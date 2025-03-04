@@ -469,6 +469,7 @@ impl State {
         if path.is_some() {
             // Actual signal. Not one of: divider, timeline, marker.
             ui.menu_button("Copy", |ui| {
+                #[allow(clippy::collapsible_if)]
                 if waves.cursor.is_some() {
                     if ui.button("Value").clicked() {
                         ui.close_menu();
