@@ -220,6 +220,14 @@ impl State {
             None => {}
         }
 
+        if let Some(port) = args.wcp_initiate {
+            let addr = format!("127.0.0.1:{}", port);
+            self.add_startup_message(Message::StartWcpServer {
+                address: Some(addr),
+                initiate: true,
+            });
+        }
+
         self.add_startup_commands(args.startup_commands);
 
         self

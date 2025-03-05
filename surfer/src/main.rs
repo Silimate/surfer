@@ -59,6 +59,10 @@ mod main_impl {
         /// Load previously saved state file
         state_file: Option<Utf8PathBuf>,
 
+        #[clap(long, action)]
+        /// Port for WCP to connect to
+        wcp_initiate: Option<u16>,
+
         #[command(subcommand)]
         command: Option<Commands>,
     }
@@ -103,6 +107,7 @@ mod main_impl {
             #[cfg(not(feature = "spade"))]
             spade_top: None,
             waves: args.wave_file.map(|s| string_to_wavesource(&s)),
+            wcp_initiate: args.wcp_initiate,
             startup_commands,
         }
     }

@@ -115,30 +115,23 @@ lazy_static! {
     pub(crate) static ref WCP_SC_HANDLER: GlobalChannelTx<WcpSCMessage> = GlobalChannelTx::new();
 }
 
+#[derive(Default)]
 pub struct StartupParams {
     pub spade_state: Option<Utf8PathBuf>,
     pub spade_top: Option<String>,
     pub waves: Option<WaveSource>,
+    pub wcp_initiate: Option<u16>,
     pub startup_commands: Vec<String>,
 }
 
 impl StartupParams {
-    #[allow(dead_code)] // NOTE: Only used in wasm version
-    pub fn empty() -> Self {
-        Self {
-            spade_state: None,
-            spade_top: None,
-            waves: None,
-            startup_commands: vec![],
-        }
-    }
-
     #[allow(dead_code)] // NOTE: Only used in wasm version
     pub fn from_url(url: UrlArgs) -> Self {
         Self {
             spade_state: None,
             spade_top: None,
             waves: url.load_url.map(WaveSource::Url),
+            wcp_initiate: None,
             startup_commands: url.startup_commands.map(|c| vec![c]).unwrap_or_default(),
         }
     }
