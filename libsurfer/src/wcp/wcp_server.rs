@@ -11,10 +11,10 @@ use std::time::Duration;
 use tokio::net::tcp::{ReadHalf, WriteHalf};
 use tokio::net::{TcpListener, TcpStream};
 
+use crate::channels::IngressSender;
 use log::{error, info, warn};
 use tokio::io::{AsyncReadExt, AsyncWriteExt, BufReader};
 use tokio::sync::mpsc::Receiver;
-use tokio::sync::mpsc::Sender;
 
 use super::{proto::WcpCSMessage, proto::WcpCommand, proto::WcpSCMessage};
 
@@ -69,7 +69,7 @@ impl<'a> WcpCSReader<'a> {
 pub struct WcpServer {
     listener: Option<TcpListener>,
     stream: Option<TcpStream>,
-    sender: Sender<WcpCSMessage>,
+    sender: IngressSender<WcpCSMessage>,
     receiver: Receiver<WcpSCMessage>,
     stop_signal: Arc<AtomicBool>,
     running_signal: Arc<AtomicBool>,
@@ -80,7 +80,7 @@ impl WcpServer {
     pub async fn new(
         address: String,
         initiate: bool,
-        c2s_sender: Sender<WcpCSMessage>,
+        c2s_sender: IngressSender<WcpCSMessage>,
         s2c_receiver: Receiver<WcpSCMessage>,
         stop_signal: Arc<AtomicBool>,
         running_signal: Arc<AtomicBool>,

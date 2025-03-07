@@ -50,6 +50,12 @@ impl<T> IngressSender<T> {
         }
         result
     }
+
+    pub fn clone(&self) -> Self {
+        Self {
+            sc_messages: self.sc_messages.clone(),
+        }
+    }
 }
 
 #[cfg_attr(not(target_arch = "wasm32"), allow(dead_code))]
