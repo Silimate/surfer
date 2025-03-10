@@ -88,7 +88,7 @@ impl WaveData {
         self.markers.len() < 255
     }
 
-    pub fn add_marker(&mut self, location: &BigInt, name: Option<String>) {
+    pub fn add_marker(&mut self, location: &BigInt, name: Option<String>, move_focus: bool) {
         if !self.can_add_marker() {
             return;
         }
@@ -105,6 +105,7 @@ impl WaveData {
                 idx,
             }),
             None,
+            move_focus,
         );
         self.markers.insert(idx, location.clone());
     }
@@ -134,6 +135,7 @@ impl WaveData {
                     idx,
                 }),
                 None,
+                true,
             );
         }
         self.markers.insert(idx, location.clone());

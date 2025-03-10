@@ -33,6 +33,7 @@ transactions_line_height = 30.0
 zoom_factors = [0.5, 0.75, 0.9, 1.0, 1.1, 1.25, 1.5, 2.0, 2.5]
 default_zoom_factor = 1.0
 highlight_focused = false
+move_focus_on_inserted_marker = true
 
 [gesture]
 style = { color = "e9da16", width = 2 }

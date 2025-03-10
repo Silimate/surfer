@@ -170,7 +170,7 @@ impl State {
                 .shortcut("b")
                 .add_closing_menu(msgs, ui);
             b("Toggle menu", Message::ToggleMenu)
-                .shortcut("m")
+                .shortcut("Alt+m")
                 .add_closing_menu(msgs, ui);
             b("Toggle toolbar", Message::ToggleToolbar)
                 .shortcut("t")

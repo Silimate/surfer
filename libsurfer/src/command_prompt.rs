@@ -728,6 +728,7 @@ pub fn get_parser(state: &State) -> Command<Message> {
                                     None => Some(Command::Terminal(Message::AddMarker {
                                         time,
                                         name: Some(name.clone()),
+                                        move_focus: true,
                                     })),
                                 }
                             }),

@@ -1377,7 +1377,11 @@ impl State {
                     // At the moment we only support 255 markers, and the cursor is the 255th
                     if waves.can_add_marker() {
                         ui.button("New").clicked().then(|| {
-                            msgs.push(Message::AddMarker { time, name: None });
+                            msgs.push(Message::AddMarker {
+                                time,
+                                name: None,
+                                move_focus: true,
+                            });
                             close_menu!();
                         });
                     }

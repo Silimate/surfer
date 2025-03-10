@@ -132,6 +132,8 @@ pub struct SurferLayout {
     #[serde(default)]
     /// Highlight the waveform of the focused item?
     highlight_focused: bool,
+    /// Move the focus to the newly inserted marker?
+    move_focus_on_inserted_marker: bool,
 }
 
 impl SurferLayout {
@@ -182,6 +184,9 @@ impl SurferLayout {
     }
     pub fn highlight_focused(&self) -> bool {
         self.highlight_focused
+    }
+    pub fn move_focus_on_inserted_marker(&self) -> bool {
+        self.move_focus_on_inserted_marker
     }
 }
 

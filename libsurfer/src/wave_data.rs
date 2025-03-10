@@ -432,7 +432,7 @@ impl WaveData {
                 field_formats: vec![],
             });
 
-            indices.push(self.insert_item(new_variable, Some(target_position)));
+            indices.push(self.insert_item(new_variable, Some(target_position), true));
             target_position = TargetPosition {
                 before: ItemIndex(target_position.before.0 + 1),
                 level: target_position.level,
@@ -498,6 +498,7 @@ impl WaveData {
                 name,
             }),
             self.vidx_insert_position(vidx),
+            true,
         );
     }
 
@@ -509,6 +510,7 @@ impl WaveData {
                 name: None,
             }),
             self.vidx_insert_position(vidx),
+            true,
         );
     }
 
@@ -526,6 +528,7 @@ impl WaveData {
                 is_open: false,
             }),
             target_position,
+            true,
         )
     }
 
@@ -572,7 +575,7 @@ impl WaveData {
             rows: last_times_on_row.len(),
         });
 
-        self.insert_item(new_gen, None);
+        self.insert_item(new_gen, None, true);
     }
 
     pub fn add_stream(&mut self, stream_ref: TransactionStreamRef) {
@@ -628,7 +631,7 @@ impl WaveData {
             rows: last_times_on_row.len(),
         });
 
-        self.insert_item(new_stream, None);
+        self.insert_item(new_stream, None, true);
     }
 
     pub fn add_all_streams(&mut self) {
@@ -715,6 +718,7 @@ impl WaveData {
         &mut self,
         new_item: DisplayedItem,
         target_position: Option<TargetPosition>,
+        move_focus: bool,
     ) -> DisplayedItemRef {
         let target_position = target_position
             .or_else(|| self.focused_insert_position())
@@ -726,11 +730,13 @@ impl WaveData {
             .insert_item(item_ref, target_position)
             .unwrap();
         self.displayed_items.insert(item_ref, new_item);
-        self.focused_item = self.focused_item.and_then(|_| {
-            self.items_tree
-                .iter_visible_extra()
-                .find_map(|info| (info.idx == insert_index).then_some(info.vidx))
-        });
+        if move_focus {
+            self.focused_item = self.focused_item.and_then(|_| {
+                self.items_tree
+                    .iter_visible_extra()
+                    .find_map(|info| (info.idx == insert_index).then_some(info.vidx))
+            });
+        }
         self.items_tree.xselect_all_visible(false);
         item_ref
     }

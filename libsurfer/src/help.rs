@@ -190,7 +190,7 @@ fn key_listing(ui: &mut Ui) {
             "b",
             "Show or hide the design hierarchy",
         ),
-        (icons::MENU_FILL, "m", "Show or hide menu"),
+        (icons::MENU_FILL, "Alt+m", "Show or hide menu"),
         (icons::TOOLS_FILL, "t", "Show or hide toolbar"),
         (icons::ZOOM_IN_FILL, "+", "Zoom in"),
         (icons::ZOOM_OUT_FILL, "-", "Zoom out"),
@@ -206,6 +206,7 @@ fn key_listing(ui: &mut Ui) {
         ("", "u/Shift+u", "Undo/redo last change"),
         ("", "Ctrl+z/Ctrl+y", "Undo/redo last change"),
         ("", "f", "Fast focus a signal"),
+        ("", "m", "Add marker at current cursor"),
         ("", "Ctrl+0-9", "Add numbered marker"),
         ("", "0-9", "Center view at numbered marker"),
         (icons::REWIND_START_FILL, "s", "Go to start"),
@@ -267,7 +268,7 @@ fn controls_listing(ui: &mut Ui) {
             "b",
             "Show or hide the design hierarchy",
         ),
-        (icons::MENU_FILL, "m", "Show or hide menu"),
+        (icons::MENU_FILL, "Alt+m", "Show or hide menu"),
         (icons::TOOLS_FILL, "t", "Show or hide toolbar"),
     ];
 

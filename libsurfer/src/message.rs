@@ -248,6 +248,7 @@ pub enum Message {
     AddMarker {
         time: BigInt,
         name: Option<String>,
+        move_focus: bool,
     },
     /// Set a marker at a specific position. If it doesn't exist, it will be created
     SetMarker {

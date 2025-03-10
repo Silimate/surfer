@@ -83,7 +83,29 @@ impl State {
                     }
                     (Key::Escape, true, _, true) => msgs.push(Message::SetFilterFocused(false)),
                     (Key::B, true, false, false) => msgs.push(Message::ToggleSidePanel),
-                    (Key::M, true, false, false) => msgs.push(Message::ToggleMenu),
+                    (Key::M, true, false, false) => {
+                        if modifiers.alt {
+                            msgs.push(Message::ToggleMenu)
+                        } else if let Some(waves) = self.waves.as_ref() {
+                            if let Some(cursor) = waves.cursor.as_ref() {
+                                // Check if a marker already exists at the cursor position
+                                let marker_exists = waves
+                                    .markers
+                                    .values()
+                                    .any(|marker_time| marker_time == cursor);
+                                if !marker_exists {
+                                    msgs.push(Message::AddMarker {
+                                        time: cursor.clone(),
+                                        name: None,
+                                        move_focus: self
+                                            .config
+                                            .layout
+                                            .move_focus_on_inserted_marker(),
+                                    });
+                                }
+                            }
+                        }
+                    }
                     (Key::T, true, false, false) => msgs.push(Message::ToggleToolbar),
                     (Key::F11, true, false, _) => msgs.push(Message::ToggleFullscreen),
                     (Key::U, true, false, false) => {

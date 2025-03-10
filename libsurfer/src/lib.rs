@@ -1280,14 +1280,18 @@ impl State {
             Message::SetClockHighlightType(new_type) => {
                 self.config.default_clock_highlight_type = new_type;
             }
-            Message::AddMarker { time, name } => {
+            Message::AddMarker {
+                time,
+                name,
+                move_focus,
+            } => {
                 if let Some(name) = &name {
                     self.save_current_canvas(format!("Add marker {name} at {time}"));
                 } else {
                     self.save_current_canvas(format!("Add marker at {time}"));
                 }
                 if let Some(waves) = self.waves.as_mut() {
-                    waves.add_marker(&time, name);
+                    waves.add_marker(&time, name, move_focus);
                 }
             }
             Message::SetMarker { id, time } => {
