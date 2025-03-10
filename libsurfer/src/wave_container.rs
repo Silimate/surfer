@@ -1,9 +1,8 @@
 use std::sync::Mutex;
 
 use chrono::prelude::{DateTime, Utc};
-use color_eyre::{eyre::bail, eyre::Context, Result};
+use color_eyre::{eyre::bail, Result};
 use itertools::Itertools;
-use log::warn;
 use num::BigUint;
 use surfer_translation_types::{VariableType, VariableValue};
 
@@ -332,30 +331,16 @@ impl WaveContainer {
             }
         }
     }
-
-    /// Append parameters in scope and child scopes to `vars`.
-    fn get_parameters_in_scope_and_below(&mut self, scope: &ScopeRef, vars: &mut Vec<VariableRef>) {
-        let Some(child_scopes) = self
-            .child_scopes(scope)
-            .context("Failed to get child scopes")
-            .map_err(|e| warn!("{e:#?}"))
-            .ok()
-        else {
-            return;
-        };
-        for child_scope in child_scopes {
-            self.get_parameters_in_scope_and_below(&child_scope, vars);
-        }
-        vars.extend(self.parameters_in_scope(scope));
-    }
-
     /// Load all the parameters in the design so that the value can be displayed.
     pub fn load_parameters(&mut self) -> Result<Option<LoadSignalsCmd>> {
-        let mut vars = vec![];
-        for scope in self.root_scopes() {
-            self.get_parameters_in_scope_and_below(&scope, &mut vars);
+        match self {
+            WaveContainer::Wellen(f) => f.load_all_params(),
+            WaveContainer::Empty => bail!("Cannot load parameters from empty container."),
+            WaveContainer::Cxxrtl(_) => {
+                // Cxxrtl does not deal with parameters
+                Ok(None)
+            }
         }
-        self.load_variables(vars.into_iter())
     }
 
     /// Callback for when wellen signals have been loaded. Might lead to a new load variable

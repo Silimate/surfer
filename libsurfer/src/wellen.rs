@@ -207,6 +207,7 @@ impl WellenContainer {
             ScopeId::None => self.hierarchy.lookup_scope(scope.strs()),
         }
     }
+
     pub fn variables(&self) -> Vec<VariableRef> {
         let h = &self.hierarchy;
         h.iter_vars()
@@ -329,6 +330,16 @@ impl WellenContainer {
             })
             .collect::<Vec<_>>();
         Ok(self.load_signals(&signal_refs))
+    }
+
+    pub fn load_all_params(&mut self) -> Result<Option<LoadSignalsCmd>> {
+        let h = &self.hierarchy;
+        let params = h
+            .iter_vars()
+            .filter(|r| r.var_type() == VarType::Parameter)
+            .map(|r| r.signal_ref())
+            .collect::<Vec<_>>();
+        Ok(self.load_signals(&params))
     }
 
     pub fn on_signals_loaded(&mut self, res: LoadSignalsResult) -> Result<Option<LoadSignalsCmd>> {
