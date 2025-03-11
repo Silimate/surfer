@@ -921,6 +921,11 @@ snapshot_ui_with_file_and_msgs!(
     ]
 );
 
+snapshot_ui_with_file_and_msgs! {zoom_in_exceedingly, "examples/counter.vcd", [
+    Message::AddScope(ScopeRef::from_strs(&["tb"]), false),
+    Message::CanvasZoom {mouse_ptr: None, delta:0.000000001, viewport_idx: 0},
+]}
+
 snapshot_ui_with_file_and_msgs! {negative_cursorlocation, "examples/counter.vcd", [
     Message::AddScope(ScopeRef::from_strs(&["tb"]), false),
     Message::GoToTime(Some(BigInt::from(-50)), 0),

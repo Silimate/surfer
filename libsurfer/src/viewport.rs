@@ -82,6 +82,10 @@ fn default_edge_space() -> f64 {
     0.2
 }
 
+fn default_min_width() -> Absolute {
+    Absolute(0.5)
+}
+
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct Viewport {
     pub curr_left: Relative,
@@ -98,6 +102,9 @@ pub struct Viewport {
     pub move_strategy: ViewportStrategy,
     #[serde(skip, default = "default_edge_space")]
     edge_space: f64,
+
+    #[serde(skip, default = "default_min_width")]
+    min_width: Absolute,
 }
 
 impl Default for Viewport {
@@ -112,6 +119,7 @@ impl Default for Viewport {
             move_duration: None,
             move_strategy: ViewportStrategy::Instant,
             edge_space: default_edge_space(),
+            min_width: default_min_width(),
         }
     }
 }
@@ -259,6 +267,7 @@ impl Viewport {
             move_duration: None,
             move_strategy: self.move_strategy,
             edge_space: self.edge_space,
+            min_width: self.min_width,
         }
     }
 
@@ -278,7 +287,7 @@ impl Viewport {
 
         let target_left = (center_point - half_width).relative(num_timestamps);
         let target_right = (center_point + half_width).relative(num_timestamps);
-        self.set_viewport_to_clipped(target_left, target_right);
+        self.set_viewport_to_clipped(target_left, target_right, num_timestamps);
     }
 
     pub fn zoom_to_fit(&mut self) {
@@ -324,7 +333,7 @@ impl Viewport {
                 }
             };
 
-        self.set_viewport_to_clipped(target_left, target_right);
+        self.set_viewport_to_clipped(target_left, target_right, num_timestamps);
     }
 
     pub fn handle_canvas_scroll(&mut self, deltay: f64) {
@@ -332,13 +341,36 @@ impl Viewport {
         // One scroll event yields 50
         let scroll_step = -self.width() / Relative(50. * 20.);
         let scaled_deltay = scroll_step * deltay;
-        self.set_viewport_to_clipped(
+        self.set_viewport_to_clipped_no_width_check(
             self.curr_left + scaled_deltay,
             self.curr_right + scaled_deltay,
         );
     }
 
-    fn set_viewport_to_clipped(&mut self, target_left: Relative, target_right: Relative) {
+    fn set_viewport_to_clipped(
+        &mut self,
+        target_left: Relative,
+        target_right: Relative,
+        num_timestamps: &BigInt,
+    ) {
+        let rel_min_width = self.min_width.relative(num_timestamps);
+
+        if (target_right - target_left) <= rel_min_width + Relative(f64::EPSILON) {
+            let center = (target_left + target_right) * 0.5;
+            self.set_viewport_to_clipped_no_width_check(
+                center - rel_min_width,
+                center + rel_min_width,
+            );
+        } else {
+            self.set_viewport_to_clipped_no_width_check(target_left, target_right);
+        }
+    }
+
+    fn set_viewport_to_clipped_no_width_check(
+        &mut self,
+        target_left: Relative,
+        target_right: Relative,
+    ) {
         let width = target_right - target_left;
 
         let abs_min = Relative(-self.edge_space);
@@ -380,6 +412,7 @@ impl Viewport {
         self.set_viewport_to_clipped(
             Absolute::from(left).relative(num_timestamps),
             Absolute::from(right).relative(num_timestamps),
+            num_timestamps,
         );
     }
 
@@ -407,6 +440,7 @@ impl Viewport {
         self.set_viewport_to_clipped(
             (center - half_width).relative(num_timestamps),
             (center + half_width).relative(num_timestamps),
+            num_timestamps,
         );
     }
 
