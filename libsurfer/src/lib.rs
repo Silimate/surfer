@@ -14,6 +14,7 @@ pub mod displayed_item;
 pub mod displayed_item_tree;
 pub mod drawing_canvas;
 pub mod file_watcher;
+pub mod fzcmd;
 pub mod graphics;
 pub mod help;
 pub mod hierarchy;

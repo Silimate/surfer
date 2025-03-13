@@ -1883,15 +1883,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "fzcmd"
-version = "0.1.0"
-dependencies = [
- "fuzzy-matcher",
- "lazy_static",
- "regex",
-]
-
-[[package]]
 name = "generic-array"
 version = "0.14.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2679,7 +2670,6 @@ dependencies = [
  "futures-core",
  "futures-util",
  "fuzzy-matcher",
- "fzcmd",
  "half",
  "image",
  "image-compare",

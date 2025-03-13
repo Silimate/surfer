@@ -40,4 +40,4 @@ repos:
     rev: v9.1.3
     hooks:
     - id: oxipng
-exclude: $(fzcmd|f128|instruction-decoder)
+exclude: $(f128|instruction-decoder)

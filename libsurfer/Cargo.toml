@@ -37,7 +37,6 @@ ftr_parser.workspace = true
 futures-core.workspace = true
 futures-util.workspace = true
 fuzzy-matcher.workspace = true
-fzcmd.workspace = true
 half.workspace = true
 instruction-decoder.workspace = true
 itertools.workspace = true

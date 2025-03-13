@@ -1,3 +1,4 @@
+use crate::fzcmd::expand_command;
 use color_eyre::eyre::Context;
 use ecolor::Color32;
 #[cfg(not(target_arch = "wasm32"))]
@@ -10,7 +11,6 @@ use epaint::{
     text::{LayoutJob, TextWrapMode},
     CornerRadiusF32, Margin, Stroke,
 };
-use fzcmd::expand_command;
 use itertools::Itertools;
 use log::{info, warn};
 

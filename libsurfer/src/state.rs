@@ -5,6 +5,7 @@ use std::{
 };
 
 use crate::displayed_item_tree::VisibleItemIndex;
+use crate::fzcmd::parse_command;
 #[cfg(feature = "spade")]
 use crate::translation::spade::SpadeTranslator;
 use crate::{
@@ -31,7 +32,6 @@ use egui::{
     style::{Selection, WidgetVisuals, Widgets},
     CornerRadius, Stroke, Visuals,
 };
-use fzcmd::parse_command;
 use itertools::Itertools;
 use log::{error, info, trace, warn};
 use ron::ser::PrettyConfig;

@@ -2,7 +2,7 @@
 resolver = "2"
 
 members = ["surfer", "surfer-translation-types", "surver"]
-exclude = [".cache", "f128", "fzcmd", "instruction-decoder"]
+exclude = [".cache", "f128", "instruction-decoder"]
 default-members = ["surfer", "surver", "libsurfer"]
 
 [workspace.package]
@@ -57,7 +57,6 @@ futures = "0.3.31"
 futures-core = "0.3.31"
 futures-util = "0.3.31"
 fuzzy-matcher = "0.3.7"
-fzcmd = { path = "fzcmd" }
 half = "2.4.1"
 instruction-decoder = { path = "instruction-decoder" }
 itertools = "0.14.0"
