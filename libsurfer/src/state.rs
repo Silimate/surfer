@@ -9,7 +9,7 @@ use crate::fzcmd::parse_command;
 #[cfg(feature = "spade")]
 use crate::translation::spade::SpadeTranslator;
 use crate::{
-    command_prompt::get_parser,
+    command_parser::get_parser,
     config,
     data_container::DataContainer,
     dialog::OpenSiblingStateFileDialog,

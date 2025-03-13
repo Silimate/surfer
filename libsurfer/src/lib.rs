@@ -4,6 +4,7 @@
 pub mod benchmark;
 mod channels;
 pub mod clock_highlighting;
+pub mod command_parser;
 pub mod command_prompt;
 pub mod config;
 pub mod cxxrtl;

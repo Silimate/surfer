@@ -38,7 +38,7 @@ use crate::wave_container::{
 };
 use crate::wave_data::ScopeType;
 use crate::wave_source::LoadOptions;
-use crate::{command_prompt::get_parser, wave_container::WaveContainer};
+use crate::{command_parser::get_parser, wave_container::WaveContainer};
 use crate::{
     command_prompt::show_command_prompt, config::HierarchyStyle, hierarchy, wave_data::WaveData,
     Message, MoveDir, State,
