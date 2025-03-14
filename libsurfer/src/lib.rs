@@ -62,6 +62,7 @@ use std::sync::mpsc::{self, Receiver, Sender};
 use std::sync::{Arc, RwLock};
 
 use camino::Utf8PathBuf;
+#[cfg(target_arch = "wasm32")]
 use channels::{GlobalChannelTx, IngressHandler, IngressReceiver};
 use color_eyre::eyre::Context;
 use color_eyre::Result;
@@ -110,7 +111,10 @@ lazy_static! {
     /// whenever the asynchronous transaction is completed, otherwise we will re-render
     /// things until program exit
     pub(crate) static ref OUTSTANDING_TRANSACTIONS: AtomicU32 = AtomicU32::new(0);
+}
 
+#[cfg(target_arch = "wasm32")]
+lazy_static! {
     pub(crate) static ref WCP_CS_HANDLER: IngressHandler<WcpCSMessage> = IngressHandler::new();
     pub(crate) static ref WCP_SC_HANDLER: GlobalChannelTx<WcpSCMessage> = GlobalChannelTx::new();
 }
@@ -205,7 +209,10 @@ struct CachedTransactionDrawData {
 pub struct Channels {
     pub msg_sender: Sender<Message>,
     pub msg_receiver: Receiver<Message>,
+    #[cfg(target_arch = "wasm32")]
     wcp_c2s_receiver: Option<IngressReceiver<WcpCSMessage>>,
+    #[cfg(not(target_arch = "wasm32"))]
+    wcp_c2s_receiver: Option<tokio::sync::mpsc::Receiver<WcpCSMessage>>,
     wcp_s2c_sender: Option<tokio::sync::mpsc::Sender<WcpSCMessage>>,
 }
 impl Channels {
@@ -1894,12 +1901,15 @@ impl State {
                 self.stop_wcp_server();
             }
             Message::SetupChannelWCP => {
-                use futures::executor::block_on;
-                self.sys.channels.wcp_c2s_receiver = block_on(WCP_CS_HANDLER.rx.write()).take();
-                if self.sys.channels.wcp_c2s_receiver.is_none() {
-                    error!("Failed to claim wasm tx, was SetupWasmWCP executed twice?");
+                #[cfg(target_arch = "wasm32")]
+                {
+                    use futures::executor::block_on;
+                    self.sys.channels.wcp_c2s_receiver = block_on(WCP_CS_HANDLER.rx.write()).take();
+                    if self.sys.channels.wcp_c2s_receiver.is_none() {
+                        error!("Failed to claim wasm tx, was SetupWasmWCP executed twice?");
+                    }
+                    self.sys.channels.wcp_s2c_sender = Some(WCP_SC_HANDLER.tx.clone());
                 }
-                self.sys.channels.wcp_s2c_sender = Some(WCP_SC_HANDLER.tx.clone());
             }
             Message::Exit | Message::ToggleFullscreen => {} // Handled in eframe::update
             Message::AddViewport => {

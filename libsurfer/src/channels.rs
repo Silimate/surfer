@@ -50,12 +50,6 @@ impl<T> IngressSender<T> {
         }
         result
     }
-
-    pub fn clone(&self) -> Self {
-        Self {
-            sc_messages: self.sc_messages.clone(),
-        }
-    }
 }
 
 #[cfg_attr(not(target_arch = "wasm32"), allow(dead_code))]
@@ -74,11 +68,13 @@ impl<T> IngressHandler<T> {
     }
 }
 
+#[cfg(target_arch = "wasm32")]
 pub(crate) struct GlobalChannelTx<T> {
     pub tx: mpsc::Sender<T>,
     #[cfg_attr(not(target_arch = "wasm32"), allow(dead_code))]
     pub rx: RwLock<mpsc::Receiver<T>>,
 }
+#[cfg(target_arch = "wasm32")]
 impl<T> GlobalChannelTx<T> {
     pub fn new() -> Self {
         let (tx, rx) = mpsc::channel(100);

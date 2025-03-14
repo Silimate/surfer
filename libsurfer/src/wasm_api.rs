@@ -6,7 +6,6 @@ use std::sync::Arc;
 
 use futures::executor::block_on;
 use lazy_static::lazy_static;
-use log::info;
 use log::{error, warn};
 use num::BigInt;
 use tokio::sync::Mutex;
