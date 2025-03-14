@@ -80,8 +80,8 @@ use lazy_static::lazy_static;
 use log::{error, info, warn};
 use num::BigInt;
 use serde::Deserialize;
-pub use state::State;
 use surfer_translation_types::Translator;
+pub use system_state::SystemState;
 #[cfg(target_arch = "wasm32")]
 use tokio_stream as _;
 use wcp::{proto::WcpCSMessage, proto::WcpEvent, proto::WcpSCMessage};
@@ -162,17 +162,17 @@ fn setup_custom_font(ctx: &egui::Context) {
     ctx.set_fonts(fonts);
 }
 
-pub fn run_egui(cc: &CreationContext, mut state: State) -> Result<Box<dyn App>> {
+pub fn run_egui(cc: &CreationContext, mut state: SystemState) -> Result<Box<dyn App>> {
     let ctx_arc = Arc::new(cc.egui_ctx.clone());
     *EGUI_CONTEXT.write().unwrap() = Some(ctx_arc.clone());
-    state.sys.context = Some(ctx_arc.clone());
+    state.context = Some(ctx_arc.clone());
     cc.egui_ctx
         .set_visuals_of(egui::Theme::Dark, state.get_visuals());
     cc.egui_ctx
         .set_visuals_of(egui::Theme::Light, state.get_visuals());
     #[cfg(not(target_arch = "wasm32"))]
-    if state.config.wcp.autostart {
-        state.start_wcp_server(Some(state.config.wcp.address.clone()), false);
+    if state.user.config.wcp.autostart {
+        state.start_wcp_server(Some(state.user.config.wcp.address.clone()), false);
     }
     setup_custom_font(&cc.egui_ctx);
     Ok(Box::new(state))
@@ -254,7 +254,7 @@ struct CanvasState {
     markers: HashMap<u8, BigInt>,
 }
 
-impl State {
+impl SystemState {
     pub fn update(&mut self, message: Message) {
         if log::log_enabled!(log::Level::Trace)
             && !matches!(message, Message::CommandPromptUpdate { .. })
@@ -265,7 +265,7 @@ impl State {
         }
         match message {
             Message::SetActiveScope(scope) => {
-                let Some(waves) = self.waves.as_mut() else {
+                let Some(waves) = self.user.waves.as_mut() else {
                     return;
                 };
                 let scope = if let ScopeType::StreamScope(StreamScopeRef::Empty(name)) = scope {
@@ -291,10 +291,8 @@ impl State {
                         format!("Add {} variables", vars.len())
                     };
                     self.save_current_canvas(undo_msg);
-                    if let Some(waves) = self.waves.as_mut() {
-                        if let (Some(cmd), _) =
-                            waves.add_variables(&self.sys.translators, vars, None)
-                        {
+                    if let Some(waves) = self.user.waves.as_mut() {
+                        if let (Some(cmd), _) = waves.add_variables(&self.translators, vars, None) {
                             self.load_variables(cmd);
                         }
                         self.invalidate_draw_commands();
@@ -305,13 +303,13 @@ impl State {
             }
             Message::AddDivider(name, vidx) => {
                 self.save_current_canvas("Add divider".into());
-                if let Some(waves) = self.waves.as_mut() {
+                if let Some(waves) = self.user.waves.as_mut() {
                     waves.add_divider(name, vidx);
                 }
             }
             Message::AddTimeLine(vidx) => {
                 self.save_current_canvas("Add timeline".into());
-                if let Some(waves) = self.waves.as_mut() {
+                if let Some(waves) = self.user.waves.as_mut() {
                     waves.add_timeline(vidx);
                 }
             }
@@ -320,10 +318,10 @@ impl State {
                 self.add_scope(scope, recursive);
             }
             Message::AddCount(digit) => {
-                if let Some(count) = &mut self.count {
+                if let Some(count) = &mut self.user.count {
                     count.push(digit);
                 } else {
-                    self.count = Some(digit.to_string());
+                    self.user.count = Some(digit.to_string());
                 }
             }
             Message::AddStreamOrGenerator(s) => {
@@ -334,7 +332,7 @@ impl State {
                 };
                 self.save_current_canvas(undo_msg);
 
-                if let Some(waves) = self.waves.as_mut() {
+                if let Some(waves) = self.user.waves.as_mut() {
                     if s.gen_id.is_some() {
                         waves.add_generator(s);
                     } else {
@@ -348,7 +346,7 @@ impl State {
                     "Add Stream/Generator from name: {}",
                     name.clone()
                 ));
-                if let Some(waves) = self.waves.as_mut() {
+                if let Some(waves) = self.user.waves.as_mut() {
                     let Some(inner) = waves.inner.as_transactions() else {
                         return;
                     };
@@ -387,7 +385,7 @@ impl State {
             }
             Message::AddAllFromStreamScope(scope_name) => {
                 self.save_current_canvas(format!("Add all from scope {}", scope_name.clone()));
-                if let Some(waves) = self.waves.as_mut() {
+                if let Some(waves) = self.user.waves.as_mut() {
                     if scope_name == "tr" {
                         waves.add_all_streams();
                     } else {
@@ -414,12 +412,12 @@ impl State {
                     self.invalidate_draw_commands();
                 }
             }
-            Message::InvalidateCount => self.count = None,
+            Message::InvalidateCount => self.user.count = None,
             Message::SetNameAlignRight(align_right) => {
-                self.align_names_right = Some(align_right);
+                self.user.align_names_right = Some(align_right);
             }
             Message::FocusItem(idx) => {
-                let Some(waves) = self.waves.as_mut() else {
+                let Some(waves) = self.user.waves.as_mut() else {
                     return;
                 };
 
@@ -433,7 +431,7 @@ impl State {
                 }
             }
             Message::ItemSelectRange(select_to) => {
-                let Some(waves) = self.waves.as_mut() else {
+                let Some(waves) = self.user.waves.as_mut() else {
                     return;
                 };
 
@@ -444,12 +442,12 @@ impl State {
                 }
             }
             Message::ItemSelectAll => {
-                if let Some(waves) = self.waves.as_mut() {
+                if let Some(waves) = self.user.waves.as_mut() {
                     waves.items_tree.xselect_all_visible(true);
                 }
             }
             Message::ToggleItemSelected(vidx) => {
-                let Some(waves) = self.waves.as_mut() else {
+                let Some(waves) = self.user.waves.as_mut() else {
                     return;
                 };
                 if let Some(node) = vidx
@@ -461,25 +459,25 @@ impl State {
                 }
             }
             Message::ToggleDefaultTimeline => {
-                self.show_default_timeline = Some(!self.show_default_timeline());
+                self.user.show_default_timeline = Some(!self.show_default_timeline());
             }
             Message::UnfocusItem => {
-                if let Some(waves) = self.waves.as_mut() {
+                if let Some(waves) = self.user.waves.as_mut() {
                     waves.focused_item = None;
                 };
             }
             Message::RenameItem(vidx) => {
                 self.save_current_canvas(format!(
                     "Rename item to {}",
-                    self.sys.item_renaming_string.borrow()
+                    self.item_renaming_string.borrow()
                 ));
-                let Some(waves) = self.waves.as_mut() else {
+                let Some(waves) = self.user.waves.as_mut() else {
                     return;
                 };
                 let vidx = vidx.or(waves.focused_item);
                 if let Some(vidx) = vidx {
-                    self.rename_target = Some(vidx);
-                    *self.sys.item_renaming_string.borrow_mut() = waves
+                    self.user.rename_target = Some(vidx);
+                    *self.item_renaming_string.borrow_mut() = waves
                         .items_tree
                         .get_visible(vidx)
                         .and_then(|node| waves.displayed_items.get(&node.item_ref))
@@ -488,7 +486,7 @@ impl State {
                 }
             }
             Message::MoveFocus(direction, count, select) => {
-                let Some(waves) = self.waves.as_mut() else {
+                let Some(waves) = self.user.waves.as_mut() else {
                     return;
                 };
                 let visible_item_cnt = waves.items_tree.iter_visible().count();
@@ -525,7 +523,7 @@ impl State {
                         tx_ref.as_ref().unwrap().id
                     ));
                 }
-                let Some(waves) = self.waves.as_mut() else {
+                let Some(waves) = self.user.waves.as_mut() else {
                     return;
                 };
                 let invalidate = tx.is_none();
@@ -536,19 +534,21 @@ impl State {
                 }
             }
             Message::ScrollToItem(position) => {
-                if let Some(waves) = self.waves.as_mut() {
+                if let Some(waves) = self.user.waves.as_mut() {
                     waves.scroll_to_item(position);
                 }
             }
             Message::SetScrollOffset(offset) => {
-                if let Some(waves) = self.waves.as_mut() {
+                if let Some(waves) = self.user.waves.as_mut() {
                     waves.scroll_offset = offset;
                 }
             }
-            Message::SetLogsVisible(visibility) => self.show_logs = visibility,
-            Message::SetCursorWindowVisible(visibility) => self.show_cursor_window = visibility,
+            Message::SetLogsVisible(visibility) => self.user.show_logs = visibility,
+            Message::SetCursorWindowVisible(visibility) => {
+                self.user.show_cursor_window = visibility
+            }
             Message::VerticalScroll(direction, count) => {
-                let Some(waves) = self.waves.as_mut() else {
+                let Some(waves) = self.user.waves.as_mut() else {
                     return;
                 };
                 let current_item = waves.get_top_item();
@@ -566,7 +566,7 @@ impl State {
                 }
             }
             Message::RemoveItemByIndex(vidx) => {
-                let waves = self.waves.as_ref();
+                let waves = self.user.waves.as_ref();
                 let item_ref = waves
                     .and_then(|waves| waves.items_tree.get_visible(vidx))
                     .map(|node| node.item_ref);
@@ -578,7 +578,7 @@ impl State {
                     .map(|name| format!("Remove item {name}"))
                     .unwrap_or("Remove one item".to_string());
                 self.save_current_canvas(undo_msg);
-                if let Some(waves) = self.waves.as_mut() {
+                if let Some(waves) = self.user.waves.as_mut() {
                     if let Some(item_ref) = item_ref {
                         waves.remove_displayed_item(item_ref)
                     }
@@ -586,6 +586,7 @@ impl State {
             }
             Message::RemoveItems(mut items) => {
                 let undo_msg = self
+                    .user
                     .waves
                     .as_ref()
                     .and_then(|waves| {
@@ -602,7 +603,7 @@ impl State {
                     })
                     .unwrap_or("".to_string());
                 self.save_current_canvas(undo_msg);
-                let Some(waves) = self.waves.as_mut() else {
+                let Some(waves) = self.user.waves.as_mut() else {
                     return;
                 };
 
@@ -615,7 +616,7 @@ impl State {
             Message::MoveFocusedItem(direction, count) => {
                 self.save_current_canvas(format!("Move item {direction}, {count}"));
                 self.invalidate_draw_commands();
-                let Some(waves) = self.waves.as_mut() else {
+                let Some(waves) = self.user.waves.as_mut() else {
                     return;
                 };
                 let Some(vidx) = waves.focused_item else {
@@ -639,7 +640,7 @@ impl State {
                 delta,
                 viewport_idx,
             } => {
-                if let Some(waves) = self.waves.as_mut() {
+                if let Some(waves) = self.user.waves.as_mut() {
                     waves.viewports[viewport_idx]
                         .handle_canvas_scroll(delta.y as f64 + delta.x as f64);
                     self.invalidate_draw_commands();
@@ -650,7 +651,7 @@ impl State {
                 mouse_ptr,
                 viewport_idx,
             } => {
-                if let Some(waves) = self.waves.as_mut() {
+                if let Some(waves) = self.user.waves.as_mut() {
                     let num_timestamps = waves
                         .num_timestamps()
                         .expect("No timestamps count, even though waveforms should be loaded");
@@ -663,25 +664,25 @@ impl State {
                 }
             }
             Message::ZoomToFit { viewport_idx } => {
-                if let Some(waves) = &mut self.waves {
+                if let Some(waves) = &mut self.user.waves {
                     waves.viewports[viewport_idx].zoom_to_fit();
                     self.invalidate_draw_commands();
                 }
             }
             Message::GoToEnd { viewport_idx } => {
-                if let Some(waves) = &mut self.waves {
+                if let Some(waves) = &mut self.user.waves {
                     waves.viewports[viewport_idx].go_to_end();
                     self.invalidate_draw_commands();
                 }
             }
             Message::GoToStart { viewport_idx } => {
-                if let Some(waves) = &mut self.waves {
+                if let Some(waves) = &mut self.user.waves {
                     waves.viewports[viewport_idx].go_to_start();
                     self.invalidate_draw_commands();
                 }
             }
             Message::GoToTime(time, viewport_idx) => {
-                if let Some(waves) = self.waves.as_mut() {
+                if let Some(waves) = self.user.waves.as_mut() {
                     if let Some(time) = time {
                         let num_timestamps = waves
                             .num_timestamps()
@@ -692,11 +693,11 @@ impl State {
                 };
             }
             Message::SetTimeUnit(timeunit) => {
-                self.wanted_timeunit = timeunit;
+                self.user.wanted_timeunit = timeunit;
                 self.invalidate_draw_commands();
             }
             Message::SetTimeStringFormatting(format) => {
-                self.time_string_format = format;
+                self.user.time_string_format = format;
                 self.invalidate_draw_commands();
             }
             Message::ZoomToRange {
@@ -704,7 +705,7 @@ impl State {
                 end,
                 viewport_idx,
             } => {
-                if let Some(waves) = &mut self.waves {
+                if let Some(waves) = &mut self.user.waves {
                     let num_timestamps = waves
                         .num_timestamps()
                         .expect("No timestamps count, even though waveforms should be loaded");
@@ -713,11 +714,10 @@ impl State {
                 }
             }
             Message::VariableFormatChange(displayed_field_ref, format) => {
-                let Some(waves) = self.waves.as_mut() else {
+                let Some(waves) = self.user.waves.as_mut() else {
                     return;
                 };
                 if !self
-                    .sys
                     .translators
                     .all_translator_names()
                     .contains(&format.as_str())
@@ -738,7 +738,7 @@ impl State {
                             else {
                                 return;
                             };
-                            let translator = self.sys.translators.get_translator(&format);
+                            let translator = self.translators.get_translator(&format);
                             let new_info = translator.variable_info(&meta).unwrap();
 
                             variable.format = Some(format.clone());
@@ -793,7 +793,7 @@ impl State {
                 }
             }
             Message::ItemSelectionClear => {
-                if let Some(waves) = self.waves.as_mut() {
+                if let Some(waves) = self.user.waves.as_mut() {
                     waves.items_tree.xselect_all_visible(false);
                 }
             }
@@ -803,7 +803,7 @@ impl State {
                     color_name.clone().unwrap_or("default".into())
                 ));
                 self.invalidate_draw_commands();
-                if let Some(waves) = self.waves.as_mut() {
+                if let Some(waves) = self.user.waves.as_mut() {
                     if let Some(vidx) = vidx.or(waves.focused_item) {
                         waves.items_tree.get_visible(vidx).map(|node| {
                             waves
@@ -827,7 +827,7 @@ impl State {
                     "Change item name to {}",
                     name.clone().unwrap_or("default".into())
                 ));
-                if let Some(waves) = self.waves.as_mut() {
+                if let Some(waves) = self.user.waves.as_mut() {
                     if let Some(vidx) = vidx.or(waves.focused_item) {
                         waves.items_tree.get_visible(vidx).map(|node| {
                             waves
@@ -843,7 +843,7 @@ impl State {
                     "Change item background color to {}",
                     color_name.clone().unwrap_or("default".into())
                 ));
-                if let Some(waves) = self.waves.as_mut() {
+                if let Some(waves) = self.user.waves.as_mut() {
                     if let Some(vidx) = vidx.or(waves.focused_item) {
                         waves.items_tree.get_visible(vidx).map(|node| {
                             waves
@@ -864,7 +864,7 @@ impl State {
             }
             Message::ItemHeightScalingFactorChange(vidx, scale) => {
                 self.save_current_canvas(format!("Change item height scaling factor to {}", scale));
-                if let Some(waves) = self.waves.as_mut() {
+                if let Some(waves) = self.user.waves.as_mut() {
                     if let Some(vidx) = vidx.or(waves.focused_item) {
                         waves.items_tree.get_visible(vidx).map(|node| {
                             waves
@@ -880,7 +880,7 @@ impl State {
                 variable,
                 skip_zero,
             } => {
-                if let Some(waves) = &mut self.waves {
+                if let Some(waves) = &mut self.user.waves {
                     // if no cursor is set, move it to
                     // start of visible area transition for next transition
                     // end of visible area for previous transition
@@ -910,7 +910,7 @@ impl State {
                     "Move to previous transaction"
                 };
                 self.save_current_canvas(undo_msg.to_string());
-                if let Some(waves) = &mut self.waves {
+                if let Some(waves) = &mut self.user.waves {
                     if let Some(inner) = waves.inner.as_transactions() {
                         let mut transactions = waves
                             .items_tree
@@ -969,6 +969,7 @@ impl State {
             }
             Message::ResetVariableFormat(displayed_field_ref) => {
                 if let Some(DisplayedItem::Variable(displayed_variable)) = self
+                    .user
                     .waves
                     .as_mut()
                     .and_then(|waves| waves.displayed_items.get_mut(&displayed_field_ref.item))
@@ -984,7 +985,7 @@ impl State {
                 }
             }
             Message::CursorSet(time) => {
-                if let Some(waves) = self.waves.as_mut() {
+                if let Some(waves) = self.user.waves.as_mut() {
                     waves.cursor = Some(time);
                 }
             }
@@ -1000,14 +1001,14 @@ impl State {
             #[cfg(feature = "python")]
             Message::LoadPythonTranslator(filename) => {
                 try_log_error!(
-                    self.sys.translators.load_python_translator(filename),
+                    self.translators.load_python_translator(filename),
                     "Error loading Python translator",
                 )
             }
             Message::LoadSpadeTranslator { top, state } => {
                 #[cfg(feature = "spade")]
                 {
-                    let sender = self.sys.channels.msg_sender.clone();
+                    let sender = self.channels.msg_sender.clone();
                     perform_work(move || {
                         #[cfg(feature = "spade")]
                         SpadeTranslator::init(&top, &state, sender);
@@ -1077,18 +1078,16 @@ impl State {
                             load_options,
                         );
                         // body is already being parsed on the server, we need to request the time table though
-                        Self::get_time_table_from_server(
-                            self.sys.channels.msg_sender.clone(),
-                            server,
-                        );
+                        Self::get_time_table_from_server(self.channels.msg_sender.clone(), server);
                     }
                 }
             }
             Message::WaveBodyLoaded(start, source, body) => {
                 // for files using the `wellen` backend, parse the body in a second step
                 info!("Loaded the body of {source} in {:?}", start.elapsed());
-                self.sys.progress_tracker = None;
+                self.progress_tracker = None;
                 let waves = self
+                    .user
                     .waves
                     .as_mut()
                     .expect("Waves should be loaded at this point!");
@@ -1113,15 +1112,15 @@ impl State {
                         None
                     });
 
-                if self.sys.wcp_greeted_signal.load(Ordering::Relaxed)
-                    && self.sys.wcp_client_capabilities.waveforms_loaded
+                if self.wcp_greeted_signal.load(Ordering::Relaxed)
+                    && self.wcp_client_capabilities.waveforms_loaded
                 {
                     let source = match source {
                         WaveSource::File(path) => path.to_string(),
                         WaveSource::Url(url) => url,
                         _ => "".to_string(),
                     };
-                    self.sys.channels.wcp_s2c_sender.as_ref().map(|ch| {
+                    self.channels.wcp_s2c_sender.as_ref().map(|ch| {
                         block_on(
                             ch.send(WcpSCMessage::event(WcpEvent::waveforms_loaded { source })),
                         )
@@ -1143,8 +1142,9 @@ impl State {
             }
             Message::SignalsLoaded(start, res) => {
                 info!("Loaded {} variables in {:?}", res.len(), start.elapsed());
-                self.sys.progress_tracker = None;
+                self.progress_tracker = None;
                 let waves = self
+                    .user
                     .waves
                     .as_mut()
                     .expect("Waves should be loaded at this point!");
@@ -1159,63 +1159,64 @@ impl State {
             Message::WavesLoaded(filename, format, new_waves, load_options) => {
                 self.on_waves_loaded(filename, format, new_waves, load_options);
                 // here, the body and thus the number of timestamps is already loaded!
-                self.waves.as_mut().unwrap().update_viewports();
-                self.sys.progress_tracker = None;
+                self.user.waves.as_mut().unwrap().update_viewports();
+                self.progress_tracker = None;
             }
             Message::TransactionStreamsLoaded(filename, format, new_ftr, loaded_options) => {
                 self.on_transaction_streams_loaded(filename, format, new_ftr, loaded_options);
-                self.waves.as_mut().unwrap().update_viewports();
+                self.user.waves.as_mut().unwrap().update_viewports();
             }
             Message::BlacklistTranslator(idx, translator) => {
-                self.blacklisted_translators.insert((idx, translator));
+                self.user.blacklisted_translators.insert((idx, translator));
             }
             Message::Error(e) => {
                 error!("{e:?}");
-                self.show_logs = true;
+                self.user.show_logs = true;
             }
             Message::TranslatorLoaded(t) => {
                 info!("Translator {} loaded", t.name());
-                self.sys.translators.add_or_replace(AnyTranslator::Full(t));
+                self.translators.add_or_replace(AnyTranslator::Full(t));
             }
-            Message::ToggleSidePanel => self.show_hierarchy = Some(!self.show_hierarchy()),
-            Message::ToggleMenu => self.show_menu = Some(!self.show_menu()),
-            Message::ToggleToolbar => self.show_toolbar = Some(!self.show_toolbar()),
-            Message::ToggleEmptyScopes => self.show_empty_scopes = Some(!self.show_empty_scopes()),
+            Message::ToggleSidePanel => self.user.show_hierarchy = Some(!self.show_hierarchy()),
+            Message::ToggleMenu => self.user.show_menu = Some(!self.show_menu()),
+            Message::ToggleToolbar => self.user.show_toolbar = Some(!self.show_toolbar()),
+            Message::ToggleEmptyScopes => {
+                self.user.show_empty_scopes = Some(!self.show_empty_scopes())
+            }
             Message::ToggleParametersInScopes => {
-                self.show_parameters_in_scopes = Some(!self.show_parameters_in_scopes())
+                self.user.show_parameters_in_scopes = Some(!self.show_parameters_in_scopes())
             }
-            Message::ToggleStatusbar => self.show_statusbar = Some(!self.show_statusbar()),
-            Message::ToggleTickLines => self.show_ticks = Some(!self.show_ticks()),
-            Message::ToggleVariableTooltip => self.show_tooltip = Some(self.show_tooltip()),
+            Message::ToggleStatusbar => self.user.show_statusbar = Some(!self.show_statusbar()),
+            Message::ToggleTickLines => self.user.show_ticks = Some(!self.show_ticks()),
+            Message::ToggleVariableTooltip => self.user.show_tooltip = Some(self.show_tooltip()),
             Message::ToggleScopeTooltip => {
-                self.show_scope_tooltip = Some(!self.show_scope_tooltip())
+                self.user.show_scope_tooltip = Some(!self.show_scope_tooltip())
             }
-            Message::ToggleOverview => self.show_overview = Some(!self.show_overview()),
+            Message::ToggleOverview => self.user.show_overview = Some(!self.show_overview()),
             Message::ToggleDirection => {
-                self.show_variable_direction = Some(!self.show_variable_direction())
+                self.user.show_variable_direction = Some(!self.show_variable_direction())
             }
             Message::ToggleIndices => {
                 let new = !self.show_variable_indices();
-                self.show_variable_indices = Some(new);
-                if let Some(waves) = self.waves.as_mut() {
+                self.user.show_variable_indices = Some(new);
+                if let Some(waves) = self.user.waves.as_mut() {
                     waves.display_variable_indices = new;
                     waves.compute_variable_display_names();
                 }
             }
             Message::SetHighlightFocused(highlight) => {
-                self.highlight_focused = Some(highlight);
+                self.user.highlight_focused = Some(highlight);
             }
             Message::ShowCommandPrompt(text) => {
                 if let Some(init_text) = text {
-                    self.sys.command_prompt.new_cursor_pos = Some(init_text.len());
-                    *self.sys.command_prompt_text.borrow_mut() = init_text;
-                    self.sys.command_prompt.visible = true;
+                    self.command_prompt.new_cursor_pos = Some(init_text.len());
+                    *self.command_prompt_text.borrow_mut() = init_text;
+                    self.command_prompt.visible = true;
                 } else {
-                    *self.sys.command_prompt_text.borrow_mut() = "".to_string();
-                    self.sys.command_prompt.suggestions = vec![];
-                    self.sys.command_prompt.selected =
-                        self.sys.command_prompt.previous_commands.len();
-                    self.sys.command_prompt.visible = false;
+                    *self.command_prompt_text.borrow_mut() = "".to_string();
+                    self.command_prompt.suggestions = vec![];
+                    self.command_prompt.selected = self.command_prompt.previous_commands.len();
+                    self.command_prompt.visible = false;
                 }
             }
             Message::FileDownloaded(url, bytes, load_options) => {
@@ -1226,8 +1227,8 @@ impl State {
                 if let Ok(config) =
                     SurferConfig::new_from_toml(&s).with_context(|| "Failed to load config file")
                 {
-                    self.config = config;
-                    if let Some(ctx) = &self.sys.context.as_ref() {
+                    self.user.config = config;
+                    if let Some(ctx) = &self.context.as_ref() {
                         ctx.set_visuals(self.get_visuals())
                     }
                 }
@@ -1237,15 +1238,17 @@ impl State {
                 if let Ok(config) =
                     SurferConfig::new(false).with_context(|| "Failed to load config file")
                 {
-                    self.sys.translators = all_translators();
-                    self.config = config;
-                    if let Some(ctx) = &self.sys.context.as_ref() {
+                    self.translators = all_translators();
+                    self.user.config = config;
+                    if let Some(ctx) = &self.context.as_ref() {
                         ctx.set_visuals(self.get_visuals());
                     }
                 }
             }
             Message::ReloadWaveform(keep_unavailable) => {
-                let Some(waves) = &self.waves else { return };
+                let Some(waves) = &self.user.waves else {
+                    return;
+                };
                 match &waves.source {
                     WaveSource::File(filename) => {
                         self.load_from_file(
@@ -1282,16 +1285,16 @@ impl State {
                     }
                 };
 
-                for translator in self.sys.translators.all_translators() {
-                    translator.reload(self.sys.channels.msg_sender.clone());
+                for translator in self.translators.all_translators() {
+                    translator.reload(self.channels.msg_sender.clone());
                 }
             }
-            Message::SuggestReloadWaveform => match self.config.autoreload_files {
+            Message::SuggestReloadWaveform => match self.user.config.autoreload_files {
                 Some(true) => {
                     self.update(Message::ReloadWaveform(true));
                 }
                 Some(false) => {}
-                None => self.show_reload_suggestion = Some(ReloadWaveformDialog::default()),
+                None => self.user.show_reload_suggestion = Some(ReloadWaveformDialog::default()),
             },
             Message::CloseReloadWaveformDialog {
                 reload_file,
@@ -1300,34 +1303,36 @@ impl State {
                 if do_not_show_again {
                     // FIXME: This is currently for one session only, but could be persisted in
                     // some setting.
-                    self.config.autoreload_files = Some(reload_file);
+                    self.user.config.autoreload_files = Some(reload_file);
                 }
-                self.show_reload_suggestion = None;
+                self.user.show_reload_suggestion = None;
                 if reload_file {
                     self.update(Message::ReloadWaveform(true));
                 }
             }
             Message::UpdateReloadWaveformDialog(dialog) => {
-                self.show_reload_suggestion = Some(dialog);
+                self.user.show_reload_suggestion = Some(dialog);
             }
             Message::OpenSiblingStateFile(open) => {
                 if !open {
                     return;
                 };
-                let Some(waves) = &self.waves else { return };
+                let Some(waves) = &self.user.waves else {
+                    return;
+                };
                 let Some(state_file_path) = waves.source.sibling_state_file() else {
                     return;
                 };
                 self.load_state_file(Some(state_file_path.clone().into_std_path_buf()));
             }
             Message::SuggestOpenSiblingStateFile => {
-                match self.config.autoload_sibling_state_files {
+                match self.user.config.autoload_sibling_state_files {
                     Some(true) => {
                         self.update(Message::OpenSiblingStateFile(true));
                     }
                     Some(false) => {}
                     None => {
-                        self.show_open_sibling_state_file_suggestion =
+                        self.user.show_open_sibling_state_file_suggestion =
                             Some(OpenSiblingStateFileDialog::default())
                     }
                 }
@@ -1337,23 +1342,23 @@ impl State {
                 do_not_show_again,
             } => {
                 if do_not_show_again {
-                    self.config.autoload_sibling_state_files = Some(load_state);
+                    self.user.config.autoload_sibling_state_files = Some(load_state);
                 }
-                self.show_open_sibling_state_file_suggestion = None;
+                self.user.show_open_sibling_state_file_suggestion = None;
                 if load_state {
                     self.update(Message::OpenSiblingStateFile(true));
                 }
             }
             Message::UpdateOpenSiblingStateFileDialog(dialog) => {
-                self.show_open_sibling_state_file_suggestion = Some(dialog);
+                self.user.show_open_sibling_state_file_suggestion = Some(dialog);
             }
             Message::RemovePlaceholders => {
-                if let Some(waves) = self.waves.as_mut() {
+                if let Some(waves) = self.user.waves.as_mut() {
                     waves.remove_placeholders();
                 }
             }
             Message::SetClockHighlightType(new_type) => {
-                self.config.default_clock_highlight_type = new_type;
+                self.user.config.default_clock_highlight_type = new_type;
             }
             Message::AddMarker {
                 time,
@@ -1365,36 +1370,36 @@ impl State {
                 } else {
                     self.save_current_canvas(format!("Add marker at {time}"));
                 }
-                if let Some(waves) = self.waves.as_mut() {
+                if let Some(waves) = self.user.waves.as_mut() {
                     waves.add_marker(&time, name, move_focus);
                 }
             }
             Message::SetMarker { id, time } => {
                 self.save_current_canvas(format!("Set marker {id} to {time}"));
-                if let Some(waves) = self.waves.as_mut() {
+                if let Some(waves) = self.user.waves.as_mut() {
                     waves.set_marker_position(id, &time);
                 };
             }
             Message::RemoveMarker(id) => {
-                if let Some(waves) = self.waves.as_mut() {
+                if let Some(waves) = self.user.waves.as_mut() {
                     waves.remove_marker(id);
                 }
             }
             Message::MoveMarkerToCursor(idx) => {
                 self.save_current_canvas("Move marker".into());
-                if let Some(waves) = self.waves.as_mut() {
+                if let Some(waves) = self.user.waves.as_mut() {
                     waves.move_marker_to_cursor(idx);
                 };
             }
             Message::GoToCursorIfNotInView => {
-                if let Some(waves) = self.waves.as_mut() {
+                if let Some(waves) = self.user.waves.as_mut() {
                     if waves.go_to_cursor_if_not_in_view() {
                         self.invalidate_draw_commands();
                     }
                 }
             }
             Message::GoToMarkerPosition(idx, viewport_idx) => {
-                if let Some(waves) = self.waves.as_mut() {
+                if let Some(waves) = self.user.waves.as_mut() {
                     if let Some(cursor) = waves.markers.get(&idx) {
                         let num_timestamps = waves
                             .num_timestamps()
@@ -1405,7 +1410,7 @@ impl State {
                 };
             }
             Message::ChangeVariableNameType(vidx, name_type) => {
-                let Some(waves) = self.waves.as_mut() else {
+                let Some(waves) = self.user.waves.as_mut() else {
                     return;
                 };
                 // checks if vidx is Some then use that, else try focused variable
@@ -1428,40 +1433,37 @@ impl State {
                 }
             }
             Message::ForceVariableNameTypes(name_type) => {
-                if let Some(waves) = self.waves.as_mut() {
+                if let Some(waves) = self.user.waves.as_mut() {
                     waves.force_variable_name_type(name_type);
                 };
             }
             Message::CommandPromptClear => {
-                *self.sys.command_prompt_text.borrow_mut() = String::new();
-                self.sys.command_prompt.suggestions = vec![];
-                // self.sys.command_prompt.selected = self.sys.command_prompt.previous_commands.len();
-                self.sys.command_prompt.selected =
-                    if self.sys.command_prompt_text.borrow().is_empty() {
-                        self.sys.command_prompt.previous_commands.len().clamp(0, 3)
-                    } else {
-                        0
-                    };
+                *self.command_prompt_text.borrow_mut() = String::new();
+                self.command_prompt.suggestions = vec![];
+                // self.command_prompt.selected = self.command_prompt.previous_commands.len();
+                self.command_prompt.selected = if self.command_prompt_text.borrow().is_empty() {
+                    self.command_prompt.previous_commands.len().clamp(0, 3)
+                } else {
+                    0
+                };
             }
             Message::CommandPromptUpdate { suggestions } => {
-                self.sys.command_prompt.suggestions = suggestions;
-                self.sys.command_prompt.selected =
-                    if self.sys.command_prompt_text.borrow().is_empty() {
-                        self.sys.command_prompt.previous_commands.len().clamp(0, 3)
-                    } else {
-                        0
-                    };
-                self.sys.command_prompt.new_selection =
-                    Some(if self.sys.command_prompt_text.borrow().is_empty() {
-                        self.sys.command_prompt.previous_commands.len().clamp(0, 3)
+                self.command_prompt.suggestions = suggestions;
+                self.command_prompt.selected = if self.command_prompt_text.borrow().is_empty() {
+                    self.command_prompt.previous_commands.len().clamp(0, 3)
+                } else {
+                    0
+                };
+                self.command_prompt.new_selection =
+                    Some(if self.command_prompt_text.borrow().is_empty() {
+                        self.command_prompt.previous_commands.len().clamp(0, 3)
                     } else {
                         0
                     });
             }
             Message::CommandPromptPushPrevious(cmd) => {
                 let len = cmd.len();
-                self.sys
-                    .command_prompt
+                self.command_prompt
                     .previous_commands
                     .insert(0, (cmd, vec![false; len]));
             }
@@ -1475,7 +1477,7 @@ impl State {
             #[cfg(feature = "python")]
             Message::ReloadPythonPlugin => {
                 try_log_error!(
-                    self.sys.translators.reload_python_translator(),
+                    self.translators.reload_python_translator(),
                     "Error reloading Python translator"
                 );
                 self.invalidate_draw_commands();
@@ -1487,72 +1489,70 @@ impl State {
                 // since in wasm we can't support "save", only "save as" - never set the `state_file`
                 #[cfg(not(target_arch = "wasm32"))]
                 {
-                    self.state_file = Some(path);
+                    self.user.state_file = Some(path);
                 }
                 #[cfg(target_arch = "wasm32")]
                 {
                     error!("Failed to load {path:?}. Loading state files is unsupported on wasm")
                 }
             }
-            Message::SetAboutVisible(s) => self.show_about = s,
-            Message::SetKeyHelpVisible(s) => self.show_keys = s,
-            Message::SetGestureHelpVisible(s) => self.show_gestures = s,
-            Message::SetUrlEntryVisible(s) => self.show_url_entry = s,
-            Message::SetLicenseVisible(s) => self.show_license = s,
-            Message::SetQuickStartVisible(s) => self.show_quick_start = s,
-            Message::SetRenameItemVisible(_) => self.rename_target = None,
+            Message::SetAboutVisible(s) => self.user.show_about = s,
+            Message::SetKeyHelpVisible(s) => self.user.show_keys = s,
+            Message::SetGestureHelpVisible(s) => self.user.show_gestures = s,
+            Message::SetUrlEntryVisible(s) => self.user.show_url_entry = s,
+            Message::SetLicenseVisible(s) => self.user.show_license = s,
+            Message::SetQuickStartVisible(s) => self.user.show_quick_start = s,
+            Message::SetRenameItemVisible(_) => self.user.rename_target = None,
             Message::SetPerformanceVisible(s) => {
                 if !s {
-                    self.sys.continuous_redraw = false;
+                    self.continuous_redraw = false;
                 }
-                self.show_performance = s;
+                self.user.show_performance = s;
             }
-            Message::SetContinuousRedraw(s) => self.sys.continuous_redraw = s,
-            Message::SetDragStart(pos) => self.sys.gesture_start_location = pos,
-            Message::SetFilterFocused(s) => self.variable_name_filter_focused = s,
+            Message::SetContinuousRedraw(s) => self.continuous_redraw = s,
+            Message::SetDragStart(pos) => self.gesture_start_location = pos,
+            Message::SetFilterFocused(s) => self.user.variable_name_filter_focused = s,
             Message::SetVariableNameFilterType(variable_name_filter_type) => {
-                self.variable_name_filter_type = variable_name_filter_type;
+                self.user.variable_name_filter_type = variable_name_filter_type;
             }
             Message::SetVariableNameFilterCaseInsensitive(s) => {
-                self.variable_name_filter_case_insensitive = s;
+                self.user.variable_name_filter_case_insensitive = s;
             }
             Message::SetUIZoomFactor(scale) => {
-                if let Some(ctx) = &mut self.sys.context.as_ref() {
+                if let Some(ctx) = &mut self.context.as_ref() {
                     ctx.set_zoom_factor(scale);
                 }
-                self.ui_zoom_factor = Some(scale);
+                self.user.ui_zoom_factor = Some(scale);
             }
             Message::SelectPrevCommand => {
-                self.sys.command_prompt.new_selection = self
-                    .sys
+                self.command_prompt.new_selection = self
                     .command_prompt
                     .new_selection
-                    .or(Some(self.sys.command_prompt.selected))
+                    .or(Some(self.command_prompt.selected))
                     .map(|idx| idx.saturating_sub(1).max(0));
             }
             Message::SelectNextCommand => {
-                self.sys.command_prompt.new_selection = self
-                    .sys
+                self.command_prompt.new_selection = self
                     .command_prompt
                     .new_selection
-                    .or(Some(self.sys.command_prompt.selected))
+                    .or(Some(self.command_prompt.selected))
                     .map(|idx| {
                         idx.saturating_add(1)
-                            .min(self.sys.command_prompt.suggestions.len().saturating_sub(1))
+                            .min(self.command_prompt.suggestions.len().saturating_sub(1))
                     });
             }
-            Message::SetHierarchyStyle(style) => self.config.layout.hierarchy_style = style,
+            Message::SetHierarchyStyle(style) => self.user.config.layout.hierarchy_style = style,
             Message::SetArrowKeyBindings(bindings) => {
-                self.config.behavior.arrow_key_bindings = bindings;
+                self.user.config.behavior.arrow_key_bindings = bindings;
             }
             Message::InvalidateDrawCommands => self.invalidate_draw_commands(),
             Message::UnpauseSimulation => {
-                if let Some(waves) = &self.waves {
+                if let Some(waves) = &self.user.waves {
                     waves.inner.as_waves().unwrap().unpause_simulation();
                 }
             }
             Message::PauseSimulation => {
-                if let Some(waves) = &self.waves {
+                if let Some(waves) = &self.user.waves {
                     waves.inner.as_waves().unwrap().pause_simulation();
                 }
             }
@@ -1562,38 +1562,38 @@ impl State {
                 }
             }
             Message::AddDraggedVariables(variables) => {
-                if self.waves.is_some() {
-                    self.waves.as_mut().unwrap().focused_item = None;
-                    let waves = self.waves.as_mut().unwrap();
+                if self.user.waves.is_some() {
+                    self.user.waves.as_mut().unwrap().focused_item = None;
+                    let waves = self.user.waves.as_mut().unwrap();
                     if let (Some(cmd), _) =
-                        waves.add_variables(&self.sys.translators, variables, self.drag_target_idx)
+                        waves.add_variables(&self.translators, variables, self.user.drag_target_idx)
                     {
                         self.load_variables(cmd);
                     }
 
                     self.invalidate_draw_commands();
                 }
-                self.drag_source_idx = None;
-                self.drag_target_idx = None;
+                self.user.drag_source_idx = None;
+                self.user.drag_target_idx = None;
             }
             Message::VariableDragStarted(vidx) => {
-                self.drag_started = true;
-                self.drag_source_idx = Some(vidx);
-                self.drag_target_idx = None;
+                self.user.drag_started = true;
+                self.user.drag_source_idx = Some(vidx);
+                self.user.drag_target_idx = None;
             }
             Message::VariableDragTargetChanged(position) => {
-                self.drag_target_idx = Some(position);
+                self.user.drag_target_idx = Some(position);
             }
             Message::VariableDragFinished => {
-                self.drag_started = false;
+                self.user.drag_started = false;
 
                 // reordering
                 if let (Some(source_vidx), Some(target_position)) =
-                    (self.drag_source_idx, self.drag_target_idx)
+                    (self.user.drag_source_idx, self.user.drag_target_idx)
                 {
                     self.save_current_canvas("Drag item".to_string());
                     self.invalidate_draw_commands();
-                    let Some(waves) = self.waves.as_mut() else {
+                    let Some(waves) = self.user.waves.as_mut() else {
                         return;
                     };
 
@@ -1627,8 +1627,8 @@ impl State {
                         })
                         .map(VisibleItemIndex);
                 }
-                self.drag_source_idx = None;
-                self.drag_target_idx = None;
+                self.user.drag_source_idx = None;
+                self.user.drag_target_idx = None;
             }
             Message::VariableValueToClipbord(vidx) => {
                 self.handle_variable_clipboard_operation(
@@ -1678,19 +1678,18 @@ impl State {
                 );
             }
             Message::SetViewportStrategy(s) => {
-                if let Some(waves) = &mut self.waves {
+                if let Some(waves) = &mut self.user.waves {
                     for vp in &mut waves.viewports {
                         vp.move_strategy = s
                     }
                 }
             }
             Message::Undo(count) => {
-                if let Some(waves) = &mut self.waves {
+                if let Some(waves) = &mut self.user.waves {
                     for _ in 0..count {
-                        if let Some(prev_state) = self.sys.undo_stack.pop() {
-                            self.sys
-                                .redo_stack
-                                .push(State::current_canvas_state(waves, prev_state.message));
+                        if let Some(prev_state) = self.undo_stack.pop() {
+                            self.redo_stack
+                                .push(SystemState::current_canvas_state(waves, prev_state.message));
                             waves.focused_item = prev_state.focused_item;
                             waves.focused_transaction = prev_state.focused_transaction;
                             waves.items_tree = prev_state.items_tree;
@@ -1704,12 +1703,11 @@ impl State {
                 }
             }
             Message::Redo(count) => {
-                if let Some(waves) = &mut self.waves {
+                if let Some(waves) = &mut self.user.waves {
                     for _ in 0..count {
-                        if let Some(prev_state) = self.sys.redo_stack.pop() {
-                            self.sys
-                                .undo_stack
-                                .push(State::current_canvas_state(waves, prev_state.message));
+                        if let Some(prev_state) = self.redo_stack.pop() {
+                            self.undo_stack
+                                .push(SystemState::current_canvas_state(waves, prev_state.message));
                             waves.focused_item = prev_state.focused_item;
                             waves.focused_transaction = prev_state.focused_transaction;
                             waves.items_tree = prev_state.items_tree;
@@ -1723,7 +1721,7 @@ impl State {
                 }
             }
             Message::DumpTree => {
-                let Some(waves) = self.waves.as_mut() else {
+                let Some(waves) = self.user.waves.as_mut() else {
                     return;
                 };
 
@@ -1739,7 +1737,7 @@ impl State {
                     name.clone().unwrap_or("".to_owned())
                 ));
                 self.invalidate_draw_commands();
-                let Some(waves) = self.waves.as_mut() else {
+                let Some(waves) = self.user.waves.as_mut() else {
                     return;
                 };
 
@@ -1814,7 +1812,7 @@ impl State {
             Message::GroupDissolve(item_ref) => {
                 self.save_current_canvas("Dissolve group".to_owned());
                 self.invalidate_draw_commands();
-                let Some(waves) = self.waves.as_mut() else {
+                let Some(waves) = self.user.waves.as_mut() else {
                     return;
                 };
 
@@ -1851,7 +1849,7 @@ impl State {
                 self.save_current_canvas(undo_msg);
                 self.invalidate_draw_commands();
 
-                let Some(waves) = self.waves.as_mut() else {
+                let Some(waves) = self.user.waves.as_mut() else {
                     return;
                 };
 
@@ -1884,7 +1882,7 @@ impl State {
                 self.save_current_canvas(undo_msg);
                 self.invalidate_draw_commands();
 
-                let Some(waves) = self.waves.as_mut() else {
+                let Some(waves) = self.user.waves.as_mut() else {
                     return;
                 };
                 // remove focus if focused item is folded away -> prevent future waveform
@@ -1921,26 +1919,26 @@ impl State {
                 #[cfg(target_arch = "wasm32")]
                 {
                     use futures::executor::block_on;
-                    self.sys.channels.wcp_c2s_receiver = block_on(WCP_CS_HANDLER.rx.write()).take();
-                    if self.sys.channels.wcp_c2s_receiver.is_none() {
+                    self.channels.wcp_c2s_receiver = block_on(WCP_CS_HANDLER.rx.write()).take();
+                    if self.channels.wcp_c2s_receiver.is_none() {
                         error!("Failed to claim wasm tx, was SetupWasmWCP executed twice?");
                     }
-                    self.sys.channels.wcp_s2c_sender = Some(WCP_SC_HANDLER.tx.clone());
+                    self.channels.wcp_s2c_sender = Some(WCP_SC_HANDLER.tx.clone());
                 }
             }
             Message::Exit | Message::ToggleFullscreen => {} // Handled in eframe::update
             Message::AddViewport => {
-                if let Some(waves) = &mut self.waves {
+                if let Some(waves) = &mut self.user.waves {
                     let viewport = Viewport::new();
                     waves.viewports.push(viewport);
-                    self.sys.draw_data.borrow_mut().push(None);
+                    self.draw_data.borrow_mut().push(None);
                 }
             }
             Message::RemoveViewport => {
-                if let Some(waves) = &mut self.waves {
+                if let Some(waves) = &mut self.user.waves {
                     if waves.viewports.len() > 1 {
                         waves.viewports.pop();
-                        self.sys.draw_data.borrow_mut().pop();
+                        self.draw_data.borrow_mut().pop();
                     }
                 }
             }
@@ -1948,27 +1946,27 @@ impl State {
                 if let Ok(theme) =
                     SurferTheme::new(theme_name).with_context(|| "Failed to set theme")
                 {
-                    self.config.theme = theme;
-                    if let Some(ctx) = &self.sys.context.as_ref() {
+                    self.user.config.theme = theme;
+                    if let Some(ctx) = &self.context.as_ref() {
                         ctx.set_visuals(self.get_visuals());
                     }
                 }
             }
             Message::AsyncDone(_) => (),
             Message::AddGraphic(id, g) => {
-                if let Some(waves) = &mut self.waves {
+                if let Some(waves) = &mut self.user.waves {
                     waves.graphics.insert(id, g);
                 }
             }
             Message::RemoveGraphic(id) => {
-                if let Some(waves) = &mut self.waves {
+                if let Some(waves) = &mut self.user.waves {
                     waves.graphics.retain(|k, _| k != &id)
                 }
             }
             Message::ExpandDrawnItem { item, levels } => {
-                self.sys.items_to_expand.borrow_mut().push((item, levels))
+                self.items_to_expand.borrow_mut().push((item, levels))
             }
-            Message::AddCharToPrompt(c) => *self.sys.char_to_add_to_prompt.borrow_mut() = Some(c),
+            Message::AddCharToPrompt(c) => *self.char_to_add_to_prompt.borrow_mut() = Some(c),
         }
     }
 
@@ -1976,7 +1974,9 @@ impl State {
     where
         F: FnOnce(&WaveData, DisplayedItemRef) -> Option<String>,
     {
-        let Some(waves) = &self.waves else { return };
+        let Some(waves) = &self.user.waves else {
+            return;
+        };
         let Some(vidx) = vidx.or(waves.focused_item) else {
             return;
         };
@@ -1985,7 +1985,7 @@ impl State {
         };
 
         if let Some(text) = get_text(waves, item_ref) {
-            if let Some(ctx) = &self.sys.context {
+            if let Some(ctx) = &self.context {
                 ctx.copy_text(text);
             }
         }
@@ -2022,7 +2022,7 @@ pub fn dump_tree(waves: &WaveData) {
     info!("tree: \n{}", &result);
 }
 
-pub struct StateWrapper(Arc<RwLock<State>>);
+pub struct StateWrapper(Arc<RwLock<SystemState>>);
 impl App for StateWrapper {
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
         App::update(&mut *self.0.write().unwrap(), ctx, frame)

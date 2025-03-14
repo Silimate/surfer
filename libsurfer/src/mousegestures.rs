@@ -6,7 +6,7 @@ use epaint::{FontId, Stroke};
 use crate::config::SurferTheme;
 use crate::time::time_string;
 use crate::view::DrawingContext;
-use crate::{wave_data::WaveData, Message, State};
+use crate::{wave_data::WaveData, Message, SystemState};
 
 /// The supported mouse gesture operations.
 #[derive(Clone, PartialEq, Copy)]
@@ -18,7 +18,7 @@ enum GestureKind {
     GoToStart,
 }
 
-impl State {
+impl SystemState {
     /// Draw the mouse gesture widget, i.e., the line(s) and text showing which gesture is being drawn.
     #[allow(clippy::too_many_arguments)]
     pub fn draw_mouse_gesture_widget(
@@ -31,7 +31,7 @@ impl State {
         ctx: &mut DrawingContext,
         viewport_idx: usize,
     ) {
-        if let Some(start_location) = self.sys.gesture_start_location {
+        if let Some(start_location) = self.gesture_start_location {
             let modifiers = egui_ctx.input(|i| i.modifiers);
             if response.dragged_by(PointerButton::Middle)
                 || modifiers.command && response.dragged_by(PointerButton::Primary)
@@ -74,7 +74,7 @@ impl State {
         let num_timestamps = waves.num_timestamps().unwrap_or(1.into());
         let end_location = pointer_pos_canvas.unwrap();
         let distance = end_location - start_location;
-        if distance.length_sq() >= self.config.gesture.deadzone {
+        if distance.length_sq() >= self.user.config.gesture.deadzone {
             match gesture_type(distance) {
                 Some(GestureKind::ZoomToFit) => {
                     msgs.push(Message::ZoomToFit { viewport_idx });
@@ -130,7 +130,7 @@ impl State {
     ) {
         let current_location = pointer_pos_canvas.unwrap();
         let distance = current_location - start_location;
-        if distance.length_sq() >= self.config.gesture.deadzone {
+        if distance.length_sq() >= self.user.config.gesture.deadzone {
             match gesture_type(distance) {
                 Some(GestureKind::ZoomToFit) => self.draw_gesture_line(
                     start_location,
@@ -179,11 +179,11 @@ impl State {
     ) {
         let stroke = Stroke {
             color: if active {
-                self.config.gesture.style.color
+                self.user.config.gesture.style.color
             } else {
-                self.config.gesture.style.color.gamma_multiply(0.3)
+                self.user.config.gesture.style.color.gamma_multiply(0.3)
             },
-            width: self.config.gesture.style.width,
+            width: self.user.config.gesture.style.width,
         };
         ctx.painter.line_segment(
             [
@@ -196,7 +196,7 @@ impl State {
             ctx,
             (ctx.to_screen)(end.x, end.y),
             text.to_string(),
-            &self.config.theme,
+            &self.user.config.theme,
         );
     }
 
@@ -211,8 +211,8 @@ impl State {
         viewport_idx: usize,
     ) {
         let stroke = Stroke {
-            color: self.config.gesture.style.color,
-            width: self.config.gesture.style.width,
+            color: self.user.config.gesture.style.color,
+            width: self.user.config.gesture.style.width,
         };
         let height = response.rect.height();
         let width = response.rect.width();
@@ -255,23 +255,23 @@ impl State {
                 time_string(
                     &diff_time,
                     timescale,
-                    &self.wanted_timeunit,
+                    &self.user.wanted_timeunit,
                     &self.get_time_format()
                 ),
                 time_string(
                     &start_time,
                     timescale,
-                    &self.wanted_timeunit,
+                    &self.user.wanted_timeunit,
                     &self.get_time_format()
                 ),
                 time_string(
                     &end_time,
                     timescale,
-                    &self.wanted_timeunit,
+                    &self.user.wanted_timeunit,
                     &self.get_time_format()
                 ),
             ),
-            &self.config.theme,
+            &self.user.config.theme,
         );
     }
 
@@ -314,7 +314,7 @@ impl State {
         // Compute sizes and coordinates
         let tan225 = 0.41421357;
         let (midx, midy, deltax, deltay) = if let Some(midpoint) = midpoint {
-            let halfsize = self.config.gesture.size * 0.5;
+            let halfsize = self.user.config.gesture.size * 0.5;
             (midpoint.x, midpoint.y, halfsize, halfsize)
         } else {
             let halfwidth = response.rect.width() * 0.5;
@@ -328,8 +328,8 @@ impl State {
                 .transform_pos(Pos2::new(x, y) + Vec2::new(0.5, 0.5))
         };
         let stroke = Stroke {
-            color: self.config.gesture.style.color,
-            width: self.config.gesture.style.width,
+            color: self.user.config.gesture.style.color,
+            width: self.user.config.gesture.style.width,
         };
         let tan225deltax = tan225 * deltax;
         let tan225deltay = tan225 * deltay;
@@ -343,7 +343,8 @@ impl State {
             painter.circle_filled(
                 to_screen(midx, midy),
                 bg_radius,
-                self.config
+                self.user
+                    .config
                     .theme
                     .canvas_colors
                     .background
@@ -388,56 +389,56 @@ impl State {
             Align2::LEFT_CENTER,
             "Zoom in",
             FontId::default(),
-            self.config.theme.foreground,
+            self.user.config.theme.foreground,
         );
         painter.text(
             to_screen(right, midy),
             Align2::RIGHT_CENTER,
             "Zoom in",
             FontId::default(),
-            self.config.theme.foreground,
+            self.user.config.theme.foreground,
         );
         painter.text(
             to_screen(left, halfwaytexty_upper),
             Align2::LEFT_CENTER,
             "Zoom to fit",
             FontId::default(),
-            self.config.theme.foreground,
+            self.user.config.theme.foreground,
         );
         painter.text(
             to_screen(right, halfwaytexty_upper),
             Align2::RIGHT_CENTER,
             "Zoom out",
             FontId::default(),
-            self.config.theme.foreground,
+            self.user.config.theme.foreground,
         );
         painter.text(
             to_screen(midx, top),
             Align2::CENTER_TOP,
             "Cancel",
             FontId::default(),
-            self.config.theme.foreground,
+            self.user.config.theme.foreground,
         );
         painter.text(
             to_screen(left, halfwaytexty_lower),
             Align2::LEFT_CENTER,
             "Go to start",
             FontId::default(),
-            self.config.theme.foreground,
+            self.user.config.theme.foreground,
         );
         painter.text(
             to_screen(right, halfwaytexty_lower),
             Align2::RIGHT_CENTER,
             "Go to end",
             FontId::default(),
-            self.config.theme.foreground,
+            self.user.config.theme.foreground,
         );
         painter.text(
             to_screen(midx, bottom),
             Align2::CENTER_BOTTOM,
             "Cancel",
             FontId::default(),
-            self.config.theme.foreground,
+            self.user.config.theme.foreground,
         );
     }
 }

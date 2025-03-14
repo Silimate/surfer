@@ -9,7 +9,7 @@ mod main_impl {
     use egui::Vec2;
     use libsurfer::{
         file_watcher::FileWatcher, logs, message::Message, run_egui,
-        wave_source::string_to_wavesource, wave_source::WaveSource, StartupParams, State,
+        wave_source::string_to_wavesource, wave_source::WaveSource, StartupParams, SystemState,
     };
     use log::error;
 
@@ -114,6 +114,8 @@ mod main_impl {
 
     #[cfg(not(target_arch = "wasm32"))]
     pub(crate) fn main() -> Result<()> {
+        use libsurfer::state::UserState;
+
         logs::start_logging()?;
 
         // https://tokio.rs/tokio/topics/bridging
@@ -158,18 +160,19 @@ mod main_impl {
             Some(file) => std::fs::read_to_string(file)
                 .with_context(|| format!("Failed to read state from {file}"))
                 .and_then(|content| {
-                    ron::from_str::<State>(&content)
+                    ron::from_str::<UserState>(&content)
                         .with_context(|| format!("Failed to decode state from {file}"))
                 })
+                .map(SystemState::from)
                 .map(|mut s| {
-                    s.state_file = Some(file.into());
+                    s.user.state_file = Some(file.into());
                     s
                 })
                 .or_else(|e| {
                     error!("Failed to read state file. Opening fresh session\n{e:#?}");
-                    State::new()
+                    SystemState::new()
                 })?,
-            None => State::new()?,
+            None => SystemState::new()?,
         }
         .with_params(startup_params);
 
@@ -177,7 +180,7 @@ mod main_impl {
         // whenever the user-provided file changes.
         let _watcher = match waves {
             Some(WaveSource::File(path)) => {
-                let sender = state.sys.channels.msg_sender.clone();
+                let sender = state.channels.msg_sender.clone();
                 FileWatcher::new(&path, move || {
                     match sender.send(Message::SuggestReloadWaveform) {
                         Ok(_) => {}
@@ -196,8 +199,8 @@ mod main_impl {
             viewport: egui::ViewportBuilder::default()
                 .with_title("Surfer")
                 .with_inner_size(Vec2::new(
-                    state.config.layout.window_width as f32,
-                    state.config.layout.window_height as f32,
+                    state.user.config.layout.window_width as f32,
+                    state.user.config.layout.window_height as f32,
                 )),
             ..Default::default()
         };

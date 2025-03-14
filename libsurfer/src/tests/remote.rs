@@ -4,7 +4,7 @@ use super::snapshot::{render_and_compare, wait_for_waves_fully_loaded};
 use crate::message::Message;
 use crate::wave_container::{ScopeRef, ScopeRefExt};
 use crate::wave_source::LoadOptions;
-use crate::State;
+use crate::SystemState;
 use std::path::PathBuf;
 use std::sync::atomic::Ordering;
 
@@ -44,12 +44,12 @@ fn run_with_server(
     token: &str,
     filename: &str,
     custom_messages: impl Fn() -> Vec<Message>,
-) -> State {
+) -> SystemState {
     // start server in a background thread
     let url = start_server(port, token, filename);
 
     // create state and add messages as batch commands
-    let mut state = State::new_default_config().unwrap();
+    let mut state = SystemState::new_default_config().unwrap();
 
     let msgs = vec![
         // connect to server

@@ -1,7 +1,7 @@
 //! Command prompt handling.
 use crate::command_parser::get_parser;
 use crate::fzcmd::{expand_command, parse_command, FuzzyOutput, ParseError};
-use crate::{message::Message, State};
+use crate::{message::Message, SystemState};
 use egui::scroll_area::ScrollBarVisibility;
 use egui::text::{CCursor, CCursorRange, LayoutJob, TextFormat};
 use egui::{Key, RichText, TextEdit, TextStyle};
@@ -10,7 +10,7 @@ use epaint::{FontFamily, FontId};
 use itertools::Itertools;
 use std::iter::zip;
 
-pub fn run_fuzzy_parser(input: &str, state: &State, msgs: &mut Vec<Message>) {
+pub fn run_fuzzy_parser(input: &str, state: &SystemState, msgs: &mut Vec<Message>) {
     let FuzzyOutput {
         expanded: _,
         suggestions,
@@ -32,7 +32,7 @@ pub struct CommandPrompt {
 }
 
 pub fn show_command_prompt(
-    state: &mut State,
+    state: &mut SystemState,
     ctx: &egui::Context,
     // Window size if known. If unknown defaults to a width of 200pts
     window_size: Option<Vec2>,
@@ -45,11 +45,11 @@ pub fn show_command_prompt(
         .resizable(true)
         .show(ctx, |ui| {
             egui::Frame::NONE.show(ui, |ui| {
-                let input = &mut *state.sys.command_prompt_text.borrow_mut();
-                let new_c = *state.sys.char_to_add_to_prompt.borrow();
+                let input = &mut *state.command_prompt_text.borrow_mut();
+                let new_c = *state.char_to_add_to_prompt.borrow();
                 if let Some(c) = new_c {
                     input.push(c);
-                    *state.sys.char_to_add_to_prompt.borrow_mut() = None;
+                    *state.char_to_add_to_prompt.borrow_mut() = None;
                 }
                 let response = ui.add(
                     TextEdit::singleline(input)
@@ -57,7 +57,7 @@ pub fn show_command_prompt(
                         .lock_focus(true),
                 );
 
-                if response.changed() || state.sys.command_prompt.suggestions.is_empty() {
+                if response.changed() || state.command_prompt.suggestions.is_empty() {
                     run_fuzzy_parser(input, state, msgs);
                 }
 
@@ -75,13 +75,12 @@ pub fn show_command_prompt(
                 if response.ctx.input(|i| i.key_pressed(Key::ArrowUp)) {
                     set_cursor_to_pos(input.chars().count(), ui);
                 }
-                if let Some(new_pos) = state.sys.command_prompt.new_cursor_pos {
+                if let Some(new_pos) = state.command_prompt.new_cursor_pos {
                     set_cursor_to_pos(new_pos, ui);
-                    state.sys.command_prompt.new_cursor_pos = None;
+                    state.command_prompt.new_cursor_pos = None;
                 }
 
                 let suggestions = state
-                    .sys
                     .command_prompt
                     .previous_commands
                     .iter()
@@ -89,14 +88,14 @@ pub fn show_command_prompt(
                     .take(if input.is_empty() { 3 } else { 0 })
                     // reverse them so that the most recent one is at the bottom
                     .rev()
-                    .chain(state.sys.command_prompt.suggestions.iter())
+                    .chain(state.command_prompt.suggestions.iter())
                     .enumerate()
                     // allow scrolling down the suggestions
                     .collect_vec();
 
                 // Expand the current input to full command and append the suggestion that is selected in the ui.
                 let append_suggestion = |input: &String| -> String {
-                    let new_input = if !state.sys.command_prompt.suggestions.is_empty() {
+                    let new_input = if !state.command_prompt.suggestions.is_empty() {
                         // if no suggestions exist we use the last argument in the input (e.g., for divider_add)
                         let default = input
                             .split_ascii_whitespace()
@@ -105,7 +104,7 @@ pub fn show_command_prompt(
                             .to_string();
 
                         let selection = suggestions
-                            .get(state.sys.command_prompt.selected)
+                            .get(state.command_prompt.selected)
                             .map_or(&default, |s| &s.1 .0);
 
                         if input.chars().last().is_some_and(char::is_whitespace) {
@@ -166,6 +165,7 @@ pub fn show_command_prompt(
                         let label = ui.label(
                             RichText::new("Expansion").color(
                                 state
+                                    .user
                                     .config
                                     .theme
                                     .primary_ui_color
@@ -189,6 +189,7 @@ pub fn show_command_prompt(
                                     .family(FontFamily::Monospace)
                                     .color(
                                         state
+                                            .user
                                             .config
                                             .theme
                                             .accent_info
@@ -209,15 +210,15 @@ pub fn show_command_prompt(
                         for (idx, suggestion) in &suggestions[row_range] {
                             let idx = *idx;
                             let mut job = LayoutJob::default();
-                            let selected = state.sys.command_prompt.selected == idx;
+                            let selected = state.command_prompt.selected == idx;
 
-                            let previous_cmds_len =
-                                state.sys.command_prompt.previous_commands.len();
+                            let previous_cmds_len = state.command_prompt.previous_commands.len();
                             if idx == 0 && previous_cmds_len != 0 && input.is_empty() {
                                 ui.horizontal(|ui| {
                                     let label = ui.label(
                                         RichText::new("Recently used").color(
                                             state
+                                                .user
                                                 .config
                                                 .theme
                                                 .primary_ui_color
@@ -239,6 +240,7 @@ pub fn show_command_prompt(
                                     let label = ui.label(
                                         RichText::new("Suggestions").color(
                                             state
+                                                .user
                                                 .config
                                                 .theme
                                                 .primary_ui_color
@@ -262,9 +264,9 @@ pub fn show_command_prompt(
                                     TextFormat {
                                         font_id: FontId::new(14.0, FontFamily::Monospace),
                                         color: if selected || *highlight {
-                                            state.config.theme.accent_info.background
+                                            state.user.config.theme.accent_info.background
                                         } else {
-                                            state.config.theme.primary_ui_color.foreground
+                                            state.user.config.theme.primary_ui_color.foreground
                                         },
                                         ..Default::default()
                                     },
@@ -279,7 +281,6 @@ pub fn show_command_prompt(
                             );
 
                             if state
-                                .sys
                                 .command_prompt
                                 .new_selection
                                 .is_some_and(|new_idx| idx == new_idx)

@@ -29,7 +29,7 @@ use crate::wave_source::CxxrtlKind;
 use crate::DisplayedItem;
 use crate::Message;
 use crate::StartupParams;
-use crate::State;
+use crate::SystemState;
 use crate::EGUI_CONTEXT;
 use crate::WCP_CS_HANDLER;
 use crate::WCP_SC_HANDLER;
@@ -44,7 +44,7 @@ lazy_static! {
 }
 
 struct Callback {
-    function: Box<dyn FnOnce(&State) + Send + Sync>,
+    function: Box<dyn FnOnce(&SystemState) + Send + Sync>,
     executed: tokio::sync::oneshot::Sender<()>,
 }
 
@@ -100,7 +100,7 @@ impl WebHandle {
 
         // NOTE: Safe unwrap, we're loading a system config which cannot be changed by the
         // user
-        let mut state = State::new()
+        let mut state = SystemState::new()
             .unwrap()
             .with_params(StartupParams::from_url(url));
 
@@ -111,7 +111,7 @@ impl WebHandle {
                 Box::new(|cc| {
                     let ctx_arc = Arc::new(cc.egui_ctx.clone());
                     *EGUI_CONTEXT.write().unwrap() = Some(ctx_arc.clone());
-                    state.sys.context = Some(ctx_arc.clone());
+                    state.context = Some(ctx_arc.clone());
                     setup_custom_font(&cc.egui_ctx);
                     cc.egui_ctx
                         .set_visuals_of(egui::Theme::Dark, state.get_visuals());
@@ -150,7 +150,7 @@ pub async fn id_of_name(name: String) -> Option<usize> {
     let result_clone = result.clone();
     QUERY_QUEUE.lock().await.push_back(Callback {
         function: Box::new(move |state| {
-            if let Some(waves) = &state.waves {
+            if let Some(waves) = &state.user.waves {
                 *block_on(result_clone.lock()) = waves
                     .displayed_items
                     .iter()
@@ -216,7 +216,9 @@ pub async fn draw_text_arrow(
     }
 }
 
-async fn perform_query<T>(query: Box<dyn FnOnce(&State) -> Option<T> + Send + Sync>) -> Option<T>
+async fn perform_query<T>(
+    query: Box<dyn FnOnce(&SystemState) -> Option<T> + Send + Sync>,
+) -> Option<T>
 where
     T: Clone + Send + Sync + 'static,
 {
@@ -236,7 +238,7 @@ where
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen)]
 pub async fn index_of_name(name: String) -> Option<usize> {
     perform_query(Box::new(move |state| {
-        if let Some(waves) = &state.waves {
+        if let Some(waves) = &state.user.waves {
             let mut result = None;
             for (idx, node) in waves.items_tree.iter().enumerate() {
                 if let Some(item) = waves.displayed_items.get(&node.item_ref) {
@@ -259,7 +261,7 @@ pub async fn index_of_name(name: String) -> Option<usize> {
 
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen)]
 pub async fn waves_loaded() -> bool {
-    perform_query(Box::new(move |state| Some(state.waves.is_some())))
+    perform_query(Box::new(move |state| Some(state.user.waves.is_some())))
         .await
         .unwrap_or(false)
 }
@@ -269,7 +271,6 @@ pub async fn spade_loaded() -> bool {
     perform_query(Box::new(move |state| {
         Some(
             state
-                .sys
                 .translators
                 .all_translator_names()
                 .iter()
@@ -324,7 +325,7 @@ pub async fn handle_wcp_cs_message(message: String) -> Result<(), JsError> {
     Ok(())
 }
 
-impl State {
+impl SystemState {
     pub(crate) fn handle_wasm_external_messages(&mut self) {
         while let Some(msg) = block_on(MESSAGE_QUEUE.lock()).pop() {
             self.update(msg);

@@ -31,6 +31,8 @@ impl From<String> for RestQuery {
     }
 }
 
+pub type QuerySplitter = dyn Fn(&str) -> (String, String, String, String);
+
 // Removing things that are unused for now would require removal of useable code
 #[allow(dead_code)]
 pub enum ParamGreed {
@@ -38,16 +40,14 @@ pub enum ParamGreed {
     OptionalWord,
     ToComma,
     Rest,
-    Custom(&'static dyn Fn(&str) -> (String, String, String, String)),
+    Custom(&'static QuerySplitter),
 }
+
+pub type Parser<T> = Box<dyn Fn(&str, RestQuery) -> Option<Command<T>>>;
 
 pub enum Command<T> {
     Terminal(T),
-    NonTerminal(
-        ParamGreed,
-        Vec<String>,
-        Box<dyn Fn(&str, RestQuery) -> Option<Command<T>>>,
-    ),
+    NonTerminal(ParamGreed, Vec<String>, Parser<T>),
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -155,7 +155,7 @@ fn handle_non_terminal_fuzz<T>(
     query: &str,
     greed: ParamGreed,
     suggestions: &[String],
-    parser: Box<dyn Fn(&str, RestQuery) -> Option<Command<T>>>,
+    parser: Parser<T>,
 ) -> FuzzyOutput {
     let (leading_whitespace, current_section, delim, rest_query) = split_query(query, greed);
     let rest_query = delim.clone() + &rest_query;

@@ -11,6 +11,7 @@ use surver::Status;
 
 use crate::displayed_item_tree::{ItemIndex, VisibleItemIndex};
 use crate::graphics::{Graphic, GraphicId};
+use crate::state::UserState;
 use crate::transaction_container::{
     StreamScopeRef, TransactionContainer, TransactionRef, TransactionStreamRef,
 };
@@ -228,7 +229,7 @@ pub enum Message {
     ReloadPythonPlugin,
     SaveStateFile(Option<PathBuf>),
     LoadStateFile(Option<PathBuf>),
-    LoadState(crate::State, Option<PathBuf>),
+    LoadState(UserState, Option<PathBuf>),
     SetStateFile(PathBuf),
     SetAboutVisible(bool),
     SetKeyHelpVisible(bool),

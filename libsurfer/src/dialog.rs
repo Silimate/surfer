@@ -1,5 +1,5 @@
 use crate::message::Message;
-use crate::State;
+use crate::SystemState;
 use ecolor::Color32;
 use egui::{Layout, RichText};
 use emath::Align;
@@ -15,7 +15,7 @@ pub struct OpenSiblingStateFileDialog {
     do_not_show_again: bool,
 }
 
-impl State {
+impl SystemState {
     /// Draw a dialog that asks the user if it wants to load a state file situated in the same directory as the waveform file.
     pub(crate) fn draw_open_sibling_state_file_dialog(
         &self,

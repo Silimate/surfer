@@ -24,7 +24,7 @@ use crate::message::{AsyncJob, BodyResult, HeaderResult};
 use crate::transaction_container::TransactionContainer;
 use crate::wave_container::WaveContainer;
 use crate::wellen::{LoadSignalPayload, LoadSignalsCmd, LoadSignalsResult};
-use crate::{message::Message, State};
+use crate::{message::Message, SystemState};
 use surver::{Status, HTTP_SERVER_KEY, HTTP_SERVER_VALUE_SURFER, WELLEN_SURFER_DEFAULT_OPTIONS};
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
@@ -207,7 +207,7 @@ macro_rules! spawn {
     };
 }
 
-impl State {
+impl SystemState {
     pub fn load_from_file(
         &mut self,
         filename: Utf8PathBuf,
@@ -248,7 +248,7 @@ impl State {
         let start = web_time::Instant::now();
         let source = WaveSource::File(filename.clone());
         let source_copy = source.clone();
-        let sender = self.sys.channels.msg_sender.clone();
+        let sender = self.channels.msg_sender.clone();
 
         perform_work(move || {
             let header_result = wellen::viewers::read_header_from_file(
@@ -272,7 +272,7 @@ impl State {
             }
         });
 
-        self.sys.progress_tracker = Some(LoadProgress::new(LoadProgressStatus::ReadingHeader(
+        self.progress_tracker = Some(LoadProgress::new(LoadProgressStatus::ReadingHeader(
             source_copy,
         )));
         Ok(())
@@ -294,7 +294,7 @@ impl State {
             } else {
                 if let Some(path) = path.clone() {
                     if get_multi_extension(&path) == Some(STATE_FILE_EXTENSION.to_string()) {
-                        let sender = self.sys.channels.msg_sender.clone();
+                        let sender = self.channels.msg_sender.clone();
                         perform_async_work(async move {
                             let new_state = match ron::de::from_bytes(&bytes)
                                 .context(format!("Failed loading {}", path))
@@ -349,7 +349,7 @@ impl State {
             // However, if we don't get a cxxrtl url, we want to continue loading this as
             // a url even if it isn't auto detected as a url.
             _ => {
-                let sender = self.sys.channels.msg_sender.clone();
+                let sender = self.channels.msg_sender.clone();
                 let url_ = url.clone();
                 let task = async move {
                     let maybe_response = reqwest::get(&url)
@@ -392,7 +392,7 @@ impl State {
                 };
                 spawn!(task);
 
-                self.sys.progress_tracker =
+                self.progress_tracker =
                     Some(LoadProgress::new(LoadProgressStatus::Downloading(url_)));
             }
         }
@@ -404,7 +404,7 @@ impl State {
         load_options: LoadOptions,
     ) -> Result<()> {
         info!("Loading a transaction file: {filename}");
-        let sender = self.sys.channels.msg_sender.clone();
+        let sender = self.channels.msg_sender.clone();
         let source = WaveSource::File(filename.clone());
         let format = WaveFormat::Ftr;
 
@@ -431,7 +431,7 @@ impl State {
         bytes: Vec<u8>,
         load_options: LoadOptions,
     ) {
-        let sender = self.sys.channels.msg_sender.clone();
+        let sender = self.channels.msg_sender.clone();
 
         let result = parse::parse_ftr_from_bytes(bytes);
 
@@ -524,12 +524,16 @@ impl State {
     /// uses the server status in order to display a loading bar
     pub fn server_status_to_progress(&mut self, server: String, status: Status) {
         // once the body is loaded, we are no longer interested in the status
-        let body_loaded = self.waves.as_ref().is_some_and(|w| w.inner.body_loaded());
+        let body_loaded = self
+            .user
+            .waves
+            .as_ref()
+            .is_some_and(|w| w.inner.body_loaded());
         if !body_loaded {
             // the progress tracker will be cleared once the hierarchy is returned from the server
             let source = WaveSource::Url(server.clone());
-            let sender = self.sys.channels.msg_sender.clone();
-            self.sys.progress_tracker = Some(LoadProgress::new(LoadProgressStatus::ReadingBody(
+            let sender = self.channels.msg_sender.clone();
+            self.progress_tracker = Some(LoadProgress::new(LoadProgressStatus::ReadingBody(
                 source,
                 status.bytes,
                 Arc::new(AtomicU64::new(status.bytes_loaded)),
@@ -540,17 +544,17 @@ impl State {
     }
 
     pub fn connect_to_cxxrtl(&mut self, kind: CxxrtlKind, keep_variables: bool) {
-        let sender = self.sys.channels.msg_sender.clone();
+        let sender = self.channels.msg_sender.clone();
 
-        self.sys.progress_tracker = Some(LoadProgress::new(LoadProgressStatus::Connecting(
-            format!("{kind}"),
-        )));
+        self.progress_tracker = Some(LoadProgress::new(LoadProgressStatus::Connecting(format!(
+            "{kind}"
+        ))));
 
         let task = async move {
             let container = match &kind {
                 #[cfg(not(target_arch = "wasm32"))]
                 CxxrtlKind::Tcp { url } => {
-                    CxxrtlContainer::new_tcp(url, self.sys.channels.msg_sender.clone()).await
+                    CxxrtlContainer::new_tcp(url, self.channels.msg_sender.clone()).await
                 }
                 #[cfg(target_arch = "wasm32")]
                 CxxrtlKind::Tcp { .. } => {
@@ -593,7 +597,7 @@ impl State {
         load_options: LoadOptions,
     ) {
         let start = web_time::Instant::now();
-        let sender = self.sys.channels.msg_sender.clone();
+        let sender = self.channels.msg_sender.clone();
         let source_copy = source.clone();
         perform_work(move || {
             let header_result =
@@ -615,7 +619,7 @@ impl State {
             }
         });
 
-        self.sys.progress_tracker = Some(LoadProgress::new(LoadProgressStatus::ReadingHeader(
+        self.progress_tracker = Some(LoadProgress::new(LoadProgressStatus::ReadingHeader(
             source_copy,
         )));
     }
@@ -641,7 +645,7 @@ impl State {
         hierarchy: Arc<wellen::Hierarchy>,
     ) {
         let start = web_time::Instant::now();
-        let sender = self.sys.channels.msg_sender.clone();
+        let sender = self.channels.msg_sender.clone();
         let source_copy = source.clone();
         let progress = Arc::new(AtomicU64::new(0));
         let progress_copy = progress.clone();
@@ -669,7 +673,7 @@ impl State {
             }
         });
 
-        self.sys.progress_tracker = Some(LoadProgress::new(LoadProgressStatus::ReadingBody(
+        self.progress_tracker = Some(LoadProgress::new(LoadProgressStatus::ReadingBody(
             source_copy,
             body_len,
             progress,
@@ -683,7 +687,7 @@ impl State {
         }
         let num_signals = signals.len() as u64;
         let start = web_time::Instant::now();
-        let sender = self.sys.channels.msg_sender.clone();
+        let sender = self.channels.msg_sender.clone();
 
         match payload {
             LoadSignalPayload::Local(mut source, hierarchy) => {
@@ -725,7 +729,7 @@ impl State {
             }
         }
 
-        self.sys.progress_tracker = Some(LoadProgress::new(LoadProgressStatus::LoadingVariables(
+        self.progress_tracker = Some(LoadProgress::new(LoadProgressStatus::LoadingVariables(
             num_signals,
         )));
     }
@@ -742,7 +746,7 @@ impl State {
     where
         F: FnOnce(PathBuf) -> Message + Send + 'static,
     {
-        let sender = self.sys.channels.msg_sender.clone();
+        let sender = self.channels.msg_sender.clone();
 
         perform_async_work(async move {
             if let Some(file) = Self::create_file_dialog(filter).pick_file().await {
@@ -756,7 +760,7 @@ impl State {
     where
         F: FnOnce(Vec<u8>) -> Message + Send + 'static,
     {
-        let sender = self.sys.channels.msg_sender.clone();
+        let sender = self.channels.msg_sender.clone();
 
         perform_async_work(async move {
             if let Some(file) = Self::create_file_dialog(filter).pick_file().await {
@@ -766,7 +770,7 @@ impl State {
     }
 
     pub fn open_file_dialog(&mut self, mode: OpenMode) {
-        let keep_unavailable = self.config.behavior.keep_during_reload;
+        let keep_unavailable = self.user.config.behavior.keep_during_reload;
         let keep_variables = match mode {
             OpenMode::Open => false,
             OpenMode::Switch => true,
@@ -817,7 +821,7 @@ impl State {
     }
 
     pub fn load_state_file(&mut self, path: Option<PathBuf>) {
-        let sender = self.sys.channels.msg_sender.clone();
+        let sender = self.channels.msg_sender.clone();
 
         perform_async_work(async move {
             let source = if let Some(_path) = path.clone() {
@@ -858,7 +862,7 @@ impl State {
     }
 
     pub fn save_state_file(&mut self, path: Option<PathBuf>) {
-        let sender = self.sys.channels.msg_sender.clone();
+        let sender = self.channels.msg_sender.clone();
         let Some(encoded) = self.encode_state() else {
             return;
         };

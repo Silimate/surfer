@@ -9,7 +9,7 @@ use egui_plot::{Legend, Line, Plot, PlotPoints, PlotUi};
 use itertools::Itertools;
 use log::warn;
 
-use crate::{message::Message, State};
+use crate::{message::Message, SystemState};
 
 pub const NUM_PERF_SAMPLES: usize = 1000;
 
@@ -163,7 +163,7 @@ impl Default for Timing {
     }
 }
 
-impl State {
+impl SystemState {
     pub fn draw_performance_graph(&self, ctx: &egui::Context, msgs: &mut Vec<Message>) {
         let mut open = true;
         egui::Window::new("Frame times")
@@ -172,7 +172,7 @@ impl State {
             .resizable(true)
             .default_width(700.)
             .show(ctx, |ui| {
-                let timing = self.sys.timing.borrow_mut();
+                let timing = self.timing.borrow_mut();
 
                 let frame_times_f32 = timing.regions[&vec![]]
                     .durations
@@ -181,9 +181,9 @@ impl State {
                     .collect::<Vec<_>>();
 
                 ui.horizontal(|ui| {
-                    let mut redraw_state = self.sys.continuous_redraw;
+                    let mut redraw_state = self.continuous_redraw;
                     ui.checkbox(&mut redraw_state, "Continuous redraw");
-                    if redraw_state != self.sys.continuous_redraw {
+                    if redraw_state != self.continuous_redraw {
                         msgs.push(Message::SetContinuousRedraw(redraw_state));
                     }
 
@@ -235,12 +235,7 @@ impl State {
                 plot.show(ui, |plot_ui| {
                     plot_ui.line(
                         Line::new(PlotPoints::from_ys_f32(
-                            &self
-                                .sys
-                                .rendering_cpu_times
-                                .iter()
-                                .cloned()
-                                .collect::<Vec<_>>(),
+                            &self.rendering_cpu_times.iter().cloned().collect::<Vec<_>>(),
                         ))
                         .name("egui CPU draw time"),
                     );

@@ -10,7 +10,7 @@ use crate::fzcmd::parse_command;
 use crate::translation::spade::SpadeTranslator;
 use crate::{
     command_parser::get_parser,
-    config,
+    config::SurferConfig,
     data_container::DataContainer,
     dialog::OpenSiblingStateFileDialog,
     dialog::ReloadWaveformDialog,
@@ -27,7 +27,7 @@ use crate::{
     wave_source::{LoadOptions, WaveFormat, WaveSource},
     CanvasState, StartupParams,
 };
-use color_eyre::{eyre::Context, Result};
+use color_eyre::eyre::Context;
 use egui::{
     style::{Selection, WidgetVisuals, Widgets},
     CornerRadius, Stroke, Visuals,
@@ -37,10 +37,11 @@ use log::{error, info, trace, warn};
 use ron::ser::PrettyConfig;
 use serde::{Deserialize, Serialize};
 
+/// The parts of the program state that need to be serialized when loading/saving state
 #[derive(Serialize, Deserialize)]
-pub struct State {
+pub struct UserState {
     #[serde(skip)]
-    pub config: config::SurferConfig,
+    pub config: SurferConfig,
 
     /// Overrides for the config show_* fields. Defaults to `config.show_*` if not present
     pub(crate) show_hierarchy: Option<bool>,
@@ -106,85 +107,27 @@ pub struct State {
     // - Sequencing issue in serialization, due to us having to run that async
     #[serde(skip)]
     pub state_file: Option<PathBuf>,
-
-    /// Internal state that does not persist between sessions and is not serialized
-    #[serde(skip, default = "SystemState::new")]
-    pub sys: SystemState,
 }
 
-impl State {
-    pub fn new() -> Result<State> {
-        Self::new_inner(false)
+// Impl needed since for loading we need to put State into a Message
+// Snip out the actual contents to not completely spam the terminal
+impl std::fmt::Debug for UserState {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "SharedState {{ <snipped> }}")
     }
+}
 
-    #[cfg(test)]
-    pub(crate) fn new_default_config() -> Result<State> {
-        Self::new_inner(true)
-    }
-
-    fn new_inner(force_default_config: bool) -> Result<State> {
-        let config = config::SurferConfig::new(force_default_config)
-            .with_context(|| "Failed to load config file")?;
-        let result = State {
-            sys: SystemState::new(),
-            config,
-            waves: None,
-            previous_waves: None,
-            count: None,
-            blacklisted_translators: HashSet::new(),
-            show_about: false,
-            show_keys: false,
-            show_gestures: false,
-            show_performance: false,
-            show_license: false,
-            show_logs: false,
-            show_cursor_window: false,
-            wanted_timeunit: TimeUnit::None,
-            time_string_format: None,
-            show_url_entry: false,
-            show_quick_start: false,
-            show_reload_suggestion: None,
-            show_open_sibling_state_file_suggestion: None,
-            rename_target: None,
-            variable_name_filter_focused: false,
-            variable_name_filter_type: VariableNameFilterType::Fuzzy,
-            variable_name_filter_case_insensitive: true,
-            ui_zoom_factor: None,
-            show_hierarchy: None,
-            show_menu: None,
-            show_ticks: None,
-            show_toolbar: None,
-            show_tooltip: None,
-            show_scope_tooltip: None,
-            show_default_timeline: None,
-            show_overview: None,
-            show_statusbar: None,
-            show_variable_direction: None,
-            align_names_right: None,
-            show_variable_indices: None,
-            show_empty_scopes: None,
-            show_parameters_in_scopes: None,
-            highlight_focused: None,
-            drag_started: false,
-            drag_source_idx: None,
-            drag_target_idx: None,
-            state_file: None,
-            sidepanel_width: None,
-        };
-
-        Ok(result)
-    }
-
+impl SystemState {
     pub fn with_params(mut self, args: StartupParams) -> Self {
-        self.previous_waves = self.waves;
-        self.waves = None;
+        self.user.previous_waves = self.user.waves;
+        self.user.waves = None;
 
         // Long running translators which we load in a thread
         {
             #[cfg(feature = "spade")]
-            let sender = self.sys.channels.msg_sender.clone();
+            let sender = self.channels.msg_sender.clone();
             #[cfg(not(feature = "spade"))]
-            let _ = self.sys.channels.msg_sender.clone();
+            let _ = self.channels.msg_sender.clone();
             let waves = args.waves.clone();
             perform_work(move || {
                 #[cfg(feature = "spade")]
@@ -197,7 +140,7 @@ impl State {
         }
 
         // we turn the waveform argument and any startup command file into batch commands
-        self.sys.batch_commands = VecDeque::new();
+        self.batch_commands = VecDeque::new();
 
         match args.waves {
             Some(WaveSource::Url(url)) => {
@@ -235,15 +178,15 @@ impl State {
     pub fn add_startup_commands<I: IntoIterator<Item = String>>(&mut self, commands: I) {
         let parsed = self.parse_startup_commands(commands);
         for msg in parsed {
-            self.sys.batch_commands.push_back(msg);
-            self.sys.batch_commands_completed = false;
+            self.batch_commands.push_back(msg);
+            self.batch_commands_completed = false;
         }
     }
 
     pub fn add_startup_messages<I: IntoIterator<Item = Message>>(&mut self, messages: I) {
         for msg in messages {
-            self.sys.batch_commands.push_back(msg);
-            self.sys.batch_commands_completed = false;
+            self.batch_commands.push_back(msg);
+            self.batch_commands_completed = false;
         }
     }
 
@@ -256,7 +199,7 @@ impl State {
     }
 
     pub(crate) fn add_scope(&mut self, scope: ScopeRef, recursive: bool) {
-        let Some(waves) = self.waves.as_mut() else {
+        let Some(waves) = self.user.waves.as_mut() else {
             warn!("Adding scope without waves loaded");
             return;
         };
@@ -272,7 +215,7 @@ impl State {
             .collect_vec();
 
         // TODO add parameter to add_variables, insert to (self.drag_target_idx, self.drag_source_idx)
-        if let (Some(cmd), _) = waves.add_variables(&self.sys.translators, variables, None) {
+        if let (Some(cmd), _) = waves.add_variables(&self.translators, variables, None) {
             self.load_variables(cmd);
         }
 
@@ -298,24 +241,24 @@ impl State {
         let viewports = [viewport].to_vec();
 
         let ((new_wave, load_commands), is_reload) =
-            if load_options.keep_variables && self.waves.is_some() {
+            if load_options.keep_variables && self.user.waves.is_some() {
                 (
-                    self.waves.take().unwrap().update_with_waves(
+                    self.user.waves.take().unwrap().update_with_waves(
                         new_waves,
                         filename,
                         format,
-                        &self.sys.translators,
+                        &self.translators,
                         load_options.keep_unavailable,
                     ),
                     true,
                 )
-            } else if let Some(old) = self.previous_waves.take() {
+            } else if let Some(old) = self.user.previous_waves.take() {
                 (
                     old.update_with_waves(
                         new_waves,
                         filename,
                         format,
-                        &self.sys.translators,
+                        &self.translators,
                         load_options.keep_unavailable,
                     ),
                     true,
@@ -335,7 +278,7 @@ impl State {
                             markers: HashMap::new(),
                             focused_item: None,
                             focused_transaction: (None, None),
-                            default_variable_name_type: self.config.default_variable_name_type,
+                            default_variable_name_type: self.user.config.default_variable_name_type,
                             display_variable_indices: self.show_variable_indices(),
                             scroll_offset: 0.,
                             drawing_infos: vec![],
@@ -350,18 +293,60 @@ impl State {
                     false,
                 )
             };
+        // let (new_wave, load_commands) =
+        // if load_options.keep_variables && self.shared.waves.is_some() {
+        //     self.shared.waves.take().unwrap().update_with_waves(
+        //         new_waves,
+        //         filename,
+        //         format,
+        //         &self.translators,
+        //         load_options.keep_unavailable,
+        //     )
+        // } else if let Some(old) = self.shared.previous_waves.take() {
+        //     old.update_with_waves(
+        //         new_waves,
+        //         filename,
+        //         format,
+        //         &self.translators,
+        //         load_options.keep_unavailable,
+        //     )
+        // } else {
+        //     (
+        //         WaveData {
+        //             inner: DataContainer::Waves(*new_waves),
+        //             source: filename,
+        //             format,
+        //             active_scope: None,
+        //             items_tree: DisplayedItemTree::default(),
+        //             displayed_items: HashMap::new(),
+        //             viewports,
+        //             cursor: None,
+        //             markers: HashMap::new(),
+        //             focused_item: None,
+        //             focused_transaction: (None, None),
+        //             default_variable_name_type: self.shared.config.default_variable_name_type,
+        //             display_variable_indices: self.show_variable_indices(),
+        //             scroll_offset: 0.,
+        //             drawing_infos: vec![],
+        //             top_item_draw_offset: 0.,
+        //             total_height: 0.,
+        //             display_item_ref_counter: 0,
+        //             old_num_timestamps: None,
+        //             graphics: HashMap::new(),
+        //         },
+        //         None,
         if let Some(cmd) = load_commands {
             self.load_variables(cmd);
         }
         self.invalidate_draw_commands();
 
         // Set time unit to the file time unit before consuming new_wave
-        self.wanted_timeunit = new_wave.inner.metadata().timescale.unit;
+        self.user.wanted_timeunit = new_wave.inner.metadata().timescale.unit;
 
-        self.waves = Some(new_wave);
+        self.user.waves = Some(new_wave);
 
         if !is_reload {
-            if let Some(waves) = &mut self.waves {
+            if let Some(waves) = &mut self.user.waves {
                 if waves.source.sibling_state_file().is_some() {
                     self.update(Message::SuggestOpenSiblingStateFile);
                 }
@@ -393,7 +378,7 @@ impl State {
             markers: HashMap::new(),
             focused_item: None,
             focused_transaction: (None, None),
-            default_variable_name_type: self.config.default_variable_name_type,
+            default_variable_name_type: self.user.config.default_variable_name_type,
             display_variable_indices: self.show_variable_indices(),
             scroll_offset: 0.,
             drawing_infos: vec![],
@@ -406,15 +391,15 @@ impl State {
 
         self.invalidate_draw_commands();
 
-        self.config.theme.alt_frequency = 0;
-        self.wanted_timeunit = new_transaction_streams.inner.metadata().timescale.unit;
-        self.waves = Some(new_transaction_streams);
+        self.user.config.theme.alt_frequency = 0;
+        self.user.wanted_timeunit = new_transaction_streams.inner.metadata().timescale.unit;
+        self.user.waves = Some(new_transaction_streams);
     }
 
     pub(crate) fn handle_async_messages(&mut self) {
         let mut msgs = vec![];
         loop {
-            match self.sys.channels.msg_receiver.try_recv() {
+            match self.channels.msg_receiver.try_recv() {
                 Ok(msg) => msgs.push(msg),
                 Err(std::sync::mpsc::TryRecvError::Empty) => break,
                 Err(std::sync::mpsc::TryRecvError::Disconnected) => {
@@ -433,7 +418,7 @@ impl State {
     pub(crate) fn handle_batch_commands(&mut self) {
         // we only execute commands while we aren't waiting for background operations to complete
         while self.can_start_batch_command() {
-            if let Some(cmd) = self.sys.batch_commands.pop_front() {
+            if let Some(cmd) = self.batch_commands.pop_front() {
                 info!("Applying startup command: {cmd:?}");
                 self.update(cmd);
             } else {
@@ -442,30 +427,30 @@ impl State {
         }
 
         // if there are no messages and all operations have completed, we are done
-        if !self.sys.batch_commands_completed
-            && self.sys.batch_commands.is_empty()
+        if !self.batch_commands_completed
+            && self.batch_commands.is_empty()
             && self.can_start_batch_command()
         {
-            self.sys.batch_commands_completed = true;
+            self.batch_commands_completed = true;
         }
     }
 
     /// Returns whether it is OK to start a new batch command.
     pub(crate) fn can_start_batch_command(&self) -> bool {
         // if the progress tracker is none -> all operations have completed
-        self.sys.progress_tracker.is_none()
+        self.progress_tracker.is_none()
     }
 
     pub fn get_visuals(&self) -> Visuals {
         let widget_style = WidgetVisuals {
-            bg_fill: self.config.theme.secondary_ui_color.background,
+            bg_fill: self.user.config.theme.secondary_ui_color.background,
             fg_stroke: Stroke {
-                color: self.config.theme.secondary_ui_color.foreground,
+                color: self.user.config.theme.secondary_ui_color.foreground,
                 width: 1.0,
             },
-            weak_bg_fill: self.config.theme.secondary_ui_color.background,
+            weak_bg_fill: self.user.config.theme.secondary_ui_color.background,
             bg_stroke: Stroke {
-                color: self.config.theme.border_color,
+                color: self.user.config.theme.border_color,
                 width: 1.0,
             },
             corner_radius: CornerRadius::same(2),
@@ -473,18 +458,18 @@ impl State {
         };
 
         Visuals {
-            override_text_color: Some(self.config.theme.foreground),
-            extreme_bg_color: self.config.theme.secondary_ui_color.background,
-            panel_fill: self.config.theme.secondary_ui_color.background,
-            window_fill: self.config.theme.primary_ui_color.background,
+            override_text_color: Some(self.user.config.theme.foreground),
+            extreme_bg_color: self.user.config.theme.secondary_ui_color.background,
+            panel_fill: self.user.config.theme.secondary_ui_color.background,
+            window_fill: self.user.config.theme.primary_ui_color.background,
             window_stroke: Stroke {
                 width: 1.0,
-                color: self.config.theme.border_color,
+                color: self.user.config.theme.border_color,
             },
             selection: Selection {
-                bg_fill: self.config.theme.selected_elements_colors.background,
+                bg_fill: self.user.config.theme.selected_elements_colors.background,
                 stroke: Stroke {
-                    color: self.config.theme.selected_elements_colors.foreground,
+                    color: self.user.config.theme.selected_elements_colors.foreground,
                     width: 1.0,
                 },
             },
@@ -501,32 +486,27 @@ impl State {
 
     pub(crate) fn encode_state(&self) -> Option<String> {
         let opt = ron::Options::default();
-        opt.to_string_pretty(self, PrettyConfig::default())
+
+        opt.to_string_pretty(&self.user, PrettyConfig::default())
             .context("Failed to encode state")
             .map_err(|e| error!("Failed to encode state. {e:#?}"))
             .ok()
     }
 
-    pub(crate) fn load_state(&mut self, mut loaded_state: crate::State, path: Option<PathBuf>) {
+    pub(crate) fn load_state(&mut self, mut loaded_state: UserState, path: Option<PathBuf>) {
         // first swap everything, fix special cases afterwards
-        mem::swap(self, &mut loaded_state);
-
-        // system state is not exported and instance specific, swap back
-        // we need to do this before fixing wave files which e.g. use the translator list
-        mem::swap(&mut self.sys, &mut loaded_state.sys);
-        // the config is also not exported and instance specific, swap back
-        mem::swap(&mut self.config, &mut loaded_state.config);
+        mem::swap(&mut self.user, &mut loaded_state);
 
         // swap back waves for inner, source, format since we want to keep the file
         // fix up all wave references from paths if a wave is loaded
-        mem::swap(&mut loaded_state.waves, &mut self.waves);
+        mem::swap(&mut loaded_state.waves, &mut self.user.waves);
         let load_commands = if let (Some(waves), Some(new_waves)) =
-            (&mut self.waves, &mut loaded_state.waves)
+            (&mut self.user.waves, &mut loaded_state.waves)
         {
             mem::swap(&mut waves.active_scope, &mut new_waves.active_scope);
             let items = std::mem::take(&mut new_waves.displayed_items);
             let items_tree = std::mem::take(&mut new_waves.items_tree);
-            let load_commands = waves.update_with_items(&items, items_tree, &self.sys.translators);
+            let load_commands = waves.update_with_items(&items, items_tree, &self.translators);
 
             mem::swap(&mut waves.viewports, &mut new_waves.viewports);
             mem::swap(&mut waves.cursor, &mut new_waves.cursor);
@@ -543,20 +523,20 @@ impl State {
         };
 
         // reset drag to avoid confusion
-        self.drag_started = false;
-        self.drag_source_idx = None;
-        self.drag_target_idx = None;
+        self.user.drag_started = false;
+        self.user.drag_source_idx = None;
+        self.user.drag_target_idx = None;
 
         // reset previous_waves & count to prevent unintuitive state here
-        self.previous_waves = None;
-        self.count = None;
+        self.user.previous_waves = None;
+        self.user.count = None;
 
         // use just loaded path since path is not part of the export as it might have changed anyways
-        self.state_file = path;
-        self.rename_target = None;
+        self.user.state_file = path;
+        self.user.rename_target = None;
 
         self.invalidate_draw_commands();
-        if let Some(waves) = &mut self.waves {
+        if let Some(waves) = &mut self.user.waves {
             waves.update_viewports();
         }
     }
@@ -565,7 +545,8 @@ impl State {
     /// Used for testing to make sure the GUI is at its final state before taking a
     /// snapshot.
     pub fn waves_fully_loaded(&self) -> bool {
-        self.waves
+        self.user
+            .waves
             .as_ref()
             .is_some_and(|w| w.inner.is_fully_loaded())
     }
@@ -573,10 +554,10 @@ impl State {
     /// Returns true once all batch commands have been completed and their effects are all executed.
     pub fn batch_commands_completed(&self) -> bool {
         debug_assert!(
-            self.sys.batch_commands_completed || !self.sys.batch_commands.is_empty(),
+            self.batch_commands_completed || !self.batch_commands.is_empty(),
             "completed implies no commands"
         );
-        self.sys.batch_commands_completed
+        self.batch_commands_completed
     }
 
     fn parse_startup_commands<I: IntoIterator<Item = String>>(&mut self, cmds: I) -> Vec<Message> {
@@ -628,15 +609,14 @@ impl State {
 
     /// Push the current canvas state to the undo stack
     pub(crate) fn save_current_canvas(&mut self, message: String) {
-        if let Some(waves) = &self.waves {
-            self.sys
-                .undo_stack
-                .push(State::current_canvas_state(waves, message));
+        if let Some(waves) = &self.user.waves {
+            self.undo_stack
+                .push(SystemState::current_canvas_state(waves, message));
 
-            if self.sys.undo_stack.len() > self.config.undo_stack_size {
-                self.sys.undo_stack.remove(0);
+            if self.undo_stack.len() > self.user.config.undo_stack_size {
+                self.undo_stack.remove(0);
             }
-            self.sys.redo_stack.clear();
+            self.redo_stack.clear();
         }
     }
 
@@ -646,9 +626,8 @@ impl State {
 
         use crate::wcp;
 
-        if self.sys.wcp_server_thread.as_ref().is_some()
+        if self.wcp_server_thread.as_ref().is_some()
             || self
-                .sys
                 .wcp_running_signal
                 .load(std::sync::atomic::Ordering::Relaxed)
         {
@@ -659,19 +638,19 @@ impl State {
         let (wcp_s2c_sender, wcp_s2c_receiver) = tokio::sync::mpsc::channel(100);
         let (wcp_c2s_sender, wcp_c2s_receiver) = tokio::sync::mpsc::channel(100);
 
-        self.sys.channels.wcp_c2s_receiver = Some(wcp_c2s_receiver);
-        self.sys.channels.wcp_s2c_sender = Some(wcp_s2c_sender);
-        let stop_signal_copy = self.sys.wcp_stop_signal.clone();
+        self.channels.wcp_c2s_receiver = Some(wcp_c2s_receiver);
+        self.channels.wcp_s2c_sender = Some(wcp_s2c_sender);
+        let stop_signal_copy = self.wcp_stop_signal.clone();
         stop_signal_copy.store(false, std::sync::atomic::Ordering::Relaxed);
-        let running_signal_copy = self.sys.wcp_running_signal.clone();
+        let running_signal_copy = self.wcp_running_signal.clone();
         running_signal_copy.store(true, std::sync::atomic::Ordering::Relaxed);
-        let greeted_signal_copy = self.sys.wcp_greeted_signal.clone();
+        let greeted_signal_copy = self.wcp_greeted_signal.clone();
         greeted_signal_copy.store(true, std::sync::atomic::Ordering::Relaxed);
 
-        let ctx = self.sys.context.clone();
-        let address = address.unwrap_or(self.config.wcp.address.clone());
-        self.sys.wcp_server_address = Some(address.clone());
-        self.sys.wcp_server_thread = Some(tokio::spawn(async move {
+        let ctx = self.context.clone();
+        let address = address.unwrap_or(self.user.config.wcp.address.clone());
+        self.wcp_server_address = Some(address.clone());
+        self.wcp_server_thread = Some(tokio::spawn(async move {
             let server = WcpServer::new(
                 address,
                 initiate,
@@ -696,25 +675,16 @@ impl State {
     pub(crate) fn stop_wcp_server(&mut self) {
         // stop wcp server if there is one running
 
-        if self.sys.wcp_server_address.is_some() && self.sys.wcp_server_thread.is_some() {
+        if self.wcp_server_address.is_some() && self.wcp_server_thread.is_some() {
             // signal the server to stop
-            self.sys
-                .wcp_stop_signal
+            self.wcp_stop_signal
                 .store(true, std::sync::atomic::Ordering::Relaxed);
 
-            self.sys.wcp_server_thread = None;
-            self.sys.wcp_server_address = None;
-            self.sys.channels.wcp_s2c_sender = None;
-            self.sys.channels.wcp_c2s_receiver = None;
+            self.wcp_server_thread = None;
+            self.wcp_server_address = None;
+            self.channels.wcp_s2c_sender = None;
+            self.channels.wcp_c2s_receiver = None;
             info!("Stopped WCP server");
         }
-    }
-}
-
-// Impl needed since for loading we need to put State into a Message
-// Snip out the actual contents to not completely spam the terminal
-impl std::fmt::Debug for State {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "State {{ <snipped> }}")
     }
 }

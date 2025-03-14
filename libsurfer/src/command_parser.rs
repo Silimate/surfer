@@ -15,7 +15,7 @@ use crate::{
     message::Message,
     util::{alpha_idx_to_uint_idx, uint_idx_to_alpha_idx},
     variable_name_type::VariableNameType,
-    State,
+    SystemState,
 };
 use itertools::Itertools;
 use log::warn;
@@ -46,7 +46,7 @@ fn separate_at_space(query: &str) -> (String, String, String, String) {
     )
 }
 
-pub fn get_parser(state: &State) -> Command<Message> {
+pub fn get_parser(state: &SystemState) -> Command<Message> {
     fn single_word(
         suggestions: Vec<String>,
         rest_command: RestCommand,
@@ -80,15 +80,15 @@ pub fn get_parser(state: &State) -> Command<Message> {
         ))
     }
 
-    let scopes = match &state.waves {
+    let scopes = match &state.user.waves {
         Some(v) => v.inner.scope_names(),
         None => vec![],
     };
-    let variables = match &state.waves {
+    let variables = match &state.user.waves {
         Some(v) => v.inner.variable_names(),
         None => vec![],
     };
-    let displayed_items = match &state.waves {
+    let displayed_items = match &state.user.waves {
         Some(v) => v
             .items_tree
             .iter_visible()
@@ -120,6 +120,7 @@ pub fn get_parser(state: &State) -> Command<Message> {
         None => vec![],
     };
     let variables_in_active_scope = state
+        .user
         .waves
         .as_ref()
         .and_then(|waves| {
@@ -130,18 +131,22 @@ pub fn get_parser(state: &State) -> Command<Message> {
         })
         .unwrap_or_default();
 
-    let color_names = state.config.theme.colors.keys().cloned().collect_vec();
+    let color_names = state.user.config.theme.colors.keys().cloned().collect_vec();
     let format_names: Vec<String> = state
-        .sys
         .translators
         .all_translator_names()
         .into_iter()
         .map(&str::to_owned)
         .collect();
 
-    let active_scope = state.waves.as_ref().and_then(|w| w.active_scope.clone());
+    let active_scope = state
+        .user
+        .waves
+        .as_ref()
+        .and_then(|w| w.active_scope.clone());
 
     let is_transaction_container = state
+        .user
         .waves
         .as_ref()
         .is_some_and(|w| w.inner.is_transactions());
@@ -164,7 +169,7 @@ pub fn get_parser(state: &State) -> Command<Message> {
         files_with_ext(is_wave_file_extension)
     }
 
-    let markers = if let Some(waves) = &state.waves {
+    let markers = if let Some(waves) = &state.user.waves {
         waves
             .items_tree
             .iter()
@@ -205,7 +210,6 @@ pub fn get_parser(state: &State) -> Command<Message> {
     }
 
     let wcp_start_or_stop = if state
-        .sys
         .wcp_running_signal
         .load(std::sync::atomic::Ordering::Relaxed)
     {
@@ -216,8 +220,8 @@ pub fn get_parser(state: &State) -> Command<Message> {
     #[cfg(target_arch = "wasm32")]
     let _ = wcp_start_or_stop;
 
-    let keep_during_reload = state.config.behavior.keep_during_reload;
-    let commands = if state.waves.is_some() {
+    let keep_during_reload = state.user.config.behavior.keep_during_reload;
+    let commands = if state.user.waves.is_some() {
         vec![
             "load_file",
             "load_url",
@@ -324,8 +328,8 @@ pub fn get_parser(state: &State) -> Command<Message> {
             "exit",
         ]
     };
-    let mut theme_names = state.config.theme.theme_names.clone();
-    let state_file = state.state_file.clone();
+    let mut theme_names = state.user.config.theme.theme_names.clone();
+    let state_file = state.user.state_file.clone();
     theme_names.insert(0, "default".to_string());
     Command::NonTerminal(
         ParamGreed::Word,

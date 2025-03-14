@@ -41,7 +41,7 @@ use crate::wave_source::LoadOptions;
 use crate::{command_parser::get_parser, wave_container::WaveContainer};
 use crate::{
     command_prompt::show_command_prompt, config::HierarchyStyle, hierarchy, wave_data::WaveData,
-    Message, MoveDir, State,
+    Message, MoveDir, SystemState,
 };
 use crate::{config::SurferTheme, wave_container::VariableMeta};
 use crate::{data_container::VariableType as VarType, OUTSTANDING_TRANSACTIONS};
@@ -160,12 +160,12 @@ impl ItemDrawingInfo {
     }
 }
 
-impl eframe::App for State {
+impl eframe::App for SystemState {
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
         #[cfg(feature = "performance_plot")]
-        self.sys.timing.borrow_mut().start_frame();
+        self.timing.borrow_mut().start_frame();
 
-        if self.sys.continuous_redraw {
+        if self.continuous_redraw {
             self.invalidate_draw_commands();
         }
 
@@ -179,19 +179,19 @@ impl eframe::App for State {
         let _ = fullscreen;
 
         #[cfg(feature = "performance_plot")]
-        self.sys.timing.borrow_mut().start("draw");
+        self.timing.borrow_mut().start("draw");
         let mut msgs = self.draw(ctx, window_size);
         #[cfg(feature = "performance_plot")]
-        self.sys.timing.borrow_mut().end("draw");
+        self.timing.borrow_mut().end("draw");
 
         #[cfg(feature = "performance_plot")]
-        self.sys.timing.borrow_mut().start("update");
+        self.timing.borrow_mut().start("update");
         let ui_zoom_factor = self.ui_zoom_factor();
         if ctx.zoom_factor() != ui_zoom_factor {
             ctx.set_zoom_factor(ui_zoom_factor);
         }
 
-        self.sys.items_to_expand.borrow_mut().clear();
+        self.items_to_expand.borrow_mut().clear();
 
         while let Some(msg) = msgs.pop() {
             #[cfg(not(target_arch = "wasm32"))]
@@ -205,19 +205,19 @@ impl eframe::App for State {
             self.update(msg);
         }
         #[cfg(feature = "performance_plot")]
-        self.sys.timing.borrow_mut().end("update");
+        self.timing.borrow_mut().end("update");
 
         #[cfg(feature = "performance_plot")]
-        self.sys.timing.borrow_mut().start("handle_async_messages");
+        self.timing.borrow_mut().start("handle_async_messages");
         #[cfg(feature = "performance_plot")]
-        self.sys.timing.borrow_mut().end("handle_async_messages");
+        self.timing.borrow_mut().end("handle_async_messages");
 
         self.handle_async_messages();
         self.handle_batch_commands();
         #[cfg(target_arch = "wasm32")]
         self.handle_wasm_external_messages();
 
-        let viewport_is_moving = if let Some(waves) = &mut self.waves {
+        let viewport_is_moving = if let Some(waves) = &mut self.user.waves {
             let mut is_moving = false;
             for vp in &mut waves.viewports {
                 if vp.is_moving() {
@@ -230,7 +230,7 @@ impl eframe::App for State {
             false
         };
 
-        if let Some(waves) = self.waves.as_ref().and_then(|w| w.inner.as_waves()) {
+        if let Some(waves) = self.user.waves.as_ref().and_then(|w| w.inner.as_waves()) {
             waves.tick()
         }
 
@@ -240,17 +240,17 @@ impl eframe::App for State {
         }
 
         #[cfg(feature = "performance_plot")]
-        self.sys.timing.borrow_mut().start("handle_wcp_commands");
+        self.timing.borrow_mut().start("handle_wcp_commands");
         self.handle_wcp_commands();
         #[cfg(feature = "performance_plot")]
-        self.sys.timing.borrow_mut().end("handle_wcp_commands");
+        self.timing.borrow_mut().end("handle_wcp_commands");
 
         // We can save some user battery life by not redrawing unless needed. At the moment,
         // we only need to continuously redraw to make surfer interactive during loading, otherwise
         // we'll let egui manage repainting. In practice
-        if self.sys.continuous_redraw
-            || self.sys.progress_tracker.is_some()
-            || self.show_performance
+        if self.continuous_redraw
+            || self.progress_tracker.is_some()
+            || self.user.show_performance
             || OUTSTANDING_TRANSACTIONS.load(std::sync::atomic::Ordering::SeqCst) != 0
         {
             ctx.request_repaint();
@@ -258,79 +258,80 @@ impl eframe::App for State {
 
         #[cfg(feature = "performance_plot")]
         if let Some(prev_cpu) = frame.info().cpu_usage {
-            self.sys.rendering_cpu_times.push_back(prev_cpu);
-            if self.sys.rendering_cpu_times.len() > NUM_PERF_SAMPLES {
-                self.sys.rendering_cpu_times.pop_front();
+            self.rendering_cpu_times.push_back(prev_cpu);
+            if self.rendering_cpu_times.len() > NUM_PERF_SAMPLES {
+                self.rendering_cpu_times.pop_front();
             }
         }
 
         #[cfg(feature = "performance_plot")]
-        self.sys.timing.borrow_mut().end_frame();
+        self.timing.borrow_mut().end_frame();
     }
 }
 
-impl State {
+impl SystemState {
     pub(crate) fn draw(&mut self, ctx: &egui::Context, window_size: Option<Vec2>) -> Vec<Message> {
         let max_width = ctx.available_rect().width();
         let max_height = ctx.available_rect().height();
 
         let mut msgs = vec![];
 
-        if self.show_about {
+        if self.user.show_about {
             draw_about_window(ctx, &mut msgs);
         }
 
-        if self.show_license {
+        if self.user.show_license {
             draw_license_window(ctx, &mut msgs);
         }
 
-        if self.show_keys {
+        if self.user.show_keys {
             draw_control_help_window(ctx, &mut msgs);
         }
 
-        if self.show_quick_start {
+        if self.user.show_quick_start {
             draw_quickstart_help_window(ctx, &mut msgs);
         }
 
-        if self.show_gestures {
+        if self.user.show_gestures {
             self.mouse_gesture_help(ctx, &mut msgs);
         }
 
-        if self.show_logs {
+        if self.user.show_logs {
             self.draw_log_window(ctx, &mut msgs);
         }
 
-        if let Some(dialog) = &self.show_reload_suggestion {
+        if let Some(dialog) = &self.user.show_reload_suggestion {
             self.draw_reload_waveform_dialog(ctx, dialog, &mut msgs);
         }
 
-        if let Some(dialog) = &self.show_open_sibling_state_file_suggestion {
+        if let Some(dialog) = &self.user.show_open_sibling_state_file_suggestion {
             self.draw_open_sibling_state_file_dialog(ctx, dialog, &mut msgs);
         }
 
-        if self.show_performance {
+        if self.user.show_performance {
             #[cfg(feature = "performance_plot")]
             self.draw_performance_graph(ctx, &mut msgs);
         }
 
-        if self.show_cursor_window {
-            if let Some(waves) = &self.waves {
+        if self.user.show_cursor_window {
+            if let Some(waves) = &self.user.waves {
                 self.draw_marker_window(waves, ctx, &mut msgs);
             }
         }
 
-        if let Some(idx) = self.rename_target {
+        if let Some(idx) = self.user.rename_target {
             draw_rename_window(
                 ctx,
                 &mut msgs,
                 idx,
-                &mut self.sys.item_renaming_string.borrow_mut(),
+                &mut self.item_renaming_string.borrow_mut(),
             );
         }
 
         if self
+            .user
             .show_menu
-            .unwrap_or_else(|| self.config.layout.show_menu())
+            .unwrap_or_else(|| self.user.config.layout.show_menu())
         {
             self.add_menu_panel(ctx, &mut msgs);
         }
@@ -339,14 +340,14 @@ impl State {
             self.add_toolbar_panel(ctx, &mut msgs);
         }
 
-        if self.show_url_entry {
+        if self.user.show_url_entry {
             self.draw_load_url(ctx, &mut msgs);
         }
 
         if self.show_statusbar() {
-            self.add_statusbar_panel(ctx, &self.waves, &mut msgs);
+            self.add_statusbar_panel(ctx, &self.user.waves, &mut msgs);
         }
-        if let Some(waves) = &self.waves {
+        if let Some(waves) = &self.user.waves {
             if self.show_overview() && !waves.items_tree.is_empty() {
                 self.add_overview_panel(ctx, waves, &mut msgs);
             }
@@ -357,31 +358,31 @@ impl State {
                 .default_width(300.)
                 .width_range(100.0..=max_width)
                 .frame(Frame {
-                    fill: self.config.theme.primary_ui_color.background,
+                    fill: self.user.config.theme.primary_ui_color.background,
                     ..Default::default()
                 })
                 .show(ctx, |ui| {
-                    self.sidepanel_width = Some(ui.clip_rect().width());
-                    match self.config.layout.hierarchy_style {
+                    self.user.sidepanel_width = Some(ui.clip_rect().width());
+                    match self.user.config.layout.hierarchy_style {
                         HierarchyStyle::Separate => hierarchy::separate(self, ui, &mut msgs),
                         HierarchyStyle::Tree => hierarchy::tree(self, ui, &mut msgs),
                     }
                 });
         }
 
-        if self.sys.command_prompt.visible {
+        if self.command_prompt.visible {
             show_command_prompt(self, ctx, window_size, &mut msgs);
-            if let Some(new_idx) = self.sys.command_prompt.new_selection {
-                self.sys.command_prompt.selected = new_idx;
-                self.sys.command_prompt.new_selection = None;
+            if let Some(new_idx) = self.command_prompt.new_selection {
+                self.command_prompt.selected = new_idx;
+                self.command_prompt.new_selection = None;
             }
         }
 
-        if self.waves.is_some() {
-            let scroll_offset = self.waves.as_ref().unwrap().scroll_offset;
-            if self.waves.as_ref().unwrap().any_displayed() {
-                let draw_focus_ids = self.sys.command_prompt.visible
-                    && expand_command(&self.sys.command_prompt_text.borrow(), get_parser(self))
+        if self.user.waves.is_some() {
+            let scroll_offset = self.user.waves.as_ref().unwrap().scroll_offset;
+            if self.user.waves.as_ref().unwrap().any_displayed() {
+                let draw_focus_ids = self.command_prompt.visible
+                    && expand_command(&self.command_prompt_text.borrow(), get_parser(self))
                         .expanded
                         .starts_with("item_focus");
                 if draw_focus_ids {
@@ -395,9 +396,9 @@ impl State {
                                 .show(ui, |ui| {
                                     self.draw_item_focus_list(ui);
                                 });
-                            self.waves.as_mut().unwrap().top_item_draw_offset =
+                            self.user.waves.as_mut().unwrap().top_item_draw_offset =
                                 response.inner_rect.min.y;
-                            self.waves.as_mut().unwrap().total_height =
+                            self.user.waves.as_mut().unwrap().total_height =
                                 response.inner_rect.height();
                             if (scroll_offset - response.state.offset.y).abs() > 5. {
                                 msgs.push(Message::SetScrollOffset(response.state.offset.y));
@@ -421,15 +422,24 @@ impl State {
                             .show(ui, |ui| {
                                 self.draw_item_list(&mut msgs, ui, ctx);
                             });
-                        self.waves.as_mut().unwrap().top_item_draw_offset =
+                        self.user.waves.as_mut().unwrap().top_item_draw_offset =
                             response.inner_rect.min.y;
-                        self.waves.as_mut().unwrap().total_height = response.inner_rect.height();
+                        self.user.waves.as_mut().unwrap().total_height =
+                            response.inner_rect.height();
                         if (scroll_offset - response.state.offset.y).abs() > 5. {
                             msgs.push(Message::SetScrollOffset(response.state.offset.y));
                         }
                     });
 
-                if self.waves.as_ref().unwrap().focused_transaction.1.is_some() {
+                if self
+                    .user
+                    .waves
+                    .as_ref()
+                    .unwrap()
+                    .focused_transaction
+                    .1
+                    .is_some()
+                {
                     egui::SidePanel::right("Transaction Details")
                         .default_width(330.)
                         .width_range(10.0..=max_width)
@@ -461,11 +471,11 @@ impl State {
                 let std_stroke = ctx.style().visuals.widgets.noninteractive.bg_stroke;
                 ctx.style_mut(|style| {
                     style.visuals.widgets.noninteractive.bg_stroke = Stroke {
-                        width: self.config.theme.viewport_separator.width,
-                        color: self.config.theme.viewport_separator.color,
+                        width: self.user.config.theme.viewport_separator.width,
+                        color: self.user.config.theme.viewport_separator.color,
                     };
                 });
-                let number_of_viewports = self.waves.as_ref().unwrap().viewports.len();
+                let number_of_viewports = self.user.waves.as_ref().unwrap().viewports.len();
                 if number_of_viewports > 1 {
                     // Draw additional viewports
                     let max_width = ctx.available_rect().width();
@@ -498,14 +508,15 @@ impl State {
             }
         };
 
-        if self.waves.is_none()
+        if self.user.waves.is_none()
             || self
+                .user
                 .waves
                 .as_ref()
                 .is_some_and(|waves| !waves.any_displayed())
         {
             egui::CentralPanel::default()
-                .frame(Frame::NONE.fill(self.config.theme.canvas_colors.background))
+                .frame(Frame::NONE.fill(self.user.config.theme.canvas_colors.background))
                 .show(ctx, |ui| {
                     ui.add_space(max_height * 0.1);
                     ui.vertical_centered(|ui| {
@@ -532,9 +543,9 @@ impl State {
         });
 
         // If some dialogs are open, skip decoding keypresses
-        if !self.show_url_entry
-            && self.rename_target.is_none()
-            && self.show_reload_suggestion.is_none()
+        if !self.user.show_url_entry
+            && self.user.rename_target.is_none()
+            && self.user.show_reload_suggestion.is_none()
         {
             self.handle_pressed_keys(ctx, &mut msgs);
         }
@@ -549,7 +560,7 @@ impl State {
             .resizable(true)
             .show(ctx, |ui| {
                 ui.vertical_centered(|ui| {
-                    let url = &mut *self.sys.url.borrow_mut();
+                    let url = &mut *self.url.borrow_mut();
                     let response = ui.text_edit_singleline(url);
                     ui.horizontal(|ui| {
                         if ui.button("Load URL").clicked()
@@ -635,16 +646,17 @@ impl State {
         let _ = response.interact(egui::Sense::click_and_drag());
         response.drag_started().then(|| {
             msgs.push(Message::VariableDragStarted(VisibleItemIndex(
-                self.waves.as_ref().unwrap().display_item_ref_counter,
+                self.user.waves.as_ref().unwrap().display_item_ref_counter,
             )))
         });
 
         response.drag_stopped().then(|| {
             if ui.input(|i| i.pointer.hover_pos().unwrap_or_default().x)
-                > self.sidepanel_width.unwrap_or_default()
+                > self.user.sidepanel_width.unwrap_or_default()
             {
                 let scope_t = ScopeType::WaveScope(scope.clone());
                 let variables = self
+                    .user
                     .waves
                     .as_ref()
                     .unwrap()
@@ -659,7 +671,7 @@ impl State {
 
                 msgs.push(Message::AddDraggedVariables(self.filtered_variables(
                     variables.as_slice(),
-                    self.sys.variable_name_filter.borrow_mut().as_str(),
+                    self.variable_name_filter.borrow_mut().as_str(),
                 )));
             }
         });
@@ -867,12 +879,12 @@ impl State {
                     }
                     response.drag_started().then(|| {
                         msgs.push(Message::VariableDragStarted(VisibleItemIndex(
-                            self.waves.as_ref().unwrap().display_item_ref_counter,
+                            self.user.waves.as_ref().unwrap().display_item_ref_counter,
                         )))
                     });
                     response.drag_stopped().then(|| {
                         if ui.input(|i| i.pointer.hover_pos().unwrap_or_default().x)
-                            > self.sidepanel_width.unwrap_or_default()
+                            > self.user.sidepanel_width.unwrap_or_default()
                         {
                             msgs.push(Message::AddDraggedVariables(vec![variable.clone()]));
                         }
@@ -894,6 +906,7 @@ impl State {
                     ui.add_space(ui.text_style_height(&egui::TextStyle::Body) + 2.0);
                 }
                 for (vidx, _) in self
+                    .user
                     .waves
                     .as_ref()
                     .unwrap()
@@ -904,9 +917,9 @@ impl State {
                     let vidx = VisibleItemIndex(vidx);
                     ui.scope(|ui| {
                         ui.style_mut().visuals.selection.bg_fill =
-                            self.config.theme.accent_warn.background;
+                            self.user.config.theme.accent_warn.background;
                         ui.style_mut().visuals.override_text_color =
-                            Some(self.config.theme.accent_warn.foreground);
+                            Some(self.user.config.theme.accent_warn.foreground);
                         let _ = ui.selectable_label(true, self.get_alpha_focus_id(vidx));
                     });
                 }
@@ -922,7 +935,7 @@ impl State {
         alignment: Align,
     ) -> egui::Response {
         let (rect, response) = ui.allocate_exact_size(
-            Vec2::splat(self.config.layout.waveforms_text_size),
+            Vec2::splat(self.user.config.layout.waveforms_text_size),
             Sense::click(),
         );
         if !has_children {
@@ -964,6 +977,7 @@ impl State {
         let mut item_offsets = Vec::new();
 
         let any_groups = self
+            .user
             .waves
             .as_ref()
             .unwrap()
@@ -985,10 +999,21 @@ impl State {
                 has_children,
                 last,
                 ..
-            } in self.waves.as_ref().unwrap().items_tree.iter_visible_extra()
+            } in self
+                .user
+                .waves
+                .as_ref()
+                .unwrap()
+                .items_tree
+                .iter_visible_extra()
             {
-                let Some(displayed_item) =
-                    self.waves.as_ref().unwrap().displayed_items.get(item_ref)
+                let Some(displayed_item) = self
+                    .user
+                    .waves
+                    .as_ref()
+                    .unwrap()
+                    .displayed_items
+                    .get(item_ref)
                 else {
                     continue;
                 };
@@ -1016,7 +1041,7 @@ impl State {
                         let item_rect = match displayed_item {
                             DisplayedItem::Variable(displayed_variable) => {
                                 let levels_to_force_expand =
-                                    self.sys.items_to_expand.borrow().iter().find_map(
+                                    self.items_to_expand.borrow().iter().find_map(
                                         |(id, levels)| {
                                             if item_ref == id {
                                                 Some(*levels)
@@ -1070,7 +1095,7 @@ impl State {
                         let mut expanded_rect = item_rect;
                         expanded_rect.set_left(
                             available_rect.left()
-                                + self.config.layout.waveforms_text_size
+                                + self.user.config.layout.waveforms_text_size
                                 + ui.spacing().item_spacing.x,
                         );
                         expanded_rect.set_right(available_rect.right());
@@ -1080,7 +1105,7 @@ impl State {
             }
         });
 
-        self.waves.as_mut().unwrap().drawing_infos = item_offsets;
+        self.user.waves.as_mut().unwrap().drawing_infos = item_offsets;
     }
 
     fn draw_transaction_root(
@@ -1204,6 +1229,7 @@ impl State {
                     })
                     .body(|mut body| {
                         let focused_transaction = self
+                            .user
                             .waves
                             .as_ref()
                             .unwrap()
@@ -1226,6 +1252,7 @@ impl State {
                             });
                             row.col(|ui| {
                                 let gen = self
+                                    .user
                                     .waves
                                     .as_ref()
                                     .unwrap()
@@ -1341,8 +1368,9 @@ impl State {
 
     fn get_name_alignment(&self) -> Align {
         if self
+            .user
             .align_names_right
-            .unwrap_or_else(|| self.config.layout.align_names_right())
+            .unwrap_or_else(|| self.user.config.layout.align_names_right())
         {
             Align::RIGHT
         } else {
@@ -1357,13 +1385,14 @@ impl State {
         item_response: &egui::Response,
     ) {
         if item_response.dragged_by(egui::PointerButton::Primary)
-            && item_response.drag_delta().length() > self.config.theme.drag_threshold
+            && item_response.drag_delta().length() > self.user.config.theme.drag_threshold
         {
             msgs.push(Message::VariableDragStarted(vidx));
         }
 
         if item_response.drag_stopped()
             && self
+                .user
                 .drag_source_idx
                 .is_some_and(|source_idx| source_idx == vidx)
         {
@@ -1385,14 +1414,15 @@ impl State {
         let style = ui.style_mut();
         let text_color: Color32;
         if self.item_is_focused(vidx) {
-            style.visuals.selection.bg_fill = self.config.theme.accent_info.background;
-            text_color = self.config.theme.accent_info.foreground;
+            style.visuals.selection.bg_fill = self.user.config.theme.accent_info.background;
+            text_color = self.user.config.theme.accent_info.foreground;
         } else if self.item_is_selected(displayed_id) {
-            style.visuals.selection.bg_fill = self.config.theme.selected_elements_colors.background;
-            text_color = self.config.theme.selected_elements_colors.foreground;
+            style.visuals.selection.bg_fill =
+                self.user.config.theme.selected_elements_colors.background;
+            text_color = self.user.config.theme.selected_elements_colors.foreground;
         } else {
-            style.visuals.selection.bg_fill = self.config.theme.primary_ui_color.background;
-            text_color = self.config.theme.primary_ui_color.foreground;
+            style.visuals.selection.bg_fill = self.user.config.theme.primary_ui_color.background;
+            text_color = self.user.config.theme.primary_ui_color.foreground;
         }
 
         let mut layout_job = LayoutJob::default();
@@ -1401,7 +1431,7 @@ impl State {
             style,
             &mut layout_job,
             Some(&field),
-            &self.config,
+            &self.user.config,
         );
 
         let mut variable_label = ui
@@ -1417,7 +1447,7 @@ impl State {
 
         if self.show_tooltip() {
             variable_label = variable_label.on_hover_ui(|ui| {
-                let tooltip = if let Some(waves) = &self.waves {
+                let tooltip = if let Some(waves) = &self.user.waves {
                     if field.field.is_empty() {
                         let wave_container = waves.inner.as_waves().unwrap();
                         let meta = wave_container.variable_meta(&field.root).ok();
@@ -1435,6 +1465,7 @@ impl State {
 
         if variable_label.clicked() {
             if self
+                .user
                 .waves
                 .as_ref()
                 .is_some_and(|w| w.focused_item.is_some_and(|f| f == vidx))
@@ -1587,11 +1618,12 @@ impl State {
         ui: &mut egui::Ui,
         last: bool,
     ) {
-        if !self.drag_started || self.drag_source_idx.is_none() {
+        if !self.user.drag_started || self.user.drag_source_idx.is_none() {
             return;
         }
 
         let waves = self
+            .user
             .waves
             .as_ref()
             .expect("waves not available, but expected");
@@ -1650,8 +1682,8 @@ impl State {
                 Pos2::new(rect_with_margin.right(), line_y),
             ],
             Stroke::new(
-                self.config.theme.linewidth,
-                self.config.theme.drag_hint_color,
+                self.user.config.theme.linewidth,
+                self.user.config.theme.drag_hint_color,
             ),
         );
         msgs.push(Message::VariableDragTargetChanged(
@@ -1683,14 +1715,15 @@ impl State {
             let text_color: Color32;
 
             if self.item_is_focused(vidx) {
-                style.visuals.selection.bg_fill = self.config.theme.accent_info.background;
-                text_color = self.config.theme.accent_info.foreground;
+                style.visuals.selection.bg_fill = self.user.config.theme.accent_info.background;
+                text_color = self.user.config.theme.accent_info.foreground;
             } else if self.item_is_selected(displayed_id) {
                 style.visuals.selection.bg_fill =
-                    self.config.theme.selected_elements_colors.background;
-                text_color = self.config.theme.selected_elements_colors.foreground;
+                    self.user.config.theme.selected_elements_colors.background;
+                text_color = self.user.config.theme.selected_elements_colors.foreground;
             } else {
-                style.visuals.selection.bg_fill = self.config.theme.primary_ui_color.background;
+                style.visuals.selection.bg_fill =
+                    self.user.config.theme.primary_ui_color.background;
                 text_color = *self.get_item_text_color(displayed_item);
             }
 
@@ -1699,7 +1732,7 @@ impl State {
                 style,
                 &mut layout_job,
                 None,
-                &self.config,
+                &self.user.config,
             );
 
             let item_label = ui
@@ -1766,7 +1799,8 @@ impl State {
     fn get_alpha_focus_id(&self, vidx: VisibleItemIndex) -> RichText {
         let alpha_id = uint_idx_to_alpha_idx(
             vidx,
-            self.waves
+            self.user
+                .waves
                 .as_ref()
                 .map_or(0, |waves| waves.displayed_items.len()),
         );
@@ -1775,7 +1809,7 @@ impl State {
     }
 
     fn item_is_focused(&self, vidx: VisibleItemIndex) -> bool {
-        if let Some(waves) = &self.waves {
+        if let Some(waves) = &self.user.waves {
             waves.focused_item == Some(vidx)
         } else {
             false
@@ -1783,7 +1817,7 @@ impl State {
     }
 
     fn item_is_selected(&self, id: DisplayedItemRef) -> bool {
-        if let Some(waves) = &self.waves {
+        if let Some(waves) = &self.user.waves {
             waves
                 .items_tree
                 .iter_visible_selected()
@@ -1794,22 +1828,24 @@ impl State {
     }
 
     fn draw_var_values(&self, ui: &mut egui::Ui, msgs: &mut Vec<Message>) {
-        let Some(waves) = &self.waves else { return };
+        let Some(waves) = &self.user.waves else {
+            return;
+        };
         let (response, mut painter) = ui.allocate_painter(ui.available_size(), Sense::click());
         let rect = response.rect;
         let container_rect = Rect::from_min_size(Pos2::ZERO, rect.size());
         let to_screen = RectTransform::from_to(container_rect, rect);
         let cfg = DrawConfig::new(
             rect.height(),
-            self.config.layout.waveforms_line_height,
-            self.config.layout.waveforms_text_size,
+            self.user.config.layout.waveforms_line_height,
+            self.user.config.layout.waveforms_text_size,
         );
         let frame_width = rect.width();
 
         painter.rect_filled(
             rect,
             CornerRadiusF32::ZERO,
-            self.config.theme.secondary_ui_color.background,
+            self.user.config.theme.secondary_ui_color.background,
         );
         let ctx = DrawingContext {
             painter: &mut painter,
@@ -1817,7 +1853,7 @@ impl State {
             // This 0.5 is very odd, but it fixes the lines we draw being smushed out across two
             // pixels, resulting in dimmer colors https://github.com/emilk/egui/issues/1322
             to_screen: &|x, y| to_screen.transform_pos(Pos2::new(x, y) + Vec2::new(0.5, 0.5)),
-            theme: &self.config.theme,
+            theme: &self.user.config.theme,
         };
 
         let gap = ui.spacing().item_spacing.y * 0.5;
@@ -1871,10 +1907,9 @@ impl State {
                             &ucursor,
                         );
                         if let Some(v) = v {
-                            ui.label(
-                                RichText::new(v)
-                                    .color(*self.config.theme.get_best_text_color(backgroundcolor)),
-                            )
+                            ui.label(RichText::new(v).color(
+                                *self.user.config.theme.get_best_text_color(backgroundcolor),
+                            ))
                             .context_menu(|ui| {
                                 self.item_context_menu(
                                     Some(&FieldRef::without_fields(
@@ -1893,14 +1928,13 @@ impl State {
                             let delta = time_string(
                                 &(waves.numbered_marker_time(numbered_cursor.idx) - cursor),
                                 &waves.inner.metadata().timescale,
-                                &self.wanted_timeunit,
+                                &self.user.wanted_timeunit,
                                 &self.get_time_format(),
                             );
 
-                            ui.label(
-                                RichText::new(format!("Δ: {delta}",))
-                                    .color(*self.config.theme.get_best_text_color(backgroundcolor)),
-                            )
+                            ui.label(RichText::new(format!("Δ: {delta}",)).color(
+                                *self.user.config.theme.get_best_text_color(backgroundcolor),
+                            ))
                             .context_menu(|ui| {
                                 self.item_context_menu(None, msgs, ui, vidx);
                             });
@@ -1932,8 +1966,8 @@ impl State {
                 return None;
             };
             let variable = &displayed_variable.variable_ref;
-            let translator = waves
-                .variable_translator(&displayed_field_ref.without_field(), &self.sys.translators);
+            let translator =
+                waves.variable_translator(&displayed_field_ref.without_field(), &self.translators);
             let meta = waves.inner.as_waves().unwrap().variable_meta(variable);
 
             let translation_result = waves
@@ -1950,7 +1984,7 @@ impl State {
                 let fields = s.format_flat(
                     &displayed_variable.format,
                     &displayed_variable.field_formats,
-                    &self.sys.translators,
+                    &self.translators,
                 );
 
                 let subfield = fields
@@ -1998,7 +2032,7 @@ impl State {
     ) -> Color32 {
         if let Some(focused) = waves.focused_item {
             if self.highlight_focused() && focused == vidx {
-                return self.config.theme.highlight_background;
+                return self.user.config.theme.highlight_background;
             }
         }
         *waves
@@ -2011,16 +2045,16 @@ impl State {
                     .item_ref,
             )
             .and_then(super::displayed_item::DisplayedItem::background_color)
-            .and_then(|color| self.config.theme.get_color(color))
+            .and_then(|color| self.user.config.theme.get_color(color))
             .unwrap_or_else(|| self.get_default_alternating_background_color(vidx))
     }
 
     fn get_default_alternating_background_color(&self, vidx: VisibleItemIndex) -> &Color32 {
         // Set background color
-        if self.config.theme.alt_frequency != 0
-            && (vidx.0 / self.config.theme.alt_frequency) % 2 == 1
+        if self.user.config.theme.alt_frequency != 0
+            && (vidx.0 / self.user.config.theme.alt_frequency) % 2 == 1
         {
-            &self.config.theme.canvas_colors.alt_background
+            &self.user.config.theme.canvas_colors.alt_background
         } else {
             &Color32::TRANSPARENT
         }
@@ -2040,18 +2074,18 @@ impl State {
             &waves.inner.metadata().timescale,
             frame_width,
             cfg.text_size,
-            &self.wanted_timeunit,
+            &self.user.wanted_timeunit,
             &self.get_time_format(),
-            &self.config,
+            &self.user.config,
         );
 
         waves.draw_ticks(
-            Some(&self.config.theme.foreground),
+            Some(&self.user.config.theme.foreground),
             &ticks,
             ctx,
             0.0,
             egui::Align2::CENTER_TOP,
-            &self.config,
+            &self.user.config,
         );
     }
 }

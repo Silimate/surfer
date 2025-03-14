@@ -1,7 +1,7 @@
 use crate::message::Message;
 use crate::wave_source::LoadOptions;
 use crate::wcp::proto::{WcpCSMessage, WcpCommand, WcpSCMessage};
-use crate::State;
+use crate::SystemState;
 
 use serde_json::Error as serde_Error;
 use test_log::test;
@@ -26,7 +26,7 @@ fn get_test_port() -> usize {
 
 async fn get_json_response(
     stream: &TcpStream,
-    state: &mut State,
+    state: &mut SystemState,
 ) -> Result<WcpSCMessage, serde_Error> {
     loop {
         state.handle_wcp_commands();
@@ -111,7 +111,7 @@ where
 #[test]
 fn load() {
     run_test(async {
-        let mut state = State::new_default_config().unwrap();
+        let mut state = SystemState::new_default_config().unwrap();
         let port = get_test_port();
         state.update(Message::StartWcpServer {
             address: Some(format!("127.0.0.1:{port}").to_string()),
@@ -141,7 +141,7 @@ fn load() {
 #[test]
 fn stop_and_reconnect() {
     run_test(async {
-        let mut state = State::new_default_config().unwrap();
+        let mut state = SystemState::new_default_config().unwrap();
         let port = get_test_port();
         for _ in 0..2 {
             state.update(Message::StartWcpServer {
@@ -155,7 +155,7 @@ fn stop_and_reconnect() {
             state.update(Message::StopWcpServer);
             expect_disconnect(&stream).await;
             loop {
-                if !state.sys.wcp_running_signal.load(Ordering::Relaxed) {
+                if !state.wcp_running_signal.load(Ordering::Relaxed) {
                     break;
                 }
                 sleep(Duration::from_millis(100)).await;
@@ -167,7 +167,7 @@ fn stop_and_reconnect() {
 #[test]
 fn reconnect() {
     run_test(async {
-        let mut state = State::new_default_config().unwrap();
+        let mut state = SystemState::new_default_config().unwrap();
         let port = get_test_port();
         state.update(Message::StartWcpServer {
             address: Some(format!("127.0.0.1:{port}").to_string()),
@@ -185,7 +185,7 @@ fn reconnect() {
 #[test]
 fn initiate() {
     run_test(async {
-        let mut state = State::new_default_config().unwrap();
+        let mut state = SystemState::new_default_config().unwrap();
         let port = get_test_port();
         let address = format!("127.0.0.1:{port}").to_string();
         let listener = TcpListener::bind(address.clone()).await.unwrap();
@@ -220,7 +220,7 @@ async fn is_connected(stream: &TcpStream) -> bool {
 #[ignore = "This test is long running and disabled by default"]
 fn long_pause() {
     run_test(async {
-        let mut state = State::new_default_config().unwrap();
+        let mut state = SystemState::new_default_config().unwrap();
         let port = get_test_port();
         state.update(Message::StartWcpServer {
             address: Some(format!("127.0.0.1:{port}").to_string()),
@@ -242,7 +242,7 @@ fn long_pause() {
 #[test]
 fn start_stop() {
     run_test(async {
-        let mut state = State::new_default_config().unwrap();
+        let mut state = SystemState::new_default_config().unwrap();
         let port = get_test_port();
         state.update(Message::StartWcpServer {
             address: Some(format!("127.0.0.1:{port}").to_string()),
@@ -260,13 +260,13 @@ fn start_stop() {
 #[test]
 fn response_and_event() {
     run_test(async {
-        let mut state = State::new_default_config().unwrap();
+        let mut state = SystemState::new_default_config().unwrap();
         let port = get_test_port();
         state.update(Message::StartWcpServer {
             address: Some(format!("127.0.0.1:{port}").to_string()),
             initiate: false,
         });
-        let msg_sender = state.sys.channels.msg_sender.clone();
+        let msg_sender = state.channels.msg_sender.clone();
         let mut stream = connect(port).await;
         get_json_response(&stream, &mut state)
             .await

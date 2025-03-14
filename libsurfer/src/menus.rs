@@ -18,7 +18,7 @@ use crate::{
     variable_name_filter::variable_name_filter_type_menu,
     variable_name_type::VariableNameType,
     wave_source::OpenMode,
-    State,
+    SystemState,
 };
 
 // Button builder. Short name because we use it a ton
@@ -74,7 +74,7 @@ impl ButtonBuilder {
     }
 }
 
-impl State {
+impl SystemState {
     pub fn add_menu_panel(&self, ctx: &Context, msgs: &mut Vec<Message>) {
         TopBottomPanel::top("menu").show(ctx, |ui| {
             menu::bar(ui, |ui| {
@@ -89,7 +89,7 @@ impl State {
             ButtonBuilder::new(text, message)
         }
 
-        let waves_loaded = self.waves.is_some();
+        let waves_loaded = self.user.waves.is_some();
 
         ui.menu_button("File", |ui| {
             b("Open file...", Message::OpenFileDialog(OpenMode::Open)).add_closing_menu(msgs, ui);
@@ -99,7 +99,7 @@ impl State {
             {
                 b(
                     "Reload",
-                    Message::ReloadWaveform(self.config.behavior.keep_during_reload),
+                    Message::ReloadWaveform(self.user.config.behavior.keep_during_reload),
                 )
                 .shortcut("r")
                 .add_closing_menu(msgs, ui);
@@ -108,14 +108,17 @@ impl State {
             b("Load state...", Message::LoadStateFile(None)).add_closing_menu(msgs, ui);
             #[cfg(not(target_arch = "wasm32"))]
             {
-                let save_text = if self.state_file.is_some() {
+                let save_text = if self.user.state_file.is_some() {
                     "Save state"
                 } else {
                     "Save state..."
                 };
-                b(save_text, Message::SaveStateFile(self.state_file.clone()))
-                    .shortcut("Ctrl+s")
-                    .add_closing_menu(msgs, ui);
+                b(
+                    save_text,
+                    Message::SaveStateFile(self.user.state_file.clone()),
+                )
+                .shortcut("Ctrl+s")
+                .add_closing_menu(msgs, ui);
             }
             b("Save state as...", Message::SaveStateFile(None)).add_closing_menu(msgs, ui);
             b("Open URL...", Message::SetUrlEntryVisible(true)).add_closing_menu(msgs, ui);
@@ -124,7 +127,7 @@ impl State {
                 b("Add Python translator", Message::OpenPythonPluginDialog)
                     .add_closing_menu(msgs, ui);
                 b("Reload Python translator", Message::ReloadPythonPlugin)
-                    .enabled(self.sys.translators.has_python_translator())
+                    .enabled(self.translators.has_python_translator())
                     .add_closing_menu(msgs, ui);
                 b("Exit", Message::Exit).add_closing_menu(msgs, ui);
             }
@@ -189,14 +192,14 @@ impl State {
             ui.menu_button("Theme", |ui| {
                 ui.style_mut().wrap_mode = Some(TextWrapMode::Extend);
                 b("Default theme", Message::SelectTheme(None)).add_closing_menu(msgs, ui);
-                for theme_name in self.config.theme.theme_names.clone() {
+                for theme_name in self.user.config.theme.theme_names.clone() {
                     b(theme_name.clone(), Message::SelectTheme(Some(theme_name)))
                         .add_closing_menu(msgs, ui);
                 }
             });
             ui.menu_button("UI zoom factor", |ui| {
                 ui.style_mut().wrap_mode = Some(TextWrapMode::Extend);
-                for scale in &self.config.layout.zoom_factors {
+                for scale in &self.user.config.layout.zoom_factors {
                     ui.radio(
                         self.ui_zoom_factor() == *scale,
                         format!("{} %", scale * 100.),
@@ -212,15 +215,15 @@ impl State {
 
         ui.menu_button("Settings", |ui| {
             ui.menu_button("Clock highlighting", |ui| {
-                clock_highlight_type_menu(ui, msgs, self.config.default_clock_highlight_type);
+                clock_highlight_type_menu(ui, msgs, self.user.config.default_clock_highlight_type);
             });
             ui.menu_button("Time unit", |ui| {
-                timeunit_menu(ui, msgs, &self.wanted_timeunit);
+                timeunit_menu(ui, msgs, &self.user.wanted_timeunit);
             });
             ui.menu_button("Time format", |ui| {
                 timeformat_menu(ui, msgs, &self.get_time_format());
             });
-            if let Some(waves) = &self.waves {
+            if let Some(waves) = &self.user.waves {
                 let variable_name_type = waves.default_variable_name_type;
                 ui.menu_button("Variable names", |ui| {
                     for name_type in enum_iterator::all::<VariableNameType>() {
@@ -235,8 +238,9 @@ impl State {
             }
             ui.menu_button("Variable name alignment", |ui| {
                 let align_right = self
+                    .user
                     .align_names_right
-                    .unwrap_or_else(|| self.config.layout.align_names_right());
+                    .unwrap_or_else(|| self.user.config.layout.align_names_right());
                 ui.radio(!align_right, "Left").clicked().then(|| {
                     ui.close_menu();
                     msgs.push(Message::SetNameAlignRight(false));
@@ -247,13 +251,13 @@ impl State {
                 });
             });
             ui.menu_button("Variable filter type", |ui| {
-                variable_name_filter_type_menu(ui, msgs, &self.variable_name_filter_type);
+                variable_name_filter_type_menu(ui, msgs, &self.user.variable_name_filter_type);
             });
 
             ui.menu_button("Hierarchy", |ui| {
                 for style in enum_iterator::all::<HierarchyStyle>() {
                     ui.radio(
-                        self.config.layout.hierarchy_style == style,
+                        self.user.config.layout.hierarchy_style == style,
                         style.to_string(),
                     )
                     .clicked()
@@ -267,7 +271,7 @@ impl State {
             ui.menu_button("Arrow keys", |ui| {
                 for binding in enum_iterator::all::<ArrowKeyBindings>() {
                     ui.radio(
-                        self.config.behavior.arrow_key_bindings == binding,
+                        self.user.config.behavior.arrow_key_bindings == binding,
                         binding.to_string(),
                     )
                     .clicked()
@@ -359,7 +363,9 @@ impl State {
         ui: &mut Ui,
         vidx: VisibleItemIndex,
     ) {
-        let Some(waves) = &self.waves else { return };
+        let Some(waves) = &self.user.waves else {
+            return;
+        };
 
         let (displayed_item_id, displayed_item) = waves
             .items_tree
@@ -384,7 +390,7 @@ impl State {
 
         ui.menu_button("Color", |ui| {
             let selected_color = &displayed_item.color().unwrap_or("__nocolor__");
-            for color_name in self.config.theme.colors.keys() {
+            for color_name in self.user.config.theme.colors.keys() {
                 ui.radio(selected_color == color_name, color_name)
                     .clicked()
                     .then(|| {
@@ -406,7 +412,7 @@ impl State {
 
         ui.menu_button("Background color", |ui| {
             let selected_color = &displayed_item.background_color().unwrap_or("__nocolor__");
-            for color_name in self.config.theme.colors.keys() {
+            for color_name in self.user.config.theme.colors.keys() {
                 ui.radio(selected_color == color_name, color_name)
                     .clicked()
                     .then(|| {
@@ -452,12 +458,12 @@ impl State {
                 }
             });
 
-            if self.sys.wcp_greeted_signal.load(Ordering::Relaxed)
-                && self.sys.wcp_client_capabilities.goto_declaration
+            if self.wcp_greeted_signal.load(Ordering::Relaxed)
+                && self.wcp_client_capabilities.goto_declaration
                 && ui.button("Go to declaration").clicked()
             {
                 let variable = variable.variable_ref.full_path_string();
-                self.sys.channels.wcp_s2c_sender.as_ref().map(|ch| {
+                self.channels.wcp_s2c_sender.as_ref().map(|ch| {
                     block_on(ch.send(WcpSCMessage::event(WcpEvent::goto_declaration { variable })))
                 });
                 ui.close_menu();
@@ -604,17 +610,19 @@ impl State {
         ui: &mut Ui,
     ) {
         // Should not call this unless a variable is selected, and, hence, a VCD is loaded
-        let Some(waves) = &self.waves else { return };
+        let Some(waves) = &self.user.waves else {
+            return;
+        };
 
         let (mut preferred_translators, mut bad_translators) = if path.field.is_empty() {
-            self.sys
-                .translators
+            self.translators
                 .all_translator_names()
                 .into_iter()
                 .partition(|translator_name| {
-                    let t = self.sys.translators.get_translator(translator_name);
+                    let t = self.translators.get_translator(translator_name);
 
                     if self
+                        .user
                         .blacklisted_translators
                         .contains(&(path.root.clone(), translator_name.to_string()))
                     {
@@ -645,7 +653,7 @@ impl State {
                     }
                 })
         } else {
-            (self.sys.translators.basic_translator_names(), vec![])
+            (self.translators.basic_translator_names(), vec![])
         };
 
         preferred_translators.sort_by(|a, b| numeric_sort::cmp(a, b));

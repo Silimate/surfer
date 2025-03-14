@@ -4,7 +4,7 @@ use crate::{
     wave_container::{ScopeRefExt, VariableRef, VariableRefExt},
     wave_data::WaveData,
     wave_source::{string_to_wavesource, LoadOptions, WaveSource},
-    State, WcpClientCapabilities,
+    SystemState, WcpClientCapabilities,
 };
 
 use futures::executor::block_on;
@@ -15,9 +15,9 @@ use surfer_translation_types::ScopeRef;
 
 use super::proto::{ItemInfo, WcpCSMessage, WcpCommand, WcpResponse, WcpSCMessage};
 
-impl State {
+impl SystemState {
     pub fn handle_wcp_commands(&mut self) {
-        let Some(receiver) = &mut self.sys.channels.wcp_c2s_receiver else {
+        let Some(receiver) = &mut self.channels.wcp_c2s_receiver else {
             return;
         };
 
@@ -40,7 +40,7 @@ impl State {
     }
 
     fn handle_wcp_cs_message(&mut self, message: &WcpCSMessage) {
-        if !self.sys.wcp_greeted_signal.load(Ordering::Relaxed) {
+        if !self.wcp_greeted_signal.load(Ordering::Relaxed) {
             match message {
                 WcpCSMessage::greeting { .. } => (),
                 _ => {
@@ -53,7 +53,7 @@ impl State {
             WcpCSMessage::command(command) => {
                 match command {
                     WcpCommand::get_item_list => {
-                        if let Some(waves) = &self.waves {
+                        if let Some(waves) = &self.user.waves {
                             let ids: Vec<crate::wcp::proto::DisplayedItemRef> = self
                                 .get_displayed_items(waves)
                                 .iter()
@@ -65,7 +65,7 @@ impl State {
                         }
                     }
                     WcpCommand::get_item_info { ids } => {
-                        let Some(waves) = &self.waves else {
+                        let Some(waves) = &self.user.waves else {
                             self.send_error("remove_items", vec![], "No waveform loaded");
                             return;
                         };
@@ -122,16 +122,16 @@ impl State {
                         self.send_response(WcpResponse::get_item_info { results: items });
                     }
                     WcpCommand::add_variables { variables } => {
-                        if self.waves.is_some() {
+                        if self.user.waves.is_some() {
                             self.save_current_canvas(format!("Add {} variables", variables.len()));
                         }
-                        if let Some(waves) = self.waves.as_mut() {
+                        if let Some(waves) = self.user.waves.as_mut() {
                             let variable_refs = variables
                                 .iter()
                                 .map(|n| VariableRef::from_hierarchy_string(n))
                                 .collect_vec();
                             let (cmd, ids) =
-                                waves.add_variables(&self.sys.translators, variable_refs, None);
+                                waves.add_variables(&self.translators, variable_refs, None);
                             if let Some(cmd) = cmd {
                                 self.load_variables(cmd);
                             }
@@ -148,16 +148,16 @@ impl State {
                         }
                     }
                     WcpCommand::add_scope { scope } => {
-                        if self.waves.is_some() {
+                        if self.user.waves.is_some() {
                             self.save_current_canvas(format!("Add scope {}", scope));
                         }
-                        if let Some(waves) = self.waves.as_mut() {
+                        if let Some(waves) = self.user.waves.as_mut() {
                             let scope = ScopeRef::from_hierarchy_string(scope);
 
                             let variables =
                                 waves.inner.as_waves().unwrap().variables_in_scope(&scope);
                             let (cmd, ids) =
-                                waves.add_variables(&self.sys.translators, variables, None);
+                                waves.add_variables(&self.translators, variables, None);
                             if let Some(cmd) = cmd {
                                 self.load_variables(cmd);
                             }
@@ -178,7 +178,7 @@ impl State {
                         self.send_response(WcpResponse::ack);
                     }
                     WcpCommand::set_item_color { id, color } => {
-                        let Some(waves) = &self.waves else {
+                        let Some(waves) = &self.user.waves else {
                             self.send_error("set_item_color", vec![], "No waveform loaded");
                             return;
                         };
@@ -195,7 +195,7 @@ impl State {
                         }
                     }
                     WcpCommand::remove_items { ids } => {
-                        let Some(_) = self.waves.as_mut() else {
+                        let Some(_) = self.user.waves.as_mut() else {
                             self.send_error("remove_items", vec![], "No waveform loaded");
                             return;
                         };
@@ -206,7 +206,7 @@ impl State {
                         self.send_response(WcpResponse::ack);
                     }
                     WcpCommand::focus_item { id } => {
-                        let Some(waves) = &self.waves else {
+                        let Some(waves) = &self.user.waves else {
                             self.send_error("remove_items", vec![], "No waveform loaded");
                             return;
                         };
@@ -225,7 +225,7 @@ impl State {
                         }
                     }
                     WcpCommand::clear => {
-                        if let Some(wave) = &self.waves {
+                        if let Some(wave) = &self.user.waves {
                             self.update(Message::RemoveItems(self.get_displayed_items(wave)))
                         }
 
@@ -277,14 +277,14 @@ impl State {
                         ),
                     )
                 } else {
-                    self.sys.wcp_client_capabilities = WcpClientCapabilities::new();
+                    self.wcp_client_capabilities = WcpClientCapabilities::new();
                     if commands.iter().any(|s| s == "waveforms_loaded") {
-                        self.sys.wcp_client_capabilities.waveforms_loaded = true;
+                        self.wcp_client_capabilities.waveforms_loaded = true;
                     }
                     if commands.iter().any(|s| s == "goto_declaration") {
-                        self.sys.wcp_client_capabilities.goto_declaration = true;
+                        self.wcp_client_capabilities.goto_declaration = true;
                     }
-                    self.sys.wcp_greeted_signal.store(true, Ordering::Relaxed);
+                    self.wcp_greeted_signal.store(true, Ordering::Relaxed);
                     self.send_greeting()
                 }
             }
@@ -313,23 +313,21 @@ impl State {
 
         let greeting = WcpSCMessage::create_greeting(0, commands);
 
-        self.sys
-            .channels
+        self.channels
             .wcp_s2c_sender
             .as_ref()
             .map(|ch| block_on(ch.send(greeting)));
     }
 
     fn send_response(&self, result: WcpResponse) {
-        self.sys
-            .channels
+        self.channels
             .wcp_s2c_sender
             .as_ref()
             .map(|ch| block_on(ch.send(WcpSCMessage::response(result))));
     }
 
     fn send_error(&self, error: &str, arguments: Vec<String>, message: &str) {
-        self.sys.channels.wcp_s2c_sender.as_ref().map(|ch| {
+        self.channels.wcp_s2c_sender.as_ref().map(|ch| {
             block_on(ch.send(WcpSCMessage::create_error(
                 error.to_string(),
                 arguments,

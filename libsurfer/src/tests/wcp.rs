@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use crate::message::Message;
 use crate::tests::snapshot::render_and_compare;
 use crate::wcp::proto::{self, WcpCSMessage, WcpCommand, WcpEvent, WcpResponse, WcpSCMessage};
-use crate::State;
+use crate::SystemState;
 use itertools::Itertools;
 
 use color_eyre::eyre::bail;
@@ -55,7 +55,7 @@ where
             .unwrap();
 
         // create state and add messages as batch commands
-        let mut state = State::new_default_config().unwrap();
+        let mut state = SystemState::new_default_config().unwrap();
 
         let setup_msgs = vec![
             // hide GUI elements
@@ -71,10 +71,10 @@ where
         let (runner_tx, mut runner_rx) = tokio::sync::oneshot::channel();
 
         let (sc_tx, sc_rx) = tokio::sync::mpsc::channel(100);
-        state.sys.channels.wcp_s2c_sender = Some(sc_tx);
+        state.channels.wcp_s2c_sender = Some(sc_tx);
         let (cs_tx, cs_rx) = tokio::sync::mpsc::channel(100);
-        state.sys.channels.wcp_c2s_receiver = Some(cs_rx);
-        state.sys.wcp_running_signal.store(true, Ordering::Relaxed);
+        state.channels.wcp_c2s_receiver = Some(cs_rx);
+        state.wcp_running_signal.store(true, Ordering::Relaxed);
 
         {
             let client = client.clone();

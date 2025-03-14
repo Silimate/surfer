@@ -33,7 +33,7 @@ use crate::wave_data::WaveData;
 use crate::CachedDrawData::TransactionDrawData;
 use crate::{
     displayed_item::DisplayedItem, CachedDrawData, CachedTransactionDrawData, CachedWaveDrawData,
-    Message, State,
+    Message, SystemState,
 };
 
 pub struct DrawnRegion {
@@ -266,11 +266,11 @@ fn variable_draw_commands(
     })
 }
 
-impl State {
+impl SystemState {
     pub fn invalidate_draw_commands(&mut self) {
-        if let Some(waves) = &self.waves {
+        if let Some(waves) = &self.user.waves {
             for viewport in 0..waves.viewports.len() {
-                self.sys.draw_data.borrow_mut()[viewport] = None;
+                self.draw_data.borrow_mut()[viewport] = None;
             }
         }
     }
@@ -283,8 +283,8 @@ impl State {
         viewport_idx: usize,
     ) {
         #[cfg(feature = "performance_plot")]
-        self.sys.timing.borrow_mut().start("Generate draw commands");
-        if let Some(waves) = &self.waves {
+        self.timing.borrow_mut().start("Generate draw commands");
+        if let Some(waves) = &self.user.waves {
             let draw_data = match waves.inner {
                 DataContainer::Waves(_) => {
                     self.generate_wave_draw_commands(waves, cfg, frame_width, msgs, viewport_idx)
@@ -298,10 +298,10 @@ impl State {
                 ),
                 DataContainer::Empty => None,
             };
-            self.sys.draw_data.borrow_mut()[viewport_idx] = draw_data;
+            self.draw_data.borrow_mut()[viewport_idx] = draw_data;
         }
         #[cfg(feature = "performance_plot")]
-        self.sys.timing.borrow_mut().end("Generate draw commands");
+        self.timing.borrow_mut().end("Generate draw commands");
     }
 
     fn generate_wave_draw_commands(
@@ -335,7 +335,7 @@ impl State {
             .collect::<Vec<_>>();
         timestamps.sort_by(|a, b| a.partial_cmp(b).unwrap_or(Ordering::Equal));
 
-        let translators = &self.sys.translators;
+        let translators = &self.translators;
         let commands = waves
             .items_tree
             .iter_visible()
@@ -386,9 +386,9 @@ impl State {
             &waves.inner.metadata().timescale,
             frame_width,
             cfg.text_size,
-            &self.wanted_timeunit,
+            &self.user.wanted_timeunit,
             &self.get_time_format(),
-            &self.config,
+            &self.user.config,
         );
 
         Some(CachedDrawData::WaveDrawData(CachedWaveDrawData {
@@ -579,7 +579,9 @@ impl State {
         ui: &mut Ui,
         viewport_idx: usize,
     ) {
-        let Some(waves) = &self.waves else { return };
+        let Some(waves) = &self.user.waves else {
+            return;
+        };
 
         let (response, mut painter) =
             ui.allocate_painter(ui.available_size(), Sense::click_and_drag());
@@ -587,25 +589,27 @@ impl State {
         let cfg = match waves.inner {
             DataContainer::Waves(_) => DrawConfig::new(
                 response.rect.size().y,
-                self.config.layout.waveforms_line_height,
-                self.config.layout.waveforms_text_size,
+                self.user.config.layout.waveforms_line_height,
+                self.user.config.layout.waveforms_text_size,
             ),
             DataContainer::Transactions(_) => DrawConfig::new(
                 response.rect.size().y,
-                self.config.layout.transactions_line_height,
-                self.config.layout.waveforms_text_size,
+                self.user.config.layout.transactions_line_height,
+                self.user.config.layout.waveforms_text_size,
             ),
             DataContainer::Empty => return,
         };
         // the draw commands have been invalidated, recompute
-        if self.sys.draw_data.borrow()[viewport_idx].is_none()
-            || Some(response.rect) != *self.sys.last_canvas_rect.borrow()
+        if self.draw_data.borrow()[viewport_idx].is_none()
+            || Some(response.rect) != *self.last_canvas_rect.borrow()
         {
             self.generate_draw_commands(&cfg, response.rect.width(), msgs, viewport_idx);
-            *self.sys.last_canvas_rect.borrow_mut() = Some(response.rect);
+            *self.last_canvas_rect.borrow_mut() = Some(response.rect);
         }
 
-        let Some(waves) = &self.waves else { return };
+        let Some(waves) = &self.user.waves else {
+            return;
+        };
         if response.rect.size().x < 1. {
             return;
         }
@@ -682,7 +686,7 @@ impl State {
         painter.rect_filled(
             response.rect,
             CornerRadiusF32::ZERO,
-            self.config.theme.canvas_colors.background,
+            self.user.config.theme.canvas_colors.background,
         );
 
         // Check for mouse gesture starting
@@ -705,14 +709,14 @@ impl State {
                 // offset the coordinates by 0.5 if we have an odd line width.
                 // Relevant issues: https://github.com/emilk/egui/issues/1322
                 //                  https://github.com/emilk/egui/pull/4943
-                let offset = if (self.config.theme.linewidth as i32) % 2 == 1 {
+                let offset = if (self.user.config.theme.linewidth as i32) % 2 == 1 {
                     Vec2::new(0.5, 0.5)
                 } else {
                     Vec2::ZERO
                 };
                 to_screen.transform_pos(Pos2::new(x, y) + offset)
             },
-            theme: &self.config.theme,
+            theme: &self.user.config.theme,
         };
 
         let gap = ui.spacing().item_spacing.y * 0.5;
@@ -736,9 +740,9 @@ impl State {
         }
 
         #[cfg(feature = "performance_plot")]
-        self.sys.timing.borrow_mut().start("Wave drawing");
+        self.timing.borrow_mut().start("Wave drawing");
 
-        match &self.sys.draw_data.borrow()[viewport_idx] {
+        match &self.draw_data.borrow()[viewport_idx] {
             Some(CachedDrawData::WaveDrawData(draw_data)) => {
                 self.draw_wave_data(waves, draw_data, &mut ctx);
             }
@@ -757,24 +761,24 @@ impl State {
             None => {}
         }
         #[cfg(feature = "performance_plot")]
-        self.sys.timing.borrow_mut().end("Wave drawing");
+        self.timing.borrow_mut().end("Wave drawing");
 
         waves.draw_graphics(
             &mut ctx,
             response.rect.size(),
             &waves.viewports[viewport_idx],
-            &self.config.theme,
+            &self.user.config.theme,
         );
 
         waves.draw_cursor(
-            &self.config.theme,
+            &self.user.config.theme,
             &mut ctx,
             response.rect.size(),
             &waves.viewports[viewport_idx],
         );
 
         waves.draw_markers(
-            &self.config.theme,
+            &self.user.config.theme,
             &mut ctx,
             response.rect.size(),
             &waves.viewports[viewport_idx],
@@ -798,7 +802,7 @@ impl State {
                 },
             };
             ctx.painter
-                .rect_filled(rect, 0.0, self.config.theme.canvas_colors.background);
+                .rect_filled(rect, 0.0, self.user.config.theme.canvas_colors.background);
             self.draw_default_timeline(waves, &ctx, viewport_idx, frame_width, &cfg);
         }
 
@@ -827,12 +831,13 @@ impl State {
             [_single] => true,
             [first, second, ..] => second - first > 20.,
         };
-        let draw_clock_rising_marker = draw_clock_edges && self.config.theme.clock_rising_marker;
+        let draw_clock_rising_marker =
+            draw_clock_edges && self.user.config.theme.clock_rising_marker;
         let ticks = &draw_data.ticks;
         if !ticks.is_empty() && self.show_ticks() {
             let stroke = Stroke {
-                color: self.config.theme.ticks.style.color,
-                width: self.config.theme.ticks.style.width,
+                color: self.user.config.theme.ticks.style.color,
+                width: self.user.config.theme.ticks.style.width,
             };
 
             for (_, x) in ticks {
@@ -844,7 +849,7 @@ impl State {
             let mut last_edge = 0.0;
             let mut cycle = false;
             for current_edge in clock_edges {
-                draw_clock_edge(last_edge, *current_edge, cycle, ctx, &self.config);
+                draw_clock_edge(last_edge, *current_edge, cycle, ctx, &self.user.config);
                 cycle = !cycle;
                 last_edge = *current_edge;
             }
@@ -863,14 +868,18 @@ impl State {
                 .and_then(|node| waves.displayed_items.get(&node.item_ref));
             let color = displayed_item
                 .and_then(super::displayed_item::DisplayedItem::color)
-                .and_then(|color| self.config.theme.get_color(color));
+                .and_then(|color| self.user.config.theme.get_color(color));
 
             match drawing_info {
                 ItemDrawingInfo::Variable(variable_info) => {
                     if let Some(commands) = draw_commands.get(&variable_info.displayed_field_ref) {
                         // Get background color and determine best text color
                         let background_color = self.get_background_color(waves, drawing_info, vidx);
-                        let text_color = self.config.theme.get_best_text_color(&background_color);
+                        let text_color = self
+                            .user
+                            .config
+                            .theme
+                            .get_best_text_color(&background_color);
                         let height_scaling_factor = displayed_item
                             .map(super::displayed_item::DisplayedItem::height_scaling_factor)
                             .unwrap();
@@ -886,14 +895,14 @@ impl State {
                                     .and_then(|meta| meta.variable_type)
                                     .and_then(|var_type| {
                                         if var_type == VariableType::VCDParameter {
-                                            Some(&self.config.theme.variable_parameter)
+                                            Some(&self.user.config.theme.variable_parameter)
                                         } else {
                                             None
                                         }
                                     })
-                                    .unwrap_or(&self.config.theme.variable_default)
+                                    .unwrap_or(&self.user.config.theme.variable_default)
                             } else {
-                                &self.config.theme.variable_default
+                                &self.user.config.theme.variable_default
                             }
                         });
                         for (old, new) in commands.values.iter().zip(commands.values.iter().skip(1))
@@ -926,7 +935,8 @@ impl State {
                 ItemDrawingInfo::TimeLine(_) => {
                     let text_color = color.unwrap_or(
                         // Get background color and determine best text color
-                        self.config
+                        self.user
+                            .config
                             .theme
                             .get_best_text_color(&self.get_background_color(
                                 waves,
@@ -940,7 +950,7 @@ impl State {
                         ctx,
                         y_offset,
                         Align2::CENTER_TOP,
-                        &self.config,
+                        &self.user.config,
                     );
                 }
                 ItemDrawingInfo::Stream(_) => {}
@@ -975,15 +985,15 @@ impl State {
             &waves.inner.metadata().timescale,
             frame_width,
             cfg.text_size,
-            &self.wanted_timeunit,
+            &self.user.wanted_timeunit,
             &self.get_time_format(),
-            &self.config,
+            &self.user.config,
         );
 
         if !ticks.is_empty() && self.show_ticks() {
             let stroke = Stroke {
-                color: self.config.theme.ticks.style.color,
-                width: self.config.theme.ticks.style.width,
+                color: self.user.config.theme.ticks.style.color,
+                width: self.user.config.theme.ticks.style.width,
             };
 
             for (_, x) in ticks {
@@ -1001,10 +1011,12 @@ impl State {
                 .and_then(|node| waves.displayed_items.get(&node.item_ref));
             let color = displayed_item
                 .and_then(super::displayed_item::DisplayedItem::color)
-                .and_then(|color| self.config.theme.get_color(color));
+                .and_then(|color| self.user.config.theme.get_color(color));
             // Draws the surrounding border of the stream
-            let border_stroke =
-                Stroke::new(self.config.theme.linewidth, self.config.theme.foreground);
+            let border_stroke = Stroke::new(
+                self.user.config.theme.linewidth,
+                self.user.config.theme.foreground,
+            );
 
             match drawing_info {
                 ItemDrawingInfo::Stream(stream) => {
@@ -1058,11 +1070,12 @@ impl State {
                                     }
 
                                     let tx_fill_color = if is_transaction_focused {
-                                        let c =
-                                            color.unwrap_or(&self.config.theme.transaction_default);
+                                        let c = color
+                                            .unwrap_or(&self.user.config.theme.transaction_default);
                                         Color32::from_rgb(255 - c.r(), 255 - c.g(), 255 - c.b())
                                     } else {
-                                        *color.unwrap_or(&self.config.theme.transaction_default)
+                                        *color
+                                            .unwrap_or(&self.user.config.theme.transaction_default)
                                     };
 
                                     let stroke =
@@ -1076,7 +1089,7 @@ impl State {
                                     );
                                 } else {
                                     let tx_fill_color = color
-                                        .unwrap_or(&self.config.theme.transaction_default)
+                                        .unwrap_or(&self.user.config.theme.transaction_default)
                                         .gamma_multiply(1.2);
 
                                     let stroke = Stroke::new(1.5, tx_fill_color);
@@ -1100,7 +1113,8 @@ impl State {
                 ItemDrawingInfo::TimeLine(_) => {
                     let text_color = color.unwrap_or(
                         // Get background color and determine best text color
-                        self.config
+                        self.user
+                            .config
                             .theme
                             .get_best_text_color(&self.get_background_color(
                                 waves,
@@ -1114,7 +1128,7 @@ impl State {
                         ctx,
                         y_offset,
                         Align2::CENTER_TOP,
-                        &self.config,
+                        &self.user.config,
                     );
                 }
                 ItemDrawingInfo::Variable(_) => {}
@@ -1126,7 +1140,7 @@ impl State {
 
         // Draws the relations of the focused transaction
         if let Some(focused_pos) = focused_transaction_start {
-            let arrow_color = self.config.theme.relation_arrow;
+            let arrow_color = self.user.config.theme.relation_arrow;
             for start_pos in inc_relation_starts {
                 self.draw_arrow(start_pos, focused_pos, 25., arrow_color, ctx);
             }
@@ -1149,7 +1163,7 @@ impl State {
         if let Some(prev_result) = &prev_region.inner {
             let stroke = Stroke {
                 color: prev_result.kind.color(user_color, ctx.theme),
-                width: self.config.theme.linewidth,
+                width: self.user.config.theme.linewidth,
             };
 
             let transition_width = (new_x - old_x).min(6.);
@@ -1214,14 +1228,15 @@ impl State {
             let trace_coords =
                 |x, y| (ctx.to_screen)(x, y * ctx.cfg.line_height * height_scaling_factor + offset);
 
-            let (old_height, old_color, old_bg) =
-                prev_result
-                    .value
-                    .bool_drawing_spec(color, &self.config.theme, prev_result.kind);
+            let (old_height, old_color, old_bg) = prev_result.value.bool_drawing_spec(
+                color,
+                &self.user.config.theme,
+                prev_result.kind,
+            );
             let (new_height, _, _) =
                 new_result
                     .value
-                    .bool_drawing_spec(color, &self.config.theme, new_result.kind);
+                    .bool_drawing_spec(color, &self.user.config.theme, new_result.kind);
 
             if let Some(old_bg) = old_bg {
                 ctx.painter.add(RectShape::new(
@@ -1243,7 +1258,7 @@ impl State {
 
             let stroke = Stroke {
                 color: old_color,
-                width: self.config.theme.linewidth,
+                width: self.user.config.theme.linewidth,
             };
 
             if force_anti_alias {
@@ -1446,10 +1461,10 @@ impl State {
                             let next =
                                 viewport.pixel_from_time(next_time, frame_width, &num_timestamps);
                             if (prev - pos.x).abs() < (next - pos.x).abs() {
-                                if (prev - pos.x).abs() <= self.config.snap_distance {
+                                if (prev - pos.x).abs() <= self.user.config.snap_distance {
                                     return Some(prev_time.clone());
                                 }
-                            } else if (next - pos.x).abs() <= self.config.snap_distance {
+                            } else if (next - pos.x).abs() <= self.user.config.snap_distance {
                                 return Some(next_time.clone());
                             }
                         }
@@ -1471,8 +1486,8 @@ impl State {
         let x = viewport.pixel_from_time(time, size.x, &waves.num_timestamps().unwrap_or(1.into()));
 
         let stroke = Stroke {
-            color: self.config.theme.cursor.color,
-            width: self.config.theme.cursor.width,
+            color: self.user.config.theme.cursor.color,
+            width: self.user.config.theme.cursor.width,
         };
         ctx.painter.line_segment(
             [

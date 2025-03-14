@@ -4,11 +4,11 @@ use egui_remixicon::icons;
 use emath::{Align2, Pos2};
 
 use crate::wave_source::LoadOptions;
-use crate::{message::Message, State};
+use crate::{message::Message, SystemState};
 
-impl State {
+impl SystemState {
     pub fn help_message(&self, ui: &mut Ui) {
-        if self.waves.is_none() {
+        if self.user.waves.is_none() {
             ui.label(RichText::new(
                 "Drag and drop a VCD, FST, or GHW file here to open it",
             ));
@@ -30,8 +30,7 @@ impl State {
             ui.horizontal(|ui| {
                 ui.label(RichText::new("Or click"));
                 if ui.link("here").clicked() {
-                    self.sys
-                        .channels
+                    self.channels
                         .msg_sender
                         .send(Message::LoadWaveformFileFromUrl(
                             "https://app.surfer-project.org/picorv32.vcd".to_string(),

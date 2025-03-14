@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 use crate::data_container::DataContainer::Transactions;
 use crate::transaction_container::{StreamScopeRef, TransactionStreamRef};
 use crate::wave_data::ScopeType;
-use crate::{message::Message, wave_container::VariableRef, State};
+use crate::{message::Message, wave_container::VariableRef, SystemState};
 
 #[derive(Debug, Display, PartialEq, Serialize, Deserialize, Sequence)]
 pub enum VariableNameFilterType {
@@ -111,7 +111,7 @@ impl VariableNameFilterType {
     }
 }
 
-impl State {
+impl SystemState {
     pub fn draw_variable_name_filter_edit(
         &self,
         ui: &mut Ui,
@@ -128,7 +128,7 @@ impl State {
                 .on_hover_text("Add all variables from active Scope")
                 .clicked()
                 .then(|| {
-                    if let Some(waves) = self.waves.as_ref() {
+                    if let Some(waves) = self.user.waves.as_ref() {
                         // Iterate over the reversed list to get
                         // waves in the same order as the variable
                         // list
@@ -182,17 +182,18 @@ impl State {
                     }
                 });
             ui.add(
-                Button::new(icons::FONT_SIZE).selected(!self.variable_name_filter_case_insensitive),
+                Button::new(icons::FONT_SIZE)
+                    .selected(!self.user.variable_name_filter_case_insensitive),
             )
             .on_hover_text("Case sensitive filter")
             .clicked()
             .then(|| {
                 msgs.push(Message::SetVariableNameFilterCaseInsensitive(
-                    !self.variable_name_filter_case_insensitive,
+                    !self.user.variable_name_filter_case_insensitive,
                 ));
             });
             ui.menu_button(icons::FILTER_FILL, |ui| {
-                variable_name_filter_type_menu(ui, msgs, &self.variable_name_filter_type);
+                variable_name_filter_type_menu(ui, msgs, &self.user.variable_name_filter_type);
             });
             ui.add_enabled(!filter.is_empty(), Button::new(icons::CLOSE_FILL))
                 .on_hover_text("Clear filter")
@@ -200,16 +201,17 @@ impl State {
                 .then(|| filter.clear());
 
             // Check if regex and if an incorrect regex, change background color
-            if self.variable_name_filter_type == VariableNameFilterType::Regex
+            if self.user.variable_name_filter_type == VariableNameFilterType::Regex
                 && Regex::new(filter).is_err()
             {
-                ui.style_mut().visuals.extreme_bg_color = self.config.theme.accent_error.background;
+                ui.style_mut().visuals.extreme_bg_color =
+                    self.user.config.theme.accent_error.background;
             }
             // Create text edit
             let response =
                 ui.add(TextEdit::singleline(filter).hint_text("Filter (context menu for type)"));
             response.context_menu(|ui| {
-                variable_name_filter_type_menu(ui, msgs, &self.variable_name_filter_type);
+                variable_name_filter_type_menu(ui, msgs, &self.user.variable_name_filter_type);
             });
             // Handle focus
             if response.gained_focus() {
@@ -230,11 +232,12 @@ impl State {
                 .cloned()
                 .collect_vec()
         } else {
-            self.variable_name_filter_type
+            self.user
+                .variable_name_filter_type
                 .matching_variables(
                     variables,
                     filter,
-                    self.variable_name_filter_case_insensitive,
+                    self.user.variable_name_filter_case_insensitive,
                 )
                 .iter()
                 .sorted_by(|a, b| numeric_sort::cmp(&a.name, &b.name))

@@ -8,7 +8,7 @@ use crate::{
     message::Message,
     wave_data::{PER_SCROLL_EVENT, SCROLL_EVENTS_PER_PAGE},
     wave_source::OpenMode,
-    State,
+    SystemState,
 };
 
 /// Helper function to add a new toolbar button, setting up icon, hover text etc.
@@ -27,7 +27,7 @@ fn add_toolbar_button(
         .then(|| msgs.push(message));
 }
 
-impl State {
+impl SystemState {
     /// Add panel and draw toolbar.
     pub fn add_toolbar_panel(&self, ctx: &Context, msgs: &mut Vec<Message>) {
         TopBottomPanel::top("toolbar").show(ctx, |ui| {
@@ -36,7 +36,9 @@ impl State {
     }
 
     fn simulation_status_toolbar(&self, ui: &mut Ui, msgs: &mut Vec<Message>) {
-        let Some(waves) = &self.waves else { return };
+        let Some(waves) = &self.user.waves else {
+            return;
+        };
         let Some(status) = waves.inner.simulation_status() else {
             return;
         };
@@ -68,12 +70,13 @@ impl State {
     }
 
     fn draw_toolbar(&self, ui: &mut Ui, msgs: &mut Vec<Message>) {
-        let wave_loaded = self.waves.is_some();
-        let undo_available = !self.sys.undo_stack.is_empty();
-        let redo_available = !self.sys.redo_stack.is_empty();
-        let item_selected = wave_loaded && self.waves.as_ref().unwrap().focused_item.is_some();
-        let cursor_set = wave_loaded && self.waves.as_ref().unwrap().cursor.is_some();
-        let multiple_viewports = wave_loaded && (self.waves.as_ref().unwrap().viewports.len() > 1);
+        let wave_loaded = self.user.waves.is_some();
+        let undo_available = !self.undo_stack.is_empty();
+        let redo_available = !self.redo_stack.is_empty();
+        let item_selected = wave_loaded && self.user.waves.as_ref().unwrap().focused_item.is_some();
+        let cursor_set = wave_loaded && self.user.waves.as_ref().unwrap().cursor.is_some();
+        let multiple_viewports =
+            wave_loaded && (self.user.waves.as_ref().unwrap().viewports.len() > 1);
         ui.with_layout(Layout::left_to_right(Align::LEFT), |ui| {
             if !self.show_menu() {
                 // Menu
@@ -105,7 +108,7 @@ impl State {
                 msgs,
                 icons::REFRESH_LINE,
                 "Reload",
-                Message::ReloadWaveform(self.config.behavior.keep_during_reload),
+                Message::ReloadWaveform(self.user.config.behavior.keep_during_reload),
                 wave_loaded,
             );
             ui.separator();
@@ -293,12 +296,12 @@ impl State {
                 wave_loaded && multiple_viewports,
             );
 
-            let undo_tooltip = if let Some(undo_op) = self.sys.undo_stack.last() {
+            let undo_tooltip = if let Some(undo_op) = self.undo_stack.last() {
                 format!("Undo: {}", undo_op.message)
             } else {
                 "Undo".into()
             };
-            let redo_tooltip = if let Some(redo_op) = self.sys.redo_stack.last() {
+            let redo_tooltip = if let Some(redo_op) = self.redo_stack.last() {
                 format!("Redo: {}", redo_op.message)
             } else {
                 "Redo".into()

@@ -4,7 +4,7 @@ use epaint::{CornerRadius, FontId, Stroke};
 use itertools::Itertools;
 use num::BigInt;
 
-use crate::State;
+use crate::SystemState;
 use crate::{
     config::SurferTheme,
     displayed_item::{DisplayedItem, DisplayedMarker},
@@ -208,7 +208,7 @@ impl WaveData {
     }
 }
 
-impl State {
+impl SystemState {
     pub fn draw_marker_window(&self, waves: &WaveData, ctx: &Context, msgs: &mut Vec<Message>) {
         let mut open = true;
 
@@ -282,7 +282,7 @@ impl State {
                                     ui.label(time_string(
                                         &(*row_marker_time - *col_marker_time),
                                         &waves.inner.metadata().timescale,
-                                        &self.wanted_timeunit,
+                                        &self.user.wanted_timeunit,
                                         &self.get_time_format(),
                                     ));
                                 }
@@ -331,8 +331,8 @@ impl State {
 
             let background_color = item
                 .color()
-                .and_then(|color| self.config.theme.get_color(color))
-                .unwrap_or(&self.config.theme.cursor.color);
+                .and_then(|color| self.user.config.theme.get_color(color))
+                .unwrap_or(&self.user.config.theme.cursor.color);
 
             let x = waves.numbered_marker_location(drawing_info.idx, viewport, view_width);
 
@@ -343,11 +343,11 @@ impl State {
                     .get(&drawing_info.idx)
                     .unwrap_or(&BigInt::from(0)),
                 &waves.inner.metadata().timescale,
-                &self.wanted_timeunit,
+                &self.user.wanted_timeunit,
                 &self.get_time_format(),
             );
 
-            let text_color = *self.config.theme.get_best_text_color(background_color);
+            let text_color = *self.user.config.theme.get_best_text_color(background_color);
 
             // Create galley
             let galley =

@@ -6,10 +6,10 @@ use crate::config::ArrowKeyBindings;
 use crate::{
     message::Message,
     wave_data::{PER_SCROLL_EVENT, SCROLL_EVENTS_PER_PAGE},
-    MoveDir, State,
+    MoveDir, SystemState,
 };
 
-impl State {
+impl SystemState {
     pub fn handle_pressed_keys(&self, ctx: &Context, msgs: &mut Vec<Message>) {
         ctx.input(|i| {
             i.events.iter().for_each(|event| match event {
@@ -22,8 +22,8 @@ impl State {
                 } => match (
                     key,
                     pressed,
-                    self.sys.command_prompt.visible,
-                    self.variable_name_filter_focused,
+                    self.command_prompt.visible,
+                    self.user.variable_name_filter_focused,
                 ) {
                     (Key::Num0, true, false, false) => {
                         handle_digit(0, modifiers, msgs);
@@ -57,7 +57,7 @@ impl State {
                     }
                     (Key::Home, true, false, false) => msgs.push(Message::ScrollToItem(0)),
                     (Key::End, true, false, false) => {
-                        if let Some(waves) = &self.waves {
+                        if let Some(waves) = &self.user.waves {
                             if waves.displayed_items.len() > 1 {
                                 msgs.push(Message::ScrollToItem(waves.displayed_items.len() - 1));
                             }
@@ -86,7 +86,7 @@ impl State {
                     (Key::M, true, false, false) => {
                         if modifiers.alt {
                             msgs.push(Message::ToggleMenu)
-                        } else if let Some(waves) = self.waves.as_ref() {
+                        } else if let Some(waves) = self.user.waves.as_ref() {
                             if let Some(cursor) = waves.cursor.as_ref() {
                                 // Check if a marker already exists at the cursor position
                                 let marker_exists = waves
@@ -98,6 +98,7 @@ impl State {
                                         time: cursor.clone(),
                                         name: None,
                                         move_focus: self
+                                            .user
                                             .config
                                             .layout
                                             .move_focus_on_inserted_marker(),
@@ -130,7 +131,7 @@ impl State {
                     }
                     (Key::S, true, false, false) => {
                         if modifiers.command {
-                            msgs.push(Message::SaveStateFile(self.state_file.clone()));
+                            msgs.push(Message::SaveStateFile(self.user.state_file.clone()));
                         } else {
                             msgs.push(Message::GoToStart { viewport_idx: 0 });
                         }
@@ -144,7 +145,7 @@ impl State {
                     }
                     (Key::E, true, false, false) => msgs.push(Message::GoToEnd { viewport_idx: 0 }),
                     (Key::R, true, false, false) => msgs.push(Message::ReloadWaveform(
-                        self.config.behavior.keep_during_reload,
+                        self.user.config.behavior.keep_during_reload,
                     )),
                     (Key::H, true, false, false) => msgs.push(Message::MoveCursorToTransition {
                         next: false,
@@ -183,7 +184,7 @@ impl State {
                         viewport_idx: 0,
                     }),
                     (Key::ArrowRight, true, false, false) => {
-                        msgs.push(match self.config.behavior.arrow_key_bindings {
+                        msgs.push(match self.user.config.behavior.arrow_key_bindings {
                             ArrowKeyBindings::Edge => Message::MoveCursorToTransition {
                                 next: true,
                                 variable: None,
@@ -199,7 +200,7 @@ impl State {
                         });
                     }
                     (Key::ArrowLeft, true, false, false) => {
-                        msgs.push(match self.config.behavior.arrow_key_bindings {
+                        msgs.push(match self.user.config.behavior.arrow_key_bindings {
                             ArrowKeyBindings::Edge => Message::MoveCursorToTransition {
                                 next: false,
                                 variable: None,
@@ -271,7 +272,7 @@ impl State {
                         msgs.push(Message::InvalidateCount);
                     }
                     (Key::Delete | Key::X, true, false, false) => {
-                        if let Some(waves) = &self.waves {
+                        if let Some(waves) = &self.user.waves {
                             let mut remove_ids = waves
                                 .items_tree
                                 .iter_visible_selected()
@@ -308,7 +309,7 @@ impl State {
     }
 
     pub fn get_count(&self) -> usize {
-        if let Some(count) = &self.count {
+        if let Some(count) = &self.user.count {
             count.parse::<usize>().unwrap_or(1)
         } else {
             1

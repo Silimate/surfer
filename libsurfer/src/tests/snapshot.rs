@@ -21,11 +21,13 @@ use crate::{
     displayed_item::{DisplayedFieldRef, DisplayedItemRef},
     displayed_item_tree::VisibleItemIndex,
     message::AsyncJob,
-    setup_custom_font, transaction_container,
+    setup_custom_font,
+    state::UserState,
+    transaction_container,
     variable_name_filter::VariableNameFilterType,
     wave_container::{ScopeRef, VariableRef},
     wave_source::LoadOptions,
-    Message, MoveDir, StartupParams, State, WaveSource,
+    Message, MoveDir, StartupParams, SystemState, WaveSource,
 };
 use crate::{
     graphics::Direction,
@@ -52,7 +54,7 @@ fn print_image(img: &DynamicImage) {
 
 pub(crate) fn render_and_compare_inner(
     filename: &Path,
-    state: impl Fn() -> State,
+    state: impl Fn() -> SystemState,
     size: Vec2,
     feathering: bool,
     threshold_score: f64,
@@ -80,9 +82,9 @@ pub(crate) fn render_and_compare_inner(
     });
 
     let mut state = state();
-    state.show_statusbar = Some(false);
+    state.user.show_statusbar = Some(false);
     // disable the default timeline
-    state.show_default_timeline = Some(!state.show_default_timeline());
+    state.user.show_default_timeline = Some(!state.show_default_timeline());
 
     let size_i = (size.x as i32, size.y as i32);
 
@@ -183,7 +185,7 @@ pub(crate) fn render_and_compare_inner(
     }
 }
 
-pub(crate) fn render_and_compare(filename: &Path, state: impl Fn() -> State) {
+pub(crate) fn render_and_compare(filename: &Path, state: impl Fn() -> SystemState) {
     render_and_compare_inner(filename, state, Vec2::new(1280., 720.), false, 0.99999)
 }
 
@@ -199,7 +201,7 @@ macro_rules! snapshot_ui {
 macro_rules! snapshot_empty_state_with_msgs {
     ($name:ident, $msgs:expr) => {
         snapshot_ui! {$name, || {
-            let mut state = State::new_default_config().unwrap().with_params(StartupParams::default());
+            let mut state = SystemState::new_default_config().unwrap().with_params(StartupParams::default());
             for msg in $msgs {
                 state.update(msg);
             }
@@ -248,7 +250,7 @@ macro_rules! snapshot_ui_with_file_spade_and_msgs {
             let spade_state = spade_state.map(|state| project_root.join(state));
             let spade_top = $spade_top;
 
-            let mut state = State::new_default_config()
+            let mut state = SystemState::new_default_config()
                 .unwrap()
                 .with_params(StartupParams {
                     waves: Some(WaveSource::File(
@@ -269,7 +271,6 @@ macro_rules! snapshot_ui_with_file_spade_and_msgs {
                 state.handle_batch_commands();
                 let spade_loaded = if spade_top.is_some() {
                     state
-                        .sys
                         .translators
                         .all_translator_names()
                         .iter()
@@ -328,7 +329,7 @@ fn render_readme_screenshot() {
     render_and_compare_inner(
         &PathBuf::from("render_readme_screenshot"),
         || {
-            let mut state = State::new_default_config()
+            let mut state = SystemState::new_default_config()
                 .unwrap()
                 .with_params(StartupParams {
                     waves: Some(WaveSource::File(
@@ -421,11 +422,11 @@ fn render_readme_screenshot() {
 }
 
 snapshot_ui! {startup_screen_looks_fine, || {
-    State::new_default_config().unwrap().with_params(StartupParams::default())
+    SystemState::new_default_config().unwrap().with_params(StartupParams::default())
 }}
 
 snapshot_ui!(menu_can_be_hidden, || {
-    let mut state = State::new_default_config()
+    let mut state = SystemState::new_default_config()
         .unwrap()
         .with_params(StartupParams::default());
     let msgs = [Message::ToggleMenu];
@@ -436,7 +437,7 @@ snapshot_ui!(menu_can_be_hidden, || {
 });
 
 snapshot_ui!(side_panel_can_be_hidden, || {
-    let mut state = State::new_default_config()
+    let mut state = SystemState::new_default_config()
         .unwrap()
         .with_params(StartupParams::default());
     let msgs = [Message::ToggleSidePanel];
@@ -447,7 +448,7 @@ snapshot_ui!(side_panel_can_be_hidden, || {
 });
 
 snapshot_ui!(toolbar_can_be_hidden, || {
-    let mut state = State::new_default_config()
+    let mut state = SystemState::new_default_config()
         .unwrap()
         .with_params(StartupParams::default());
     let msgs = [Message::ToggleToolbar];
@@ -458,7 +459,7 @@ snapshot_ui!(toolbar_can_be_hidden, || {
 });
 
 snapshot_ui!(overview_can_be_hidden, || {
-    let mut state = State::new_default_config()
+    let mut state = SystemState::new_default_config()
         .unwrap()
         .with_params(StartupParams {
             waves: Some(WaveSource::File(
@@ -493,7 +494,7 @@ snapshot_ui!(overview_can_be_hidden, || {
 });
 
 snapshot_ui!(statusbar_can_be_hidden, || {
-    let mut state = State::new_default_config()
+    let mut state = SystemState::new_default_config()
         .unwrap()
         .with_params(StartupParams {
             waves: Some(WaveSource::File(
@@ -528,7 +529,7 @@ snapshot_ui!(statusbar_can_be_hidden, || {
 });
 
 snapshot_ui! {example_vcd_renders, || {
-    let mut state = State::new_default_config().unwrap().with_params(StartupParams {
+    let mut state = SystemState::new_default_config().unwrap().with_params(StartupParams {
         waves: Some(WaveSource::File(get_project_root().unwrap().join("examples/counter.vcd").try_into().unwrap())),
         ..Default::default()
     });
@@ -579,7 +580,7 @@ snapshot_ui_with_file_and_msgs! {top_level_signals_have_no_aliasing, "examples/p
 ]}
 
 snapshot_ui! {resizing_the_canvas_redraws, || {
-    let mut state = State::new_default_config().unwrap().with_params(StartupParams {
+    let mut state = SystemState::new_default_config().unwrap().with_params(StartupParams {
         waves: Some(WaveSource::File(get_project_root().unwrap().join("examples/counter.vcd").try_into().unwrap())),
         ..Default::default()
     });
@@ -798,7 +799,7 @@ snapshot_ui_with_file_and_msgs! {delete_markers_via_item, "examples/counter.vcd"
 snapshot_ui_with_file_and_msgs! {
     startup_commands_work,
     "examples/counter.vcd",
-    state_mods: (|state: &mut State| {
+    state_mods: (|state: &mut SystemState| {
         state.add_startup_commands(vec!["scope_add tb".to_string()]);
     }),
     []
@@ -811,7 +812,7 @@ snapshot_ui_with_file_and_msgs! {
 snapshot_ui_with_file_and_msgs! {
     yosys_blogpost_startup_commands_work,
     "examples/picorv32.vcd",
-    state_mods: (|state: &mut State| {
+    state_mods: (|state: &mut SystemState| {
         state.add_startup_commands(vec!["startup_commands=module_add testbench;divider_add .;divider_add top;module_add testbench.top;show_quick_start".to_string()]);
     }),
     []
@@ -1069,7 +1070,7 @@ snapshot_ui_with_file_and_msgs! {selection_extend_change_color, "examples/counte
 ]}
 
 snapshot_ui!(regex_error_indication, || {
-    let mut state = State::new_default_config()
+    let mut state = SystemState::new_default_config()
         .unwrap()
         .with_params(StartupParams {
             waves: Some(WaveSource::File(
@@ -1104,7 +1105,7 @@ snapshot_ui!(regex_error_indication, || {
     for message in msgs {
         state.update(message);
     }
-    state.sys.variable_name_filter.borrow_mut().push_str("a(");
+    state.variable_name_filter.borrow_mut().push_str("a(");
     // make sure all the signals added by the proceeding messages are properly loaded
     wait_for_waves_fully_loaded(&mut state, 10);
     state
@@ -1118,7 +1119,7 @@ snapshot_ui_with_file_and_msgs! {signal_list_works, "examples/counter.vcd", [
 ]}
 
 snapshot_ui!(fuzzy_signal_filter_works, || {
-    let mut state = State::new_default_config()
+    let mut state = SystemState::new_default_config()
         .unwrap()
         .with_params(StartupParams {
             waves: Some(WaveSource::File(
@@ -1158,14 +1159,14 @@ snapshot_ui!(fuzzy_signal_filter_works, || {
     for message in msgs {
         state.update(message);
     }
-    state.sys.variable_name_filter.borrow_mut().push_str("at");
+    state.variable_name_filter.borrow_mut().push_str("at");
     // make sure all the signals added by the proceeding messages are properly loaded
     wait_for_waves_fully_loaded(&mut state, 10);
     state
 });
 
 snapshot_ui!(contain_signal_filter_works, || {
-    let mut state = State::new_default_config()
+    let mut state = SystemState::new_default_config()
         .unwrap()
         .with_params(StartupParams {
             waves: Some(WaveSource::File(
@@ -1205,14 +1206,14 @@ snapshot_ui!(contain_signal_filter_works, || {
     for message in msgs {
         state.update(message);
     }
-    state.sys.variable_name_filter.borrow_mut().push_str("at");
+    state.variable_name_filter.borrow_mut().push_str("at");
     // make sure all the signals added by the proceeding messages are properly loaded
     wait_for_waves_fully_loaded(&mut state, 10);
     state
 });
 
 snapshot_ui!(regex_signal_filter_works, || {
-    let mut state = State::new_default_config()
+    let mut state = SystemState::new_default_config()
         .unwrap()
         .with_params(StartupParams {
             waves: Some(WaveSource::File(
@@ -1252,18 +1253,14 @@ snapshot_ui!(regex_signal_filter_works, || {
     for message in msgs {
         state.update(message);
     }
-    state
-        .sys
-        .variable_name_filter
-        .borrow_mut()
-        .push_str("a[dx]");
+    state.variable_name_filter.borrow_mut().push_str("a[dx]");
     // make sure all the signals added by the proceeding messages are properly loaded
     wait_for_waves_fully_loaded(&mut state, 10);
     state
 });
 
 snapshot_ui!(start_signal_filter_works, || {
-    let mut state = State::new_default_config()
+    let mut state = SystemState::new_default_config()
         .unwrap()
         .with_params(StartupParams {
             waves: Some(WaveSource::File(
@@ -1303,14 +1300,14 @@ snapshot_ui!(start_signal_filter_works, || {
     for message in msgs {
         state.update(message);
     }
-    state.sys.variable_name_filter.borrow_mut().push('a');
+    state.variable_name_filter.borrow_mut().push('a');
     // make sure all the signals added by the proceeding messages are properly loaded
     wait_for_waves_fully_loaded(&mut state, 10);
     state
 });
 
 snapshot_ui!(case_sensitive_signal_filter_works, || {
-    let mut state = State::new_default_config()
+    let mut state = SystemState::new_default_config()
         .unwrap()
         .with_params(StartupParams {
             waves: Some(WaveSource::File(
@@ -1351,14 +1348,14 @@ snapshot_ui!(case_sensitive_signal_filter_works, || {
     for message in msgs {
         state.update(message);
     }
-    state.sys.variable_name_filter.borrow_mut().push('a');
+    state.variable_name_filter.borrow_mut().push('a');
     // make sure all the signals added by the proceeding messages are properly loaded
     wait_for_waves_fully_loaded(&mut state, 10);
     state
 });
 
 snapshot_ui!(load_keep_all_works, || {
-    let mut state = State::new_default_config()
+    let mut state = SystemState::new_default_config()
         .unwrap()
         .with_params(StartupParams {
             waves: Some(WaveSource::File(
@@ -1403,7 +1400,7 @@ snapshot_ui!(load_keep_all_works, || {
     loop {
         state.handle_async_messages();
         state.handle_batch_commands();
-        if let Some(waves) = &state.waves {
+        if let Some(waves) = &state.user.waves {
             if waves.source
                 == WaveSource::File(
                     get_project_root()
@@ -1423,7 +1420,7 @@ snapshot_ui!(load_keep_all_works, || {
 });
 
 snapshot_ui!(load_keep_signal_remove_unavailable_works, || {
-    let mut state = State::new_default_config()
+    let mut state = SystemState::new_default_config()
         .unwrap()
         .with_params(StartupParams {
             waves: Some(WaveSource::File(
@@ -1468,7 +1465,7 @@ snapshot_ui!(load_keep_signal_remove_unavailable_works, || {
     loop {
         state.handle_async_messages();
         state.handle_batch_commands();
-        if let Some(waves) = &state.waves {
+        if let Some(waves) = &state.user.waves {
             if waves.source
                 == WaveSource::File(
                     get_project_root()
@@ -1629,7 +1626,7 @@ snapshot_ui_with_file_and_msgs! {direction_works, "examples/tb_recv.ghw", [
 
 snapshot_ui!(signals_can_be_added_after_file_switch, || {
     let project_root: camino::Utf8PathBuf = get_project_root().unwrap().try_into().unwrap();
-    let mut state = State::new_default_config()
+    let mut state = SystemState::new_default_config()
         .unwrap()
         .with_params(StartupParams {
             waves: Some(WaveSource::File(project_root.join("examples/counter.vcd"))),
@@ -1658,7 +1655,7 @@ snapshot_ui!(signals_can_be_added_after_file_switch, || {
     loop {
         state.handle_async_messages();
         state.handle_batch_commands();
-        if state.waves.as_ref().is_some_and(|w| {
+        if state.user.waves.as_ref().is_some_and(|w| {
             w.source
                 .as_file()
                 .unwrap()
@@ -1682,7 +1679,7 @@ snapshot_ui!(signals_can_be_added_after_file_switch, || {
 
 /// wait for GUI to converge
 #[inline]
-pub fn wait_for_waves_fully_loaded(state: &mut State, timeout_s: u64) {
+pub fn wait_for_waves_fully_loaded(state: &mut SystemState, timeout_s: u64) {
     let load_start = std::time::Instant::now();
     while !(state.waves_fully_loaded() && state.batch_commands_completed()) {
         state.handle_async_messages();
@@ -1719,7 +1716,7 @@ snapshot_ui_with_file_and_msgs! {undo_redo_works, "examples/counter.vcd", [
 ]}
 
 snapshot_ui!(rising_clock_markers, || {
-    let mut state = State::new_default_config()
+    let mut state = SystemState::new_default_config()
         .unwrap()
         .with_params(StartupParams {
             waves: Some(WaveSource::File(
@@ -1738,7 +1735,7 @@ snapshot_ui!(rising_clock_markers, || {
             break;
         }
     }
-    state.config.theme.clock_rising_marker = true;
+    state.user.config.theme.clock_rising_marker = true;
     state.update(Message::ToggleMenu);
     state.update(Message::ToggleSidePanel);
     state.update(Message::ToggleToolbar);
@@ -1762,13 +1759,17 @@ snapshot_ui!(rising_clock_markers, || {
     state
 });
 
-fn handle_messages_until(state: &mut State, matcher: impl Fn(&Message) -> bool, timeout_s: u64) {
+fn handle_messages_until(
+    state: &mut SystemState,
+    matcher: impl Fn(&Message) -> bool,
+    timeout_s: u64,
+) {
     let load_start = std::time::Instant::now();
     loop {
         if load_start.elapsed().as_secs() > timeout_s {
             panic!("Timeout waiting for message after {timeout_s}s!");
         }
-        let msg = match state.sys.channels.msg_receiver.try_recv() {
+        let msg = match state.channels.msg_receiver.try_recv() {
             Ok(msg) => msg,
             Err(std::sync::mpsc::TryRecvError::Empty) => {
                 std::thread::sleep(std::time::Duration::from_millis(10));
@@ -1796,7 +1797,7 @@ snapshot_ui!(save_and_start_with_state, || {
         "save_and_start_with_state.{}",
         STATE_FILE_EXTENSION
     ));
-    let mut state = State::new_default_config()
+    let mut state = SystemState::new_default_config()
         .unwrap()
         .with_params(StartupParams {
             waves: Some(WaveSource::File(
@@ -1847,7 +1848,7 @@ snapshot_ui!(save_and_start_with_state, || {
 
     state.handle_async_messages();
 
-    state.update(Message::SaveStateFile(state.state_file.clone()));
+    state.update(Message::SaveStateFile(state.user.state_file.clone()));
 
     handle_messages_until(
         &mut state,
@@ -1855,22 +1856,30 @@ snapshot_ui!(save_and_start_with_state, || {
         1,
     );
 
-    let mut state = std::fs::read_to_string(save_file.clone())
-        .map(|content| ron::from_str::<State>(&content).unwrap())
-        .unwrap()
-        .with_params(StartupParams {
-            waves: Some(WaveSource::File(
-                get_project_root()
-                    .unwrap()
-                    .join("examples/with_8_bit.vcd")
-                    .try_into()
-                    .unwrap(),
-            )),
-            ..Default::default()
-        });
+    let mut state = SystemState::new_default_config().unwrap();
 
-    // for the tests, we always want the default config
-    state.config = SurferConfig::new(true).unwrap();
+    // set shared state from file
+    state.user = std::fs::read_to_string(&save_file)
+        .map(|content| ron::from_str::<UserState>(&content).unwrap())
+        .unwrap();
+
+    // overwrite with startup params
+    let mut state = state.with_params(StartupParams {
+        spade_state: None,
+        spade_top: None,
+        waves: Some(WaveSource::File(
+            get_project_root()
+                .unwrap()
+                .join("examples/with_8_bit.vcd")
+                .try_into()
+                .unwrap(),
+        )),
+        ..Default::default()
+    });
+
+    // overwrite with default config
+    state.user.config = SurferConfig::new(true).unwrap();
+
     wait_for_waves_fully_loaded(&mut state, 10);
 
     std::fs::remove_file(save_file).unwrap();
@@ -1880,7 +1889,7 @@ snapshot_ui!(save_and_start_with_state, || {
 
 snapshot_ui!(switch, || {
     // check that variables are kept, not available ones as well
-    let mut state = State::new_default_config()
+    let mut state = SystemState::new_default_config()
         .unwrap()
         .with_params(StartupParams {
             waves: Some(WaveSource::File(
@@ -1953,7 +1962,7 @@ snapshot_ui!(switch, || {
 
 snapshot_ui!(switch_and_switch_back, || {
     // verify that decoder settings are remembered even if not recommended / not available
-    let mut state = State::new_default_config()
+    let mut state = SystemState::new_default_config()
         .unwrap()
         .with_params(StartupParams {
             waves: Some(WaveSource::File(
@@ -2037,7 +2046,7 @@ snapshot_ui!(switch_and_switch_back, || {
 
 snapshot_ui!(save_and_load, || {
     let save_file = env::temp_dir().join(format!("save_and_load.{}", STATE_FILE_EXTENSION));
-    let mut state = State::new_default_config()
+    let mut state = SystemState::new_default_config()
         .unwrap()
         .with_params(StartupParams {
             waves: Some(WaveSource::File(
@@ -2078,7 +2087,7 @@ snapshot_ui!(save_and_load, || {
 
     state.update(Message::SaveStateFile(Some(save_file.clone())));
 
-    let mut state = State::new_default_config()
+    let mut state = SystemState::new_default_config()
         .unwrap()
         .with_params(StartupParams {
             waves: Some(WaveSource::File(
@@ -2162,7 +2171,7 @@ snapshot_ui_with_file_and_msgs! {tx_stream_multiple_viewport_works, "examples/my
 ]}
 
 snapshot_ui!(arrow_drawing, || {
-    let mut state = State::new_default_config()
+    let mut state = SystemState::new_default_config()
         .unwrap()
         .with_params(StartupParams {
             waves: Some(WaveSource::File(
@@ -2181,7 +2190,7 @@ snapshot_ui!(arrow_drawing, || {
             break;
         }
     }
-    state.config.theme.clock_rising_marker = true;
+    state.user.config.theme.clock_rising_marker = true;
     wait_for_waves_fully_loaded(&mut state, 10);
     state.update(Message::AddScope(ScopeRef::from_strs(&["tb"]), false));
     state.update(Message::ToggleToolbar);
@@ -2195,6 +2204,7 @@ snapshot_ui!(arrow_drawing, || {
     });
 
     let mut idxes = state
+        .user
         .waves
         .as_ref()
         .unwrap()

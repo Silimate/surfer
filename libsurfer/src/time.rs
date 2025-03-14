@@ -17,7 +17,7 @@ use sys_locale::get_locale;
 use crate::config::SurferConfig;
 use crate::viewport::Viewport;
 use crate::wave_data::WaveData;
-use crate::{translation::group_n_chars, view::DrawingContext, Message, State};
+use crate::{translation::group_n_chars, view::DrawingContext, Message, SystemState};
 
 #[derive(Serialize, Deserialize)]
 pub struct TimeScale {
@@ -454,11 +454,13 @@ impl WaveData {
     }
 }
 
-impl State {
+impl SystemState {
     pub fn get_time_format(&self) -> TimeFormat {
-        self.config
-            .default_time_format
-            .get_with_changes(self.time_string_format, None, None)
+        self.user.config.default_time_format.get_with_changes(
+            self.user.time_string_format,
+            None,
+            None,
+        )
     }
 }
 

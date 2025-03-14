@@ -6,7 +6,7 @@ use egui::{self, RichText, TextWrapMode};
 use egui_extras::{Column, TableBuilder, TableRow};
 use log::{Level, Log, Record};
 
-use crate::{message::Message, State};
+use crate::{message::Message, SystemState};
 
 pub static EGUI_LOGGER: EguiLogger = EguiLogger {
     records: Mutex::new(vec![]),
@@ -58,7 +58,7 @@ impl Log for EguiLogger<'_> {
     fn flush(&self) {}
 }
 
-impl State {
+impl SystemState {
     pub fn draw_log_window(&self, ctx: &egui::Context, msgs: &mut Vec<Message>) {
         let mut open = true;
         egui::Window::new("Logs")
