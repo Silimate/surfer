@@ -266,7 +266,6 @@ impl State {
                     }
                 };
             }
-            // FIXME: We should actually check the supported commands here
             WcpCSMessage::greeting { version, commands } => {
                 if version != "0" {
                     self.send_error(
