@@ -114,14 +114,8 @@ impl WellenContainer {
     pub fn new(hierarchy: std::sync::Arc<Hierarchy>, server: Option<String>) -> Self {
         // generate a list of names for all variables and scopes since they will be requested by the parser
         let h = &hierarchy;
-        let scopes = h
-            .iter_scopes()
-            .map(|r| r.full_name(h).to_string())
-            .collect::<Vec<_>>();
-        let vars = h
-            .iter_vars()
-            .map(|r| r.full_name(h).to_string())
-            .collect::<Vec<_>>();
+        let scopes = h.iter_scopes().map(|r| r.full_name(h)).collect::<Vec<_>>();
+        let vars: Vec<String> = h.iter_vars().map(|r| r.full_name(h)).collect::<Vec<_>>();
 
         let unique_id = UNIQUE_ID_COUNT.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
 
