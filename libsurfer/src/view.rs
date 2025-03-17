@@ -665,6 +665,16 @@ impl State {
                 ui.add(egui::Label::new(scope_tooltip_text(wave, scope)));
             });
         }
+        response.context_menu(|ui| {
+            if ui.button("Add scope").clicked() {
+                msgs.push(Message::AddScope(scope.clone(), false));
+                ui.close_menu();
+            }
+            if ui.button("Add scope recursively").clicked() {
+                msgs.push(Message::AddScope(scope.clone(), true));
+                ui.close_menu();
+            }
+        });
         response
             .clicked()
             .then(|| msgs.push(Message::SetActiveScope(ScopeType::WaveScope(scope.clone()))));
