@@ -281,8 +281,8 @@ impl State {
                     if commands.iter().any(|s| s == "waveforms_loaded") {
                         self.sys.wcp_client_capabilities.waveforms_loaded = true;
                     }
-                    if commands.iter().any(|s| s == "goto_source") {
-                        self.sys.wcp_client_capabilities.goto_source = true;
+                    if commands.iter().any(|s| s == "goto_declaration") {
+                        self.sys.wcp_client_capabilities.goto_declaration = true;
                     }
                     self.sys.wcp_greeted_signal.store(true, Ordering::Relaxed);
                     self.send_greeting()

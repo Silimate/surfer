@@ -109,6 +109,36 @@ where
 }
 
 #[test]
+fn load() {
+    run_test(async {
+        let mut state = State::new_default_config().unwrap();
+        let port = get_test_port();
+        state.update(Message::StartWcpServer {
+            address: Some(format!("127.0.0.1:{port}").to_string()),
+            initiate: false,
+        });
+        let mut stream = connect(port).await;
+        get_json_response(&stream, &mut state)
+            .await
+            .expect("failed to get WCP greeting");
+        send_message(
+            &mut stream,
+            &WcpCSMessage::command(WcpCommand::load {
+                source: "../examples/counter.vcd".to_string(),
+            }),
+        )
+        .await;
+        // ack and waveforms_loaded messages
+        get_json_response(&stream, &mut state)
+            .await
+            .expect("failed to get WCP greeting");
+        get_json_response(&stream, &mut state)
+            .await
+            .expect("failed to get WCP greeting");
+    });
+}
+
+#[test]
 fn stop_and_reconnect() {
     run_test(async {
         let mut state = State::new_default_config().unwrap();

@@ -80,6 +80,8 @@ use num::BigInt;
 use serde::Deserialize;
 pub use state::State;
 use surfer_translation_types::Translator;
+#[cfg(target_arch = "wasm32")]
+use tokio_stream as _;
 use wcp::{proto::WcpCSMessage, proto::WcpEvent, proto::WcpSCMessage};
 
 use crate::config::{SurferConfig, SurferTheme};
@@ -229,13 +231,13 @@ impl Channels {
 
 pub struct WcpClientCapabilities {
     pub waveforms_loaded: bool,
-    pub goto_source: bool,
+    pub goto_declaration: bool,
 }
 impl WcpClientCapabilities {
     fn new() -> Self {
         Self {
             waveforms_loaded: false,
-            goto_source: false,
+            goto_declaration: false,
         }
     }
 }

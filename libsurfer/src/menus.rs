@@ -440,12 +440,12 @@ impl State {
             });
 
             if self.sys.wcp_greeted_signal.load(Ordering::Relaxed)
-                && self.sys.wcp_client_capabilities.goto_source
-                && ui.button("Go to source").clicked()
+                && self.sys.wcp_client_capabilities.goto_declaration
+                && ui.button("Go to declaration").clicked()
             {
                 let variable = variable.variable_ref.full_path_string();
                 self.sys.channels.wcp_s2c_sender.as_ref().map(|ch| {
-                    block_on(ch.send(WcpSCMessage::event(WcpEvent::goto_source { variable })))
+                    block_on(ch.send(WcpSCMessage::event(WcpEvent::goto_declaration { variable })))
                 });
                 ui.close_menu();
             }

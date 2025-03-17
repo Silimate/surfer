@@ -64,7 +64,7 @@ pub enum WcpResponse {
 #[allow(non_camel_case_types)]
 pub enum WcpEvent {
     waveforms_loaded { source: String },
-    goto_source { variable: String },
+    goto_declaration { variable: String },
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq)]

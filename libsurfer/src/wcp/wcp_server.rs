@@ -18,6 +18,8 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt, BufReader};
 use tokio::sync::mpsc::Receiver;
 #[cfg(not(target_arch = "wasm32"))]
 use tokio::sync::mpsc::Sender;
+use tokio_stream::wrappers::ReceiverStream;
+use tokio_stream::StreamExt;
 
 use super::{proto::WcpCSMessage, proto::WcpCommand, proto::WcpSCMessage};
 
@@ -76,7 +78,7 @@ pub struct WcpServer {
     sender: IngressSender<WcpCSMessage>,
     #[cfg(not(target_arch = "wasm32"))]
     sender: Sender<WcpCSMessage>,
-    receiver: Receiver<WcpSCMessage>,
+    receiver: ReceiverStream<WcpSCMessage>,
     stop_signal: Arc<AtomicBool>,
     running_signal: Arc<AtomicBool>,
     greeted_signal: Arc<AtomicBool>,
@@ -114,7 +116,7 @@ impl WcpServer {
             listener,
             stream,
             sender: c2s_sender,
-            receiver: s2c_receiver,
+            receiver: ReceiverStream::new(s2c_receiver),
             stop_signal,
             running_signal,
             greeted_signal,
@@ -236,10 +238,8 @@ impl WcpServer {
                     }
                 }
 
-                s2c = self.receiver.recv() => {
-                    if let Some(s2c) = s2c {
-                        self.send_message(&mut writer, &s2c).await;
-                    }
+                Some(s2c) = self.receiver.next() => {
+                    self.send_message(&mut writer, &s2c).await;
                 }
 
                 _ = stop_signal_waiter => {
