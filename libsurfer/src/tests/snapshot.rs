@@ -288,6 +288,10 @@ macro_rules! snapshot_ui_with_file_spade_and_msgs {
             state.add_startup_message(Message::ToggleSidePanel);
             state.add_startup_message(Message::ToggleToolbar);
             state.add_startup_message(Message::ToggleOverview);
+            state.add_startup_message(Message::CloseOpenSiblingStateFileDialog {
+                load_state: false,
+                do_not_show_again: true,
+            });
             state.add_startup_messages($msgs);
 
             // make sure all the signals added by the proceeding messages are properly loaded
@@ -308,6 +312,7 @@ macro_rules! snapshot_ui_with_theme {
         snapshot_ui_with_file_and_msgs! {$name, "examples/theme_demo.ghw", [
             Message::AddScope(ScopeRef::from_strs(&["theme_demo"]), false),
             Message::AddTimeLine(None),
+            Message::CloseOpenSiblingStateFileDialog {load_state: false, do_not_show_again: true},
             Message::FocusItem(VisibleItemIndex(0)),
             Message::MoveCursorToTransition { next: true, variable: None, skip_zero: true },
             Message::SetHighlightFocused(true),
@@ -362,6 +367,10 @@ fn render_readme_screenshot() {
                         "testbench.top.uut.picorv32_core.mem_do_rinst",
                     ),
                 ]),
+                Message::CloseOpenSiblingStateFileDialog {
+                    load_state: false,
+                    do_not_show_again: true,
+                },
                 Message::VariableFormatChange(
                     Some(DisplayedFieldRef {
                         item: DisplayedItemRef(1),
@@ -471,6 +480,10 @@ snapshot_ui!(overview_can_be_hidden, || {
             break;
         }
     }
+    state.update(Message::CloseOpenSiblingStateFileDialog {
+        load_state: false,
+        do_not_show_again: true,
+    });
     state.update(Message::AddVariables(vec![
         VariableRef::from_hierarchy_string("tb.dut.counter"),
     ]));
@@ -504,6 +517,10 @@ snapshot_ui!(statusbar_can_be_hidden, || {
             break;
         }
     }
+    state.update(Message::CloseOpenSiblingStateFileDialog {
+        load_state: false,
+        do_not_show_again: true,
+    });
     state.update(Message::AddVariables(vec![
         VariableRef::from_hierarchy_string("tb.dut.counter"),
     ]));
@@ -534,6 +551,7 @@ snapshot_ui! {example_vcd_renders, || {
     state.update(Message::ToggleSidePanel);
     state.update(Message::ToggleToolbar);
     state.update(Message::ToggleOverview);
+    state.update(Message::CloseOpenSiblingStateFileDialog {load_state: false, do_not_show_again: true});
     state.update(Message::AddScope(ScopeRef::from_strs(&["tb"]), false));
     state.update(Message::AddScope(ScopeRef::from_strs(&["tb", "dut"]), false));
     // make sure all the signals added by the proceeding messages are properly loaded
@@ -548,6 +566,7 @@ snapshot_empty_state_with_msgs! {
         Message::ToggleSidePanel,
         Message::ToggleToolbar,
         Message::ToggleOverview,
+        Message::CloseOpenSiblingStateFileDialog {load_state: false, do_not_show_again: true},
         Message::SetUrlEntryVisible(true),
         Message::SetKeyHelpVisible(true),
         Message::SetGestureHelpVisible(true),
@@ -585,6 +604,7 @@ snapshot_ui! {resizing_the_canvas_redraws, || {
     state.update(Message::ToggleToolbar);
     state.update(Message::ToggleOverview);
     state.update(Message::AddScope(ScopeRef::from_strs(&["tb"]), false));
+    state.update(        Message::CloseOpenSiblingStateFileDialog {load_state: false, do_not_show_again: true}    );
     state.update(Message::CursorSet(BigInt::from(100)));
     // make sure all the signals added by the proceeding messages are properly loaded
     wait_for_waves_fully_loaded(&mut state, 10);
@@ -1078,6 +1098,10 @@ snapshot_ui!(regex_error_indication, || {
         Message::ToggleMenu,
         Message::ToggleToolbar,
         Message::ToggleOverview,
+        Message::CloseOpenSiblingStateFileDialog {
+            load_state: false,
+            do_not_show_again: true,
+        },
         Message::SetActiveScope(ScopeType::WaveScope(ScopeRef::from_strs(&["tb"]))),
         Message::AddVariables(vec![VariableRef::from_hierarchy_string("tb.clk")]),
         Message::SetVariableNameFilterType(VariableNameFilterType::Regex),
@@ -1126,6 +1150,10 @@ snapshot_ui!(fuzzy_signal_filter_works, || {
         Message::ToggleToolbar,
         Message::ToggleOverview,
         Message::ToggleDirection,
+        Message::CloseOpenSiblingStateFileDialog {
+            load_state: false,
+            do_not_show_again: true,
+        },
         Message::SetActiveScope(ScopeType::WaveScope(ScopeRef::from_strs(&[
             "testbench",
             "top",
@@ -1171,6 +1199,10 @@ snapshot_ui!(contain_signal_filter_works, || {
         Message::ToggleToolbar,
         Message::ToggleOverview,
         Message::ToggleDirection,
+        Message::CloseOpenSiblingStateFileDialog {
+            load_state: false,
+            do_not_show_again: true,
+        },
         Message::SetActiveScope(ScopeType::WaveScope(ScopeRef::from_strs(&[
             "testbench",
             "top",
@@ -1216,6 +1248,10 @@ snapshot_ui!(regex_signal_filter_works, || {
         Message::ToggleToolbar,
         Message::ToggleOverview,
         Message::ToggleDirection,
+        Message::CloseOpenSiblingStateFileDialog {
+            load_state: false,
+            do_not_show_again: true,
+        },
         Message::SetActiveScope(ScopeType::WaveScope(ScopeRef::from_strs(&[
             "testbench",
             "top",
@@ -1265,6 +1301,10 @@ snapshot_ui!(start_signal_filter_works, || {
         Message::ToggleToolbar,
         Message::ToggleOverview,
         Message::ToggleDirection,
+        Message::CloseOpenSiblingStateFileDialog {
+            load_state: false,
+            do_not_show_again: true,
+        },
         Message::SetActiveScope(ScopeType::WaveScope(ScopeRef::from_strs(&[
             "testbench",
             "top",
@@ -1310,6 +1350,10 @@ snapshot_ui!(case_sensitive_signal_filter_works, || {
         Message::ToggleToolbar,
         Message::ToggleOverview,
         Message::ToggleDirection,
+        Message::CloseOpenSiblingStateFileDialog {
+            load_state: false,
+            do_not_show_again: true,
+        },
         Message::SetActiveScope(ScopeType::WaveScope(ScopeRef::from_strs(&[
             "testbench",
             "top",
@@ -1351,6 +1395,10 @@ snapshot_ui!(load_keep_all_works, || {
         Message::ToggleToolbar,
         Message::ToggleOverview,
         Message::ToggleSidePanel,
+        Message::CloseOpenSiblingStateFileDialog {
+            load_state: false,
+            do_not_show_again: true,
+        },
         Message::AddScope(ScopeRef::from_strs(&["TOP"]), false),
         Message::AddScope(ScopeRef::from_strs(&["TOP", "Foobar"]), false),
         Message::LoadFile(
@@ -1414,6 +1462,10 @@ snapshot_ui!(load_keep_signal_remove_unavailable_works, || {
         Message::ToggleToolbar,
         Message::ToggleOverview,
         Message::ToggleSidePanel,
+        Message::CloseOpenSiblingStateFileDialog {
+            load_state: false,
+            do_not_show_again: true,
+        },
         Message::AddScope(ScopeRef::from_strs(&["TOP"]), false),
         Message::AddScope(ScopeRef::from_strs(&["TOP", "Foobar"]), false),
         Message::LoadFile(
@@ -1606,6 +1658,10 @@ snapshot_ui!(signals_can_be_added_after_file_switch, || {
         });
 
     wait_for_waves_fully_loaded(&mut state, 10);
+    state.update(Message::CloseOpenSiblingStateFileDialog {
+        load_state: false,
+        do_not_show_again: true,
+    });
     state.update(Message::ToggleToolbar);
     state.update(Message::ToggleMenu);
     state.update(Message::ToggleSidePanel);
