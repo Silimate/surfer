@@ -21,13 +21,14 @@ use crate::wave_source::CxxrtlKind;
 use crate::{
     clock_highlighting::ClockHighlightType,
     config::ArrowKeyBindings,
+    dialog::{OpenSiblingStateFileDialog, ReloadWaveformDialog},
     displayed_item::{DisplayedFieldRef, DisplayedItemRef},
     time::{TimeStringFormatting, TimeUnit},
     variable_name_type::VariableNameType,
     wave_container::{ScopeRef, VariableRef, WaveContainer},
     wave_source::{LoadOptions, OpenMode},
     wellen::LoadSignalsResult,
-    MoveDir, ReloadWaveformDialog, VariableNameFilterType, WaveSource,
+    MoveDir, VariableNameFilterType, WaveSource,
 };
 use crate::{config::HierarchyStyle, wave_source::WaveFormat};
 
@@ -176,6 +177,17 @@ pub enum Message {
     /// Update the waveform dialog UI with the provided dialog model.
     #[serde(skip)]
     UpdateReloadWaveformDialog(ReloadWaveformDialog),
+    // When a file is open, suggest opening state files in the same directory
+    OpenSiblingStateFile(bool),
+    #[serde(skip)]
+    SuggestOpenSiblingStateFile,
+    #[serde(skip)]
+    CloseOpenSiblingStateFileDialog {
+        load_state: bool,
+        do_not_show_again: bool,
+    },
+    #[serde(skip)]
+    UpdateOpenSiblingStateFileDialog(OpenSiblingStateFileDialog),
     RemovePlaceholders,
     ZoomToFit {
         viewport_idx: usize,

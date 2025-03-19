@@ -12,6 +12,7 @@ use crate::{
     command_prompt::get_parser,
     config,
     data_container::DataContainer,
+    dialog::OpenSiblingStateFileDialog,
     dialog::ReloadWaveformDialog,
     displayed_item_tree::DisplayedItemTree,
     message::Message,
@@ -88,6 +89,8 @@ pub struct State {
     /// that surfer should reload changed files from disk.
     #[serde(skip, default)]
     pub(crate) show_reload_suggestion: Option<ReloadWaveformDialog>,
+    #[serde(skip, default)]
+    pub(crate) show_open_sibling_state_file_suggestion: Option<OpenSiblingStateFileDialog>,
     pub(crate) variable_name_filter_focused: bool,
     pub(crate) variable_name_filter_type: VariableNameFilterType,
     pub(crate) variable_name_filter_case_insensitive: bool,
@@ -142,6 +145,7 @@ impl State {
             show_url_entry: false,
             show_quick_start: false,
             show_reload_suggestion: None,
+            show_open_sibling_state_file_suggestion: None,
             rename_target: None,
             variable_name_filter_focused: false,
             variable_name_filter_type: VariableNameFilterType::Fuzzy,
@@ -286,49 +290,59 @@ impl State {
         let viewport = Viewport::new();
         let viewports = [viewport].to_vec();
 
-        let (new_wave, load_commands) = if load_options.keep_variables && self.waves.is_some() {
-            self.waves.take().unwrap().update_with_waves(
-                new_waves,
-                filename,
-                format,
-                &self.sys.translators,
-                load_options.keep_unavailable,
-            )
-        } else if let Some(old) = self.previous_waves.take() {
-            old.update_with_waves(
-                new_waves,
-                filename,
-                format,
-                &self.sys.translators,
-                load_options.keep_unavailable,
-            )
-        } else {
-            (
-                WaveData {
-                    inner: DataContainer::Waves(*new_waves),
-                    source: filename,
-                    format,
-                    active_scope: None,
-                    items_tree: DisplayedItemTree::default(),
-                    displayed_items: HashMap::new(),
-                    viewports,
-                    cursor: None,
-                    markers: HashMap::new(),
-                    focused_item: None,
-                    focused_transaction: (None, None),
-                    default_variable_name_type: self.config.default_variable_name_type,
-                    display_variable_indices: self.show_variable_indices(),
-                    scroll_offset: 0.,
-                    drawing_infos: vec![],
-                    top_item_draw_offset: 0.,
-                    total_height: 0.,
-                    display_item_ref_counter: 0,
-                    old_num_timestamps: None,
-                    graphics: HashMap::new(),
-                },
-                None,
-            )
-        };
+        let ((new_wave, load_commands), is_reload) =
+            if load_options.keep_variables && self.waves.is_some() {
+                (
+                    self.waves.take().unwrap().update_with_waves(
+                        new_waves,
+                        filename,
+                        format,
+                        &self.sys.translators,
+                        load_options.keep_unavailable,
+                    ),
+                    true,
+                )
+            } else if let Some(old) = self.previous_waves.take() {
+                (
+                    old.update_with_waves(
+                        new_waves,
+                        filename,
+                        format,
+                        &self.sys.translators,
+                        load_options.keep_unavailable,
+                    ),
+                    true,
+                )
+            } else {
+                (
+                    (
+                        WaveData {
+                            inner: DataContainer::Waves(*new_waves),
+                            source: filename,
+                            format,
+                            active_scope: None,
+                            items_tree: DisplayedItemTree::default(),
+                            displayed_items: HashMap::new(),
+                            viewports,
+                            cursor: None,
+                            markers: HashMap::new(),
+                            focused_item: None,
+                            focused_transaction: (None, None),
+                            default_variable_name_type: self.config.default_variable_name_type,
+                            display_variable_indices: self.show_variable_indices(),
+                            scroll_offset: 0.,
+                            drawing_infos: vec![],
+                            top_item_draw_offset: 0.,
+                            total_height: 0.,
+                            display_item_ref_counter: 0,
+                            old_num_timestamps: None,
+                            graphics: HashMap::new(),
+                        },
+                        None,
+                    ),
+                    false,
+                )
+            };
         if let Some(cmd) = load_commands {
             self.load_variables(cmd);
         }
@@ -338,6 +352,14 @@ impl State {
         self.wanted_timeunit = new_wave.inner.metadata().timescale.unit;
 
         self.waves = Some(new_wave);
+
+        if !is_reload {
+            if let Some(waves) = &mut self.waves {
+                if waves.source.sibling_state_file().is_some() {
+                    self.update(Message::SuggestOpenSiblingStateFile);
+                }
+            }
+        }
     }
 
     pub(crate) fn on_transaction_streams_loaded(

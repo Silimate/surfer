@@ -1,5 +1,6 @@
 //! Utility functions.
 use crate::displayed_item_tree::VisibleItemIndex;
+use camino::Utf8PathBuf;
 #[cfg(not(target_arch = "wasm32"))]
 use std::path::{Path, PathBuf};
 
@@ -81,4 +82,26 @@ pub fn search_upward(
         .map(|p| p.join(&item))
         .filter(|p| p.try_exists().is_ok_and(std::convert::identity))
         .collect()
+}
+
+pub fn get_multi_extension_from_filename(filename: &str) -> Option<String> {
+    filename
+        .as_bytes()
+        .iter()
+        .position(|&c| c == b'.')
+        .map(|pos| {
+            let iter = filename.chars().skip(pos + 1);
+            iter.collect::<String>()
+        })
+}
+
+/// Get the full extension of a path, including all extensions.
+/// For example, for "foo.tar.gz", this function returns "tar.gz", and not just "gz",
+/// like path.extension() would.
+pub fn get_multi_extension(path: &Utf8PathBuf) -> Option<String> {
+    // Find the first . in the path, if any. Return the rest of the path.
+    if let Some(filename) = path.file_name() {
+        return get_multi_extension_from_filename(filename);
+    }
+    None
 }

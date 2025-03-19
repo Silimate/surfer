@@ -14,7 +14,6 @@ use project_root::get_project_root;
 use skia_safe::EncodedImageFormat;
 use test_log::test;
 
-use crate::wave_data::ScopeType;
 use crate::{
     clock_highlighting::ClockHighlightType,
     config::{HierarchyStyle, SurferConfig},
@@ -35,6 +34,7 @@ use crate::{
     graphics::{GrPoint, Graphic, GraphicId},
     transaction_container::TransactionStreamRef,
 };
+use crate::{wave_data::ScopeType, wave_source::STATE_FILE_EXTENSION};
 
 fn print_image(img: &DynamicImage) {
     if std::io::stdout().is_terminal() {
@@ -1759,9 +1759,10 @@ fn handle_messages_until(state: &mut State, matcher: impl Fn(&Message) -> bool, 
 snapshot_ui!(save_and_start_with_state, || {
     // FIXME refactor startup code so that we can test the actual code,
     // not with a separate load command like here
-    let save_file = get_project_root()
-        .unwrap()
-        .join("examples/save_and_start_with_state.ron");
+    let save_file = get_project_root().unwrap().join(format!(
+        "examples/save_and_start_with_state.{}",
+        STATE_FILE_EXTENSION
+    ));
     let mut state = State::new_default_config()
         .unwrap()
         .with_params(StartupParams {
@@ -1823,7 +1824,7 @@ snapshot_ui!(save_and_start_with_state, || {
         1,
     );
 
-    let mut state = std::fs::read_to_string(save_file)
+    let mut state = std::fs::read_to_string(save_file.clone())
         .map(|content| ron::from_str::<State>(&content).unwrap())
         .unwrap()
         .with_params(StartupParams {
@@ -1842,6 +1843,8 @@ snapshot_ui!(save_and_start_with_state, || {
     // for the tests, we always want the default config
     state.config = SurferConfig::new(true).unwrap();
     wait_for_waves_fully_loaded(&mut state, 10);
+
+    std::fs::remove_file(save_file).unwrap();
 
     state
 });
@@ -2010,7 +2013,7 @@ snapshot_ui!(switch_and_switch_back, || {
 snapshot_ui!(save_and_load, || {
     let save_file = get_project_root()
         .unwrap()
-        .join("examples/save_and_load.ron");
+        .join(format!("examples/save_and_load.{}", STATE_FILE_EXTENSION));
     let mut state = State::new_default_config()
         .unwrap()
         .with_params(StartupParams {
@@ -2070,13 +2073,15 @@ snapshot_ui!(save_and_load, || {
         });
     wait_for_waves_fully_loaded(&mut state, 10);
 
-    state.update(Message::LoadStateFile(Some(save_file)));
+    state.update(Message::LoadStateFile(Some(save_file.clone())));
 
     handle_messages_until(
         &mut state,
         |msg| matches!(&msg, Message::SignalsLoaded(..)),
         10,
     );
+
+    std::fs::remove_file(save_file).unwrap();
 
     state
 });

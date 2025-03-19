@@ -79,6 +79,8 @@ pub struct SurferConfig {
     /// Some(false) - never auto reload changed files
     /// None - ask for confirmation before auto reloading files
     pub autoreload_files: Option<bool>,
+    // Same as for autoreload_files for the options
+    pub autoload_sibling_state_files: Option<bool>,
     /// WCP Configuration
     pub wcp: WcpConfig,
 }

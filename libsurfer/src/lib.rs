@@ -82,7 +82,7 @@ use surfer_translation_types::Translator;
 use wcp::{proto::WcpCSMessage, proto::WcpEvent, proto::WcpSCMessage};
 
 use crate::config::{SurferConfig, SurferTheme};
-use crate::dialog::ReloadWaveformDialog;
+use crate::dialog::{OpenSiblingStateFileDialog, ReloadWaveformDialog};
 use crate::displayed_item::{DisplayedFieldRef, DisplayedItem, DisplayedItemRef, FieldFormat};
 use crate::displayed_item_tree::VisibleItemIndex;
 use crate::drawing_canvas::TxDrawingCommands;
@@ -1271,6 +1271,43 @@ impl State {
             }
             Message::UpdateReloadWaveformDialog(dialog) => {
                 self.show_reload_suggestion = Some(dialog);
+            }
+            Message::OpenSiblingStateFile(open) => {
+                if !open {
+                    return;
+                };
+                let Some(waves) = &self.waves else { return };
+                let Some(state_file_path) = waves.source.sibling_state_file() else {
+                    return;
+                };
+                self.load_state_file(Some(state_file_path.clone().into_std_path_buf()));
+            }
+            Message::SuggestOpenSiblingStateFile => {
+                match self.config.autoload_sibling_state_files {
+                    Some(true) => {
+                        self.update(Message::OpenSiblingStateFile(true));
+                    }
+                    Some(false) => {}
+                    None => {
+                        self.show_open_sibling_state_file_suggestion =
+                            Some(OpenSiblingStateFileDialog::default())
+                    }
+                }
+            }
+            Message::CloseOpenSiblingStateFileDialog {
+                load_state,
+                do_not_show_again,
+            } => {
+                if do_not_show_again {
+                    self.config.autoload_sibling_state_files = Some(load_state);
+                }
+                self.show_open_sibling_state_file_suggestion = None;
+                if load_state {
+                    self.update(Message::OpenSiblingStateFile(true));
+                }
+            }
+            Message::UpdateOpenSiblingStateFileDialog(dialog) => {
+                self.show_open_sibling_state_file_suggestion = Some(dialog);
             }
             Message::RemovePlaceholders => {
                 if let Some(waves) = self.waves.as_mut() {

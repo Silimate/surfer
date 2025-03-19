@@ -304,6 +304,10 @@ impl State {
             self.draw_reload_waveform_dialog(ctx, dialog, &mut msgs);
         }
 
+        if let Some(dialog) = &self.show_open_sibling_state_file_suggestion {
+            self.draw_open_sibling_state_file_dialog(ctx, dialog, &mut msgs);
+        }
+
         if self.show_performance {
             #[cfg(feature = "performance_plot")]
             self.draw_performance_graph(ctx, &mut msgs);
