@@ -395,7 +395,7 @@ pages_preview:
     rules:
         - if: $CI_MERGE_REQUEST_IID
     environment:
-        name: preview/${CI_PROJECT_NAME}/${CI_COMMIT_REF_NAME}
+        name: preview/${CI_PROJECT_NAME}/${CI_COMMIT_REF_SLUG}
         url: https://${CI_PROJECT_NAMESPACE}.gitlab.io/-/${CI_PROJECT_NAME}/-/jobs/${CI_JOB_ID}/artifacts/public/index.html
         on_stop: pages_preview_stop
 
@@ -407,7 +407,7 @@ pages_preview_stop:
       when: manual
   allow_failure: true
   environment:
-    name: preview/${CI_PROJECT_NAME}/${CI_COMMIT_REF_NAME}
+    name: preview/${CI_PROJECT_NAME}/${CI_COMMIT_REF_SLUG}
     action: stop
   script:
     - echo "👋 bye"
