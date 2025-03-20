@@ -1,4 +1,5 @@
 use std::{
+    env,
     fs::File,
     io::IsTerminal,
     path::{Path, PathBuf},
@@ -1815,8 +1816,8 @@ fn handle_messages_until(state: &mut State, matcher: impl Fn(&Message) -> bool, 
 snapshot_ui!(save_and_start_with_state, || {
     // FIXME refactor startup code so that we can test the actual code,
     // not with a separate load command like here
-    let save_file = get_project_root().unwrap().join(format!(
-        "examples/save_and_start_with_state.{}",
+    let save_file = env::temp_dir().join(format!(
+        "save_and_start_with_state.{}",
         STATE_FILE_EXTENSION
     ));
     let mut state = State::new_default_config()
@@ -2067,9 +2068,7 @@ snapshot_ui!(switch_and_switch_back, || {
 });
 
 snapshot_ui!(save_and_load, || {
-    let save_file = get_project_root()
-        .unwrap()
-        .join(format!("examples/save_and_load.{}", STATE_FILE_EXTENSION));
+    let save_file = env::temp_dir().join(format!("save_and_load.{}", STATE_FILE_EXTENSION));
     let mut state = State::new_default_config()
         .unwrap()
         .with_params(StartupParams {
