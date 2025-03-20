@@ -111,6 +111,7 @@ impl State {
                     "Save state..."
                 };
                 b(save_text, Message::SaveStateFile(self.state_file.clone()))
+                    .shortcut("Ctrl+s")
                     .add_closing_menu(msgs, ui);
             }
             b("Save state as...", Message::SaveStateFile(None)).add_closing_menu(msgs, ui);

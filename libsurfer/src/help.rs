@@ -185,6 +185,7 @@ fn key_listing(ui: &mut Ui) {
         ("🚀", "Space", "Show command prompt"),
         ("↔", "Scroll", "Pan"),
         ("🔎", "Ctrl+Scroll", "Zoom"),
+        (icons::SAVE_FILL, "Ctrl+s", "Save the state"),
         (
             icons::LAYOUT_LEFT_FILL,
             "b",

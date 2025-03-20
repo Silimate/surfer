@@ -129,7 +129,11 @@ impl State {
                         msgs.push(Message::ShowCommandPrompt(Some("item_focus ".to_string())))
                     }
                     (Key::S, true, false, false) => {
-                        msgs.push(Message::GoToStart { viewport_idx: 0 });
+                        if modifiers.command {
+                            msgs.push(Message::SaveStateFile(self.state_file.clone()));
+                        } else {
+                            msgs.push(Message::GoToStart { viewport_idx: 0 });
+                        }
                     }
                     (Key::A, true, false, false) => {
                         if modifiers.command {
