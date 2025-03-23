@@ -86,6 +86,7 @@ pub struct WcpServer {
 }
 
 impl WcpServer {
+    #[allow(clippy::too_many_arguments)]
     pub async fn new(
         address: String,
         initiate: bool,

@@ -1371,6 +1371,7 @@ impl State {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn draw_variable_label(
         &self,
         vidx: VisibleItemIndex,

@@ -85,7 +85,7 @@ impl WaveSource {
             }
         }
 
-        return None;
+        None
     }
 }
 

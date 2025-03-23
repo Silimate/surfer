@@ -938,6 +938,7 @@ impl State {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn draw_transaction_data(
         &self,
         waves: &WaveData,
@@ -1284,7 +1285,7 @@ impl State {
             points: [start, anchor1, anchor2, end],
             closed: false,
             fill: Default::default(),
-            stroke: stroke,
+            stroke,
         }));
 
         let stroke = Stroke::new(1.3, color);

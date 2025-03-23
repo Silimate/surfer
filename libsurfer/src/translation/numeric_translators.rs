@@ -320,7 +320,7 @@ impl BasicTranslator<VarId, ScopeId> for PositQuire16Translator {
                 } else {
                     0
                 };
-                let val = lsb as u128 | (msb as u128) << 64;
+                let val = lsb as u128 | ((msb as u128) << 64);
                 format!("{p}", p = Q16E1::from_bits(val))
             },
             v,
@@ -336,7 +336,7 @@ impl BasicTranslator<VarId, ScopeId> for PositQuire16Translator {
 /// Decode u8 as 8-bit float with five exponent bits and two mantissa bits
 fn decode_e5m2(v: u8) -> String {
     let mant = v & 3;
-    let exp = v >> 2 & 31;
+    let exp = (v >> 2) & 31;
     let sign: i8 = 1 - ((v >> 6) & 2) as i8; // 1 - 2*signbit
     match (exp, mant) {
         (31, 0) => "∞".to_string(),
@@ -379,7 +379,7 @@ impl BasicTranslator<VarId, ScopeId> for E5M2Translator {
 /// Decode u8 as 8-bit float with four exponent bits and three mantissa bits
 fn decode_e4m3(v: u8) -> String {
     let mant = v & 7;
-    let exp = v >> 3 & 15;
+    let exp = (v >> 3) & 15;
     let sign: i8 = 1 - ((v >> 6) & 2) as i8; // 1 - 2*signbit
     match (exp, mant) {
         (15, 7) => "NaN".to_string(),
