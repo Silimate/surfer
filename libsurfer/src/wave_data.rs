@@ -430,6 +430,7 @@ impl WaveData {
                 manual_name: None,
                 format: None,
                 field_formats: vec![],
+                height_scaling_factor: None,
             });
 
             indices.push(self.insert_item(new_variable, Some(target_position), true));

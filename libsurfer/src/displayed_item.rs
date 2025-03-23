@@ -81,6 +81,7 @@ pub struct DisplayedVariable {
     pub manual_name: Option<String>,
     pub format: Option<String>,
     pub field_formats: Vec<FieldFormat>,
+    pub height_scaling_factor: Option<f32>,
 }
 
 impl DisplayedVariable {
@@ -126,6 +127,7 @@ impl DisplayedVariable {
             manual_name: self.manual_name,
             format: self.format,
             field_formats: self.field_formats,
+            height_scaling_factor: self.height_scaling_factor,
         }
     }
 }
@@ -187,6 +189,7 @@ pub struct DisplayedPlaceholder {
     pub manual_name: Option<String>,
     pub format: Option<String>,
     pub field_formats: Vec<FieldFormat>,
+    pub height_scaling_factor: Option<f32>,
 }
 
 impl DisplayedPlaceholder {
@@ -205,6 +208,7 @@ impl DisplayedPlaceholder {
             manual_name: self.manual_name,
             format: self.format,
             field_formats: self.field_formats,
+            height_scaling_factor: self.height_scaling_factor,
         }
     }
 }
@@ -304,7 +308,9 @@ impl DisplayedItem {
                 };
                 RichText::new(name)
                     .color(*color)
-                    .line_height(Some(config.layout.waveforms_line_height))
+                    .line_height(Some(
+                        config.layout.waveforms_line_height * self.height_scaling_factor(),
+                    ))
                     .append_to(layout_job, style, FontSelection::Default, Align::Center);
             }
             DisplayedItem::TimeLine(_) | DisplayedItem::Divider(_) => {
@@ -404,6 +410,25 @@ impl DisplayedItem {
             DisplayedItem::Group(group) => {
                 group.background_color.clone_from(&color_name);
             }
+        }
+    }
+
+    pub fn height_scaling_factor(&self) -> f32 {
+        match self {
+            DisplayedItem::Variable(variable) => variable.height_scaling_factor,
+            DisplayedItem::Placeholder(placeholder) => placeholder.height_scaling_factor,
+            _ => None,
+        }
+        .unwrap_or(1.0)
+    }
+
+    pub fn set_height_scaling_factor(&mut self, scale: f32) {
+        match self {
+            DisplayedItem::Variable(variable) => variable.height_scaling_factor = Some(scale),
+            DisplayedItem::Placeholder(placeholder) => {
+                placeholder.height_scaling_factor = Some(scale)
+            }
+            _ => {}
         }
     }
 }

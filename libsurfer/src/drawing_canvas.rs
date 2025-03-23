@@ -871,6 +871,9 @@ impl State {
                         // Get background color and determine best text color
                         let background_color = self.get_background_color(waves, drawing_info, vidx);
                         let text_color = self.config.theme.get_best_text_color(&background_color);
+                        let height_scaling_factor = displayed_item
+                            .map(super::displayed_item::DisplayedItem::height_scaling_factor)
+                            .unwrap();
 
                         let color = *color.unwrap_or_else(|| {
                             if let Some(DisplayedItem::Variable(variable)) = displayed_item {
@@ -901,11 +904,19 @@ impl State {
                                     new.1.force_anti_alias,
                                     color,
                                     y_offset,
+                                    height_scaling_factor,
                                     commands.is_clock && draw_clock_rising_marker,
                                     ctx,
                                 );
                             } else {
-                                self.draw_region((old, new), color, y_offset, ctx, *text_color);
+                                self.draw_region(
+                                    (old, new),
+                                    color,
+                                    y_offset,
+                                    height_scaling_factor,
+                                    ctx,
+                                    *text_color,
+                                );
                             }
                         }
                     }
@@ -1131,6 +1142,7 @@ impl State {
         ((old_x, prev_region), (new_x, _)): (&(f32, DrawnRegion), &(f32, DrawnRegion)),
         user_color: Color32,
         offset: f32,
+        height_scaling_factor: f32,
         ctx: &mut DrawingContext,
         text_color: Color32,
     ) {
@@ -1142,7 +1154,8 @@ impl State {
 
             let transition_width = (new_x - old_x).min(6.);
 
-            let trace_coords = |x, y| (ctx.to_screen)(x, y * ctx.cfg.line_height + offset);
+            let trace_coords =
+                |x, y| (ctx.to_screen)(x, y * ctx.cfg.line_height * height_scaling_factor + offset);
 
             ctx.painter.add(PathShape::line(
                 vec![
@@ -1193,11 +1206,13 @@ impl State {
         force_anti_alias: bool,
         color: Color32,
         offset: f32,
+        height_scaling_factor: f32,
         draw_clock_marker: bool,
         ctx: &mut DrawingContext,
     ) {
         if let (Some(prev_result), Some(new_result)) = (&prev_region.inner, &new_region.inner) {
-            let trace_coords = |x, y| (ctx.to_screen)(x, y * ctx.cfg.line_height + offset);
+            let trace_coords =
+                |x, y| (ctx.to_screen)(x, y * ctx.cfg.line_height * height_scaling_factor + offset);
 
             let (old_height, old_color, old_bg) =
                 prev_result
@@ -1214,7 +1229,9 @@ impl State {
                         min: (ctx.to_screen)(*old_x, offset),
                         max: (ctx.to_screen)(
                             *new_x,
-                            offset + ctx.cfg.line_height + ctx.theme.linewidth / 2.,
+                            offset
+                                + ctx.cfg.line_height * height_scaling_factor
+                                + ctx.theme.linewidth / 2.,
                         ),
                     },
                     CornerRadiusF32::ZERO,

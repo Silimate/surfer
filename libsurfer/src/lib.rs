@@ -860,6 +860,19 @@ impl State {
                     }
                 };
             }
+            Message::ItemHeightScalingFactorChange(vidx, scale) => {
+                self.save_current_canvas(format!("Change item height scaling factor to {}", scale));
+                if let Some(waves) = self.waves.as_mut() {
+                    if let Some(vidx) = vidx.or(waves.focused_item) {
+                        waves.items_tree.get_visible(vidx).map(|node| {
+                            waves
+                                .displayed_items
+                                .entry(node.item_ref)
+                                .and_modify(|item| item.set_height_scaling_factor(scale))
+                        });
+                    }
+                };
+            }
             Message::MoveCursorToTransition {
                 next,
                 variable,

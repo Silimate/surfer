@@ -968,6 +968,11 @@ snapshot_ui_with_file_and_msgs! {zoom_to_range, "examples/counter.vcd", [
     Message::ZoomToRange { start: BigInt::from(100), end: BigInt::from(250) , viewport_idx: 0}
 ]}
 
+snapshot_ui_with_file_and_msgs! {height_scaling, "examples/counter.vcd", [
+    Message::AddScope(ScopeRef::from_strs(&["tb"]), false),
+    Message::ItemHeightScalingFactorChange(Some(VisibleItemIndex(2)), 4.0)
+]}
+
 snapshot_ui_with_file_and_msgs! {remove_item, "examples/counter.vcd", [
     Message::AddScope(ScopeRef::from_strs(&["tb"]), false),
     Message::RemoveItemByIndex(VisibleItemIndex(1))

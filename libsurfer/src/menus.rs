@@ -439,6 +439,19 @@ impl State {
                 }
             });
 
+            let height_menu_options = [1.0, 2.0, 4.0, 8.0, 16.0];
+            ui.menu_button("Height", |ui| {
+                let selected_size = displayed_item.height_scaling_factor();
+                for size in height_menu_options {
+                    ui.radio(selected_size == size, format!("{}", size))
+                        .clicked()
+                        .then(|| {
+                            ui.close_menu();
+                            msgs.push(Message::ItemHeightScalingFactorChange(affected_vidxs, size));
+                        });
+                }
+            });
+
             if self.sys.wcp_greeted_signal.load(Ordering::Relaxed)
                 && self.sys.wcp_client_capabilities.goto_declaration
                 && ui.button("Go to declaration").clicked()

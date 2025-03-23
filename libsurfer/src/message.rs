@@ -87,6 +87,7 @@ pub enum Message {
     ItemColorChange(Option<VisibleItemIndex>, Option<String>),
     ItemBackgroundColorChange(Option<VisibleItemIndex>, Option<String>),
     ItemNameChange(Option<VisibleItemIndex>, Option<String>),
+    ItemHeightScalingFactorChange(Option<VisibleItemIndex>, f32),
     ChangeVariableNameType(Option<VisibleItemIndex>, VariableNameType),
     ForceVariableNameTypes(VariableNameType),
     SetNameAlignRight(bool),
