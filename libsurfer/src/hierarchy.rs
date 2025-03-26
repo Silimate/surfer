@@ -1,6 +1,7 @@
 //! Functions for drawing the left hand panel showing scopes and variables.
 use crate::message::Message;
 use crate::transaction_container::StreamScopeRef;
+use crate::variable_filter::VariableFilter;
 use crate::wave_container::{ScopeRef, ScopeRefExt};
 use crate::wave_data::ScopeType;
 use crate::SystemState;
@@ -28,7 +29,8 @@ pub fn separate(state: &mut SystemState, ui: &mut Ui, msgs: &mut Vec<Message>) {
                 .show(ui, |ui| {
                     ui.style_mut().wrap_mode = Some(TextWrapMode::Extend);
                     if let Some(waves) = &state.user.waves {
-                        state.draw_all_scopes(msgs, waves, false, ui, "");
+                        let empty_filter = VariableFilter::new();
+                        state.draw_all_scopes(msgs, waves, false, ui, &empty_filter);
                     }
                 });
         });
@@ -36,10 +38,9 @@ pub fn separate(state: &mut SystemState, ui: &mut Ui, msgs: &mut Vec<Message>) {
         .frame(Frame::new().inner_margin(Margin::same(5)))
         .show_inside(ui, |ui| {
             ui.with_layout(Layout::left_to_right(Align::TOP), |ui| {
-                let filter = &mut *state.variable_name_filter.borrow_mut();
                 ui.heading("Variables");
                 ui.add_space(3.0);
-                state.draw_variable_name_filter_edit(ui, filter, msgs);
+                state.draw_variable_name_filter_edit(ui, msgs);
             });
             ui.add_space(3.0);
 
@@ -53,7 +54,8 @@ pub fn separate(state: &mut SystemState, ui: &mut Ui, msgs: &mut Vec<Message>) {
 }
 
 fn draw_variables(state: &mut SystemState, msgs: &mut Vec<Message>, ui: &mut Ui) {
-    let filter = &mut *state.variable_name_filter.borrow_mut();
+    let filter = &state.user.variable_filter;
+
     if let Some(waves) = &state.user.waves {
         let empty_scope = if waves.inner.is_waves() {
             ScopeType::WaveScope(ScopeRef::empty())
@@ -104,17 +106,17 @@ pub fn tree(state: &mut SystemState, ui: &mut Ui, msgs: &mut Vec<Message>) {
         Layout::top_down(Align::LEFT).with_cross_justify(true),
         |ui| {
             Frame::new().inner_margin(Margin::same(5)).show(ui, |ui| {
-                let filter = &mut *state.variable_name_filter.borrow_mut();
                 ui.with_layout(Layout::left_to_right(Align::TOP), |ui| {
                     ui.heading("Hierarchy");
                     ui.add_space(3.0);
-                    state.draw_variable_name_filter_edit(ui, filter, msgs);
+                    state.draw_variable_name_filter_edit(ui, msgs);
                 });
                 ui.add_space(3.0);
 
                 ScrollArea::both().id_salt("hierarchy").show(ui, |ui| {
                     ui.style_mut().wrap_mode = Some(TextWrapMode::Extend);
                     if let Some(waves) = &state.user.waves {
+                        let filter = &state.user.variable_filter;
                         state.draw_all_scopes(msgs, waves, true, ui, filter);
                     }
                 });

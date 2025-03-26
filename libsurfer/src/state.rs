@@ -19,7 +19,7 @@ use crate::{
     system_state::SystemState,
     time::{TimeStringFormatting, TimeUnit},
     transaction_container::TransactionContainer,
-    variable_name_filter::VariableNameFilterType,
+    variable_filter::VariableFilter,
     viewport::Viewport,
     wasm_util::perform_work,
     wave_container::{ScopeRef, VariableRef, WaveContainer},
@@ -92,8 +92,7 @@ pub struct UserState {
     #[serde(skip, default)]
     pub(crate) show_open_sibling_state_file_suggestion: Option<OpenSiblingStateFileDialog>,
     pub(crate) variable_name_filter_focused: bool,
-    pub(crate) variable_name_filter_type: VariableNameFilterType,
-    pub(crate) variable_name_filter_case_insensitive: bool,
+    pub(crate) variable_filter: VariableFilter,
     pub(crate) rename_target: Option<VisibleItemIndex>,
     //Sidepanel width
     pub(crate) sidepanel_width: Option<f32>,

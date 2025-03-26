@@ -39,8 +39,8 @@ pub mod transaction_container;
 pub mod translation;
 pub mod util;
 pub mod variable_direction;
+pub mod variable_filter;
 mod variable_index;
-pub mod variable_name_filter;
 pub mod variable_name_type;
 pub mod variable_type;
 pub mod view;
@@ -96,7 +96,7 @@ use crate::transaction_container::{StreamScopeRef, TransactionRef, TransactionSt
 #[cfg(feature = "spade")]
 use crate::translation::spade::SpadeTranslator;
 use crate::translation::{all_translators, AnyTranslator};
-use crate::variable_name_filter::VariableNameFilterType;
+use crate::variable_filter::VariableNameFilterType;
 use crate::viewport::Viewport;
 use crate::wasm_util::{perform_work, UrlArgs};
 use crate::wave_container::VariableRefExt;
@@ -1517,10 +1517,10 @@ impl SystemState {
             Message::SetDragStart(pos) => self.gesture_start_location = pos,
             Message::SetFilterFocused(s) => self.user.variable_name_filter_focused = s,
             Message::SetVariableNameFilterType(variable_name_filter_type) => {
-                self.user.variable_name_filter_type = variable_name_filter_type;
+                self.user.variable_filter.name_filter_type = variable_name_filter_type;
             }
             Message::SetVariableNameFilterCaseInsensitive(s) => {
-                self.user.variable_name_filter_case_insensitive = s;
+                self.user.variable_filter.name_filter_case_insensitive = s;
             }
             Message::SetUIZoomFactor(scale) => {
                 if let Some(ctx) = &mut self.context.as_ref() {

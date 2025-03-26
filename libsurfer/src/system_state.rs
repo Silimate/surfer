@@ -16,7 +16,7 @@ use crate::{
     state::UserState,
     time::TimeUnit,
     translation::{all_translators, TranslatorList},
-    variable_name_filter::VariableNameFilterType,
+    variable_filter::VariableFilter,
     wave_source::LoadProgress,
     CachedDrawData, CanvasState, Channels, WcpClientCapabilities,
 };
@@ -68,7 +68,6 @@ pub struct SystemState {
     pub(crate) url: RefCell<String>,
     pub(crate) command_prompt_text: RefCell<String>,
     pub(crate) last_canvas_rect: RefCell<Option<Rect>>,
-    pub(crate) variable_name_filter: RefCell<String>,
     pub(crate) item_renaming_string: RefCell<String>,
 
     /// These items should be expanded into subfields in the next frame. Cleared after each
@@ -130,8 +129,7 @@ impl SystemState {
                 rename_target: None,
                 show_reload_suggestion: None,
                 variable_name_filter_focused: false,
-                variable_name_filter_type: VariableNameFilterType::Fuzzy,
-                variable_name_filter_case_insensitive: true,
+                variable_filter: VariableFilter::new(),
                 ui_zoom_factor: None,
                 state_file: None,
                 show_hierarchy: None,
@@ -180,7 +178,6 @@ impl SystemState {
             command_prompt_text: RefCell::new(String::new()),
             draw_data: RefCell::new(vec![None]),
             last_canvas_rect: RefCell::new(None),
-            variable_name_filter: RefCell::new(String::new()),
             item_renaming_string: RefCell::new(String::new()),
 
             items_to_expand: RefCell::new(vec![]),

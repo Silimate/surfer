@@ -33,6 +33,7 @@ use crate::transaction_container::{StreamScopeRef, TransactionStreamRef};
 use crate::translation::TranslationResultExt;
 use crate::util::uint_idx_to_alpha_idx;
 use crate::variable_direction::VariableDirectionExt;
+use crate::variable_filter::VariableFilter;
 use crate::wave_container::{
     FieldRef, FieldRefExt, ScopeRef, ScopeRefExt, VariableRef, VariableRefExt,
 };
@@ -603,7 +604,7 @@ impl SystemState {
         wave: &WaveData,
         draw_variables: bool,
         ui: &mut egui::Ui,
-        filter: &str,
+        filter: &VariableFilter,
     ) {
         for scope in wave.inner.root_scopes() {
             match scope {
@@ -671,7 +672,7 @@ impl SystemState {
 
                 msgs.push(Message::AddDraggedVariables(self.filtered_variables(
                     variables.as_slice(),
-                    self.variable_name_filter.borrow_mut().as_str(),
+                    &self.user.variable_filter,
                 )));
             }
         });
@@ -703,7 +704,7 @@ impl SystemState {
         scope: &ScopeRef,
         draw_variables: bool,
         ui: &mut egui::Ui,
-        filter: &str,
+        filter: &VariableFilter,
     ) {
         let Some(child_scopes) = wave
             .inner
@@ -777,7 +778,7 @@ impl SystemState {
         root_scope: &ScopeRef,
         draw_variables: bool,
         ui: &mut egui::Ui,
-        filter: &str,
+        filter: &VariableFilter,
     ) {
         let Some(child_scopes) = wave
             .inner
@@ -814,7 +815,7 @@ impl SystemState {
         wave_container: &WaveContainer,
         ui: &mut egui::Ui,
         variables: &[VariableRef],
-        filter: &str,
+        filter: &VariableFilter,
     ) {
         for variable in self.filtered_variables(variables, filter) {
             let meta = wave_container.variable_meta(&variable).ok();
