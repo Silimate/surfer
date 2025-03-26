@@ -65,6 +65,8 @@ pub enum WcpResponse {
 pub enum WcpEvent {
     waveforms_loaded { source: String },
     goto_declaration { variable: String },
+    add_drivers { variable: String },
+    add_loads { variable: String },
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq)]

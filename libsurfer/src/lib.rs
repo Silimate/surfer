@@ -234,12 +234,16 @@ impl Channels {
 pub struct WcpClientCapabilities {
     pub waveforms_loaded: bool,
     pub goto_declaration: bool,
+    pub add_drivers: bool,
+    pub add_loads: bool,
 }
 impl WcpClientCapabilities {
     fn new() -> Self {
         Self {
             waveforms_loaded: false,
             goto_declaration: false,
+            add_drivers: false,
+            add_loads: false,
         }
     }
 }
