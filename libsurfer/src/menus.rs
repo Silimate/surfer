@@ -15,7 +15,6 @@ use crate::{
     displayed_item::{DisplayedFieldRef, DisplayedItem},
     message::Message,
     time::{timeformat_menu, timeunit_menu},
-    variable_filter::variable_name_filter_type_menu,
     variable_name_type::VariableNameType,
     wave_source::OpenMode,
     SystemState,
@@ -251,11 +250,7 @@ impl SystemState {
                 });
             });
             ui.menu_button("Variable filter type", |ui| {
-                variable_name_filter_type_menu(
-                    ui,
-                    msgs,
-                    &self.user.variable_filter.name_filter_type,
-                );
+                self.variable_filter_type_menu(ui, msgs);
             });
 
             ui.menu_button("Hierarchy", |ui| {

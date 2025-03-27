@@ -40,7 +40,7 @@ pub fn separate(state: &mut SystemState, ui: &mut Ui, msgs: &mut Vec<Message>) {
             ui.with_layout(Layout::left_to_right(Align::TOP), |ui| {
                 ui.heading("Variables");
                 ui.add_space(3.0);
-                state.draw_variable_name_filter_edit(ui, msgs);
+                state.draw_variable_filter_edit(ui, msgs);
             });
             ui.add_space(3.0);
 
@@ -109,7 +109,7 @@ pub fn tree(state: &mut SystemState, ui: &mut Ui, msgs: &mut Vec<Message>) {
                 ui.with_layout(Layout::left_to_right(Align::TOP), |ui| {
                     ui.heading("Hierarchy");
                     ui.add_space(3.0);
-                    state.draw_variable_name_filter_edit(ui, msgs);
+                    state.draw_variable_filter_edit(ui, msgs);
                 });
                 ui.add_space(3.0);
 

@@ -11,8 +11,11 @@ use serde::{Deserialize, Serialize};
 
 use crate::data_container::DataContainer::Transactions;
 use crate::transaction_container::{StreamScopeRef, TransactionStreamRef};
+use crate::variable_direction::VariableDirectionExt;
+use crate::wave_container::WaveContainer;
 use crate::wave_data::ScopeType;
 use crate::{message::Message, wave_container::VariableRef, SystemState};
+use surfer_translation_types::VariableDirection;
 
 #[derive(Debug, Display, PartialEq, Serialize, Deserialize, Sequence)]
 pub enum VariableNameFilterType {
@@ -34,6 +37,19 @@ pub struct VariableFilter {
     pub(crate) name_filter_type: VariableNameFilterType,
     pub(crate) name_filter_str: String,
     pub(crate) name_filter_case_insensitive: bool,
+
+    pub(crate) include_inputs: bool,
+    pub(crate) include_outputs: bool,
+    pub(crate) include_inouts: bool,
+    pub(crate) include_others: bool,
+}
+
+#[derive(Debug, Deserialize)]
+pub enum VariableIOFilterType {
+    Input,
+    Output,
+    InOut,
+    Other,
 }
 
 impl VariableFilter {
@@ -42,6 +58,11 @@ impl VariableFilter {
             name_filter_type: VariableNameFilterType::Contain,
             name_filter_str: String::from(""),
             name_filter_case_insensitive: true,
+
+            include_inputs: true,
+            include_outputs: true,
+            include_inouts: true,
+            include_others: true,
         }
     }
 
@@ -96,19 +117,33 @@ impl VariableFilter {
         }
     }
 
-    pub fn matching_variables(&self, variables: &[VariableRef]) -> Vec<VariableRef> {
+    fn kind_filter(&self, vr: &VariableRef, wave_container_opt: Option<&WaveContainer>) -> bool {
+        match get_variable_direction(vr, wave_container_opt) {
+            VariableDirection::Input => self.include_inputs,
+            VariableDirection::Output => self.include_outputs,
+            VariableDirection::InOut => self.include_inouts,
+            _ => self.include_others,
+        }
+    }
+
+    pub fn matching_variables(
+        &self,
+        variables: &[VariableRef],
+        wave_container_opt: Option<&WaveContainer>,
+    ) -> Vec<VariableRef> {
         let mut name_filter = self.name_filter_fn();
 
         variables
             .iter()
             .filter(|&vr| name_filter(&vr.name))
+            .filter(|&vr| self.kind_filter(vr, wave_container_opt))
             .cloned()
             .collect_vec()
     }
 }
 
 impl SystemState {
-    pub fn draw_variable_name_filter_edit(&mut self, ui: &mut Ui, msgs: &mut Vec<Message>) {
+    pub fn draw_variable_filter_edit(&mut self, ui: &mut Ui, msgs: &mut Vec<Message>) {
         ui.with_layout(Layout::right_to_left(Align::TOP), |ui| {
             let default_padding = ui.spacing().button_padding;
             ui.spacing_mut().button_padding = Vec2 {
@@ -185,11 +220,7 @@ impl SystemState {
                 ));
             });
             ui.menu_button(icons::FILTER_FILL, |ui| {
-                variable_name_filter_type_menu(
-                    ui,
-                    msgs,
-                    &self.user.variable_filter.name_filter_type,
-                );
+                self.variable_filter_type_menu(ui, msgs);
             });
             ui.add_enabled(
                 !self.user.variable_filter.name_filter_str.is_empty(),
@@ -212,11 +243,7 @@ impl SystemState {
                     .hint_text("Filter (context menu for type)"),
             );
             response.context_menu(|ui| {
-                variable_name_filter_type_menu(
-                    ui,
-                    msgs,
-                    &self.user.variable_filter.name_filter_type,
-                );
+                self.variable_filter_type_menu(ui, msgs);
             });
             // Handle focus
             if response.gained_focus() {
@@ -229,13 +256,91 @@ impl SystemState {
         });
     }
 
+    pub fn variable_filter_type_menu(&self, ui: &mut Ui, msgs: &mut Vec<Message>) {
+        for filter_type in enum_iterator::all::<VariableNameFilterType>() {
+            ui.radio(
+                self.user.variable_filter.name_filter_type == filter_type,
+                filter_type.to_string(),
+            )
+            .clicked()
+            .then(|| {
+                ui.close_menu();
+                msgs.push(Message::SetVariableNameFilterType(filter_type));
+            });
+        }
+
+        ui.separator();
+
+        ui.horizontal(|ui| {
+            let input = VariableDirection::Input;
+            let output = VariableDirection::Output;
+            let inout = VariableDirection::InOut;
+
+            ui.add(
+                Button::new(input.get_icon().unwrap())
+                    .selected(self.user.variable_filter.include_inputs),
+            )
+            .on_hover_text("Show inputs")
+            .clicked()
+            .then(|| {
+                msgs.push(Message::SetVariableIOFilter(
+                    VariableIOFilterType::Input,
+                    !self.user.variable_filter.include_inputs,
+                ));
+            });
+
+            ui.add(
+                Button::new(output.get_icon().unwrap())
+                    .selected(self.user.variable_filter.include_outputs),
+            )
+            .on_hover_text("Show outputs")
+            .clicked()
+            .then(|| {
+                msgs.push(Message::SetVariableIOFilter(
+                    VariableIOFilterType::Output,
+                    !self.user.variable_filter.include_outputs,
+                ));
+            });
+
+            ui.add(
+                Button::new(inout.get_icon().unwrap())
+                    .selected(self.user.variable_filter.include_inouts),
+            )
+            .on_hover_text("Show inouts")
+            .clicked()
+            .then(|| {
+                msgs.push(Message::SetVariableIOFilter(
+                    VariableIOFilterType::InOut,
+                    !self.user.variable_filter.include_inouts,
+                ));
+            });
+
+            ui.add(
+                Button::new(icons::GLOBAL_LINE).selected(self.user.variable_filter.include_others),
+            )
+            .on_hover_text("Show others")
+            .clicked()
+            .then(|| {
+                msgs.push(Message::SetVariableIOFilter(
+                    VariableIOFilterType::Other,
+                    !self.user.variable_filter.include_others,
+                ));
+            });
+        });
+    }
+
     pub fn filtered_variables(
         &self,
         variables: &[VariableRef],
         variable_filter: &VariableFilter,
     ) -> Vec<VariableRef> {
+        let wave_container = match &self.user.waves {
+            Some(wd) => wd.inner.as_waves(),
+            None => None,
+        };
+
         variable_filter
-            .matching_variables(variables)
+            .matching_variables(variables, wave_container)
             .iter()
             .sorted_by(|a, b| numeric_sort::cmp(&a.name, &b.name))
             .cloned()
@@ -243,20 +348,16 @@ impl SystemState {
     }
 }
 
-pub fn variable_name_filter_type_menu(
-    ui: &mut Ui,
-    msgs: &mut Vec<Message>,
-    variable_name_filter_type: &VariableNameFilterType,
-) {
-    for filter_type in enum_iterator::all::<VariableNameFilterType>() {
-        ui.radio(
-            *variable_name_filter_type == filter_type,
-            filter_type.to_string(),
-        )
-        .clicked()
-        .then(|| {
-            ui.close_menu();
-            msgs.push(Message::SetVariableNameFilterType(filter_type));
-        });
+fn get_variable_direction(
+    vr: &VariableRef,
+    wave_container_opt: Option<&WaveContainer>,
+) -> VariableDirection {
+    match wave_container_opt {
+        Some(wave_container) => wave_container
+            .variable_meta(vr)
+            .map_or(VariableDirection::Unknown, |m| {
+                m.direction.unwrap_or(VariableDirection::Unknown)
+            }),
+        None => VariableDirection::Unknown,
     }
 }

@@ -96,7 +96,7 @@ use crate::transaction_container::{StreamScopeRef, TransactionRef, TransactionSt
 #[cfg(feature = "spade")]
 use crate::translation::spade::SpadeTranslator;
 use crate::translation::{all_translators, AnyTranslator};
-use crate::variable_filter::VariableNameFilterType;
+use crate::variable_filter::{VariableIOFilterType, VariableNameFilterType};
 use crate::viewport::Viewport;
 use crate::wasm_util::{perform_work, UrlArgs};
 use crate::wave_container::VariableRefExt;
@@ -1521,6 +1521,14 @@ impl SystemState {
             }
             Message::SetVariableNameFilterCaseInsensitive(s) => {
                 self.user.variable_filter.name_filter_case_insensitive = s;
+            }
+            Message::SetVariableIOFilter(t, b) => {
+                match t {
+                    VariableIOFilterType::Output => self.user.variable_filter.include_outputs = b,
+                    VariableIOFilterType::Input => self.user.variable_filter.include_inputs = b,
+                    VariableIOFilterType::InOut => self.user.variable_filter.include_inouts = b,
+                    VariableIOFilterType::Other => self.user.variable_filter.include_others = b,
+                };
             }
             Message::SetUIZoomFactor(scale) => {
                 if let Some(ctx) = &mut self.context.as_ref() {
