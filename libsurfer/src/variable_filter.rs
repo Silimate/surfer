@@ -17,6 +17,8 @@ use crate::wave_data::ScopeType;
 use crate::{message::Message, wave_container::VariableRef, SystemState};
 use surfer_translation_types::VariableDirection;
 
+use std::cmp::Ordering;
+
 #[derive(Debug, Display, PartialEq, Serialize, Deserialize, Sequence)]
 pub enum VariableNameFilterType {
     #[display("Fuzzy")]
@@ -42,6 +44,8 @@ pub struct VariableFilter {
     pub(crate) include_outputs: bool,
     pub(crate) include_inouts: bool,
     pub(crate) include_others: bool,
+
+    pub(crate) group_by_direction: bool,
 }
 
 #[derive(Debug, Deserialize)]
@@ -63,6 +67,8 @@ impl VariableFilter {
             include_outputs: true,
             include_inouts: true,
             include_others: true,
+
+            group_by_direction: false,
         }
     }
 
@@ -271,6 +277,22 @@ impl SystemState {
 
         ui.separator();
 
+        // Checkbox wants a mutable bool reference but we don't have mutable self to give it a
+        // mutable 'group_by_direction' directly. Plus we want to update things via a message. So
+        // make a copy of the flag here that can be mutable and just ensure we update the actual
+        // flag on a click.
+        let mut group_by_direction = self.user.variable_filter.group_by_direction;
+
+        ui.checkbox(&mut group_by_direction, "Group by direction")
+            .clicked()
+            .then(|| {
+                msgs.push(Message::SetVariableGroupByDirection(
+                    !self.user.variable_filter.group_by_direction,
+                ))
+            });
+
+        ui.separator();
+
         ui.horizontal(|ui| {
             let input = VariableDirection::Input;
             let output = VariableDirection::Output;
@@ -329,6 +351,44 @@ impl SystemState {
         });
     }
 
+    pub fn variable_cmp(
+        &self,
+        a: &VariableRef,
+        b: &VariableRef,
+        wave_container: Option<&WaveContainer>,
+    ) -> Ordering {
+        let dir_order = [
+            VariableDirection::Input,
+            VariableDirection::Output,
+            VariableDirection::InOut,
+        ];
+        let a_direction = get_variable_direction(a, wave_container);
+        let b_direction = get_variable_direction(b, wave_container);
+
+        if !self.user.variable_filter.group_by_direction {
+            numeric_sort::cmp(&a.name, &b.name)
+        } else if a_direction == b_direction {
+            numeric_sort::cmp(&a.name, &b.name)
+        } else {
+            let a_dir_pos = dir_order
+                .into_iter()
+                .position(|d| d == a_direction)
+                .unwrap_or(dir_order.len());
+            let b_dir_pos = dir_order
+                .into_iter()
+                .position(|d| d == b_direction)
+                .unwrap_or(dir_order.len());
+
+            if a_dir_pos < b_dir_pos {
+                Ordering::Less
+            } else if a_dir_pos > b_dir_pos {
+                Ordering::Greater
+            } else {
+                numeric_sort::cmp(&a.name, &b.name)
+            }
+        }
+    }
+
     pub fn filtered_variables(
         &self,
         variables: &[VariableRef],
@@ -342,7 +402,7 @@ impl SystemState {
         variable_filter
             .matching_variables(variables, wave_container)
             .iter()
-            .sorted_by(|a, b| numeric_sort::cmp(&a.name, &b.name))
+            .sorted_by(|a, b| self.variable_cmp(a, b, wave_container))
             .cloned()
             .collect_vec()
     }

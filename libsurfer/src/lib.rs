@@ -1530,6 +1530,9 @@ impl SystemState {
                     VariableIOFilterType::Other => self.user.variable_filter.include_others = b,
                 };
             }
+            Message::SetVariableGroupByDirection(b) => {
+                self.user.variable_filter.group_by_direction = b;
+            }
             Message::SetUIZoomFactor(scale) => {
                 if let Some(ctx) = &mut self.context.as_ref() {
                     ctx.set_zoom_factor(scale);

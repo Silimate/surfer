@@ -245,6 +245,7 @@ pub enum Message {
     SetVariableNameFilterType(VariableNameFilterType),
     SetVariableNameFilterCaseInsensitive(bool),
     SetVariableIOFilter(VariableIOFilterType, bool),
+    SetVariableGroupByDirection(bool),
     SetUIZoomFactor(f32),
     SetPerformanceVisible(bool),
     SetContinuousRedraw(bool),
