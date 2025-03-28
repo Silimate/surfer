@@ -293,8 +293,11 @@ pub struct SurferTheme {
     #[serde(deserialize_with = "deserialize_hex_color")]
     pub highlight_background: Color32,
 
-    /// variable line width
+    /// Variable line width
     pub linewidth: f32,
+
+    /// Vector transition max width
+    pub vector_transition_width: f32,
 
     /// Number of lines using standard background before changing to
     /// alternate background and so on, set to zero to disable

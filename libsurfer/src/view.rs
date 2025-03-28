@@ -59,7 +59,7 @@ pub struct DrawConfig {
     pub canvas_height: f32,
     pub line_height: f32,
     pub text_size: f32,
-    pub max_transition_width: i32,
+    pub extra_draw_width: i32,
 }
 
 impl DrawConfig {
@@ -68,7 +68,7 @@ impl DrawConfig {
             canvas_height,
             line_height,
             text_size,
-            max_transition_width: 6,
+            extra_draw_width: 6,
         }
     }
 }
