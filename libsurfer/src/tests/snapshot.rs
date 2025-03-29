@@ -24,7 +24,7 @@ use crate::{
     setup_custom_font,
     state::UserState,
     transaction_container,
-    variable_name_filter::VariableNameFilterType,
+    variable_filter::VariableNameFilterType,
     wave_container::{ScopeRef, VariableRef},
     wave_source::LoadOptions,
     Message, MoveDir, StartupParams, SystemState, WaveSource,
@@ -1105,7 +1105,7 @@ snapshot_ui!(regex_error_indication, || {
     for message in msgs {
         state.update(message);
     }
-    state.variable_name_filter.borrow_mut().push_str("a(");
+    state.user.variable_filter.name_filter_str.push_str("a(");
     // make sure all the signals added by the proceeding messages are properly loaded
     wait_for_waves_fully_loaded(&mut state, 10);
     state
@@ -1159,7 +1159,7 @@ snapshot_ui!(fuzzy_signal_filter_works, || {
     for message in msgs {
         state.update(message);
     }
-    state.variable_name_filter.borrow_mut().push_str("at");
+    state.user.variable_filter.name_filter_str.push_str("at");
     // make sure all the signals added by the proceeding messages are properly loaded
     wait_for_waves_fully_loaded(&mut state, 10);
     state
@@ -1206,7 +1206,7 @@ snapshot_ui!(contain_signal_filter_works, || {
     for message in msgs {
         state.update(message);
     }
-    state.variable_name_filter.borrow_mut().push_str("at");
+    state.user.variable_filter.name_filter_str.push_str("at");
     // make sure all the signals added by the proceeding messages are properly loaded
     wait_for_waves_fully_loaded(&mut state, 10);
     state
@@ -1253,7 +1253,7 @@ snapshot_ui!(regex_signal_filter_works, || {
     for message in msgs {
         state.update(message);
     }
-    state.variable_name_filter.borrow_mut().push_str("a[dx]");
+    state.user.variable_filter.name_filter_str.push_str("a[dx]");
     // make sure all the signals added by the proceeding messages are properly loaded
     wait_for_waves_fully_loaded(&mut state, 10);
     state
@@ -1300,7 +1300,7 @@ snapshot_ui!(start_signal_filter_works, || {
     for message in msgs {
         state.update(message);
     }
-    state.variable_name_filter.borrow_mut().push('a');
+    state.user.variable_filter.name_filter_str.push('a');
     // make sure all the signals added by the proceeding messages are properly loaded
     wait_for_waves_fully_loaded(&mut state, 10);
     state
@@ -1348,7 +1348,7 @@ snapshot_ui!(case_sensitive_signal_filter_works, || {
     for message in msgs {
         state.update(message);
     }
-    state.variable_name_filter.borrow_mut().push('a');
+    state.user.variable_filter.name_filter_str.push('a');
     // make sure all the signals added by the proceeding messages are properly loaded
     wait_for_waves_fully_loaded(&mut state, 10);
     state
