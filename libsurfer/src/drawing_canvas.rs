@@ -14,7 +14,7 @@ use num::{BigInt, BigUint, ToPrimitive};
 use rayon::prelude::{IntoParallelRefIterator, ParallelBridge, ParallelIterator};
 use std::cmp::Ordering;
 use std::collections::HashMap;
-use std::f64::consts::PI;
+use std::f32::consts::PI;
 use surfer_translation_types::{
     SubFieldFlatTranslationResult, TranslatedValue, ValueKind, VariableInfo, VariableType,
 };
@@ -1141,11 +1141,11 @@ impl SystemState {
         if let Some(focused_pos) = focused_transaction_start {
             let arrow_color = self.user.config.theme.relation_arrow;
             for start_pos in inc_relation_starts {
-                self.draw_arrow(start_pos, focused_pos, 25., arrow_color, ctx);
+                self.draw_arrow(start_pos, focused_pos, arrow_color, ctx);
             }
 
             for end_pos in out_relation_starts {
-                self.draw_arrow(focused_pos, end_pos, 25., arrow_color, ctx);
+                self.draw_arrow(focused_pos, end_pos, arrow_color, ctx);
             }
         }
     }
@@ -1291,14 +1291,7 @@ impl SystemState {
     }
 
     /// Draws a curvy arrow from `start` to `end`.
-    fn draw_arrow(
-        &self,
-        start: Pos2,
-        end: Pos2,
-        arrowhead_angle: f64,
-        color: Color32,
-        ctx: &DrawingContext,
-    ) {
+    fn draw_arrow(&self, start: Pos2, end: Pos2, color: Color32, ctx: &DrawingContext) {
         let mut anchor1 = Pos2::default();
         let mut anchor2 = Pos2::default();
 
@@ -1310,7 +1303,7 @@ impl SystemState {
         anchor2.x = end.x - (2. / 5.) * x_diff;
         anchor2.y = end.y;
 
-        let stroke = PathStroke::new(1.3, color);
+        let stroke = PathStroke::new(ctx.theme.transaction_arrow_linewidth, color);
 
         ctx.painter.add(Shape::CubicBezier(CubicBezierShape {
             points: [start, anchor1, anchor2, end],
@@ -1319,8 +1312,8 @@ impl SystemState {
             stroke,
         }));
 
-        let stroke = Stroke::new(1.3, color);
-        self.draw_arrowheads(anchor2, end, arrowhead_angle, ctx, stroke);
+        let stroke = Stroke::new(ctx.theme.transaction_arrow_linewidth, color);
+        self.draw_arrowheads(anchor2, end, ctx, stroke);
     }
 
     /// Draws arrowheads for the vector going from `vec_start` to `vec_tip`.
@@ -1329,17 +1322,15 @@ impl SystemState {
         &self,
         vec_start: Pos2,
         vec_tip: Pos2,
-        angle: f64, // given in degrees
         ctx: &DrawingContext,
         stroke: Stroke,
     ) {
-        // FIXME: should probably make scale a function parameter
-        let scale = 8.;
+        let scale = ctx.theme.transaction_arrowhead_length;
 
-        let vec_x = (vec_tip.x - vec_start.x) as f64;
-        let vec_y = (vec_tip.y - vec_start.y) as f64;
+        let vec_x = vec_tip.x - vec_start.x;
+        let vec_y = vec_tip.y - vec_start.y;
 
-        let alpha = 2. * PI / 360. * angle;
+        let alpha = 2. * PI / 360. * ctx.theme.transaction_arrowhead_angle;
 
         // calculate the points of the new vector, which forms an angle of the given degrees with the given vector
         let vec_angled_x = vec_x * alpha.cos() + vec_y * alpha.sin();
@@ -1351,11 +1342,11 @@ impl SystemState {
         let vec_angled_y =
             (1. / (vec_angled_y - vec_angled_x).powi(2).sqrt()) * vec_angled_y * scale;
 
-        let arrowhead_left_x = vec_tip.x - vec_angled_x as f32;
-        let arrowhead_left_y = vec_tip.y - vec_angled_y as f32;
+        let arrowhead_left_x = vec_tip.x - vec_angled_x;
+        let arrowhead_left_y = vec_tip.y - vec_angled_y;
 
-        let arrowhead_right_x = vec_tip.x + vec_angled_y as f32;
-        let arrowhead_right_y = vec_tip.y - vec_angled_x as f32;
+        let arrowhead_right_x = vec_tip.x + vec_angled_y;
+        let arrowhead_right_y = vec_tip.y - vec_angled_x;
 
         ctx.painter.add(Shape::line_segment(
             [vec_tip, Pos2::new(arrowhead_left_x, arrowhead_left_y)],

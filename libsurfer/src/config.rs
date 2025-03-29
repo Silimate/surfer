@@ -299,6 +299,15 @@ pub struct SurferTheme {
     /// Vector transition max width
     pub vector_transition_width: f32,
 
+    /// Transaction arrow line width
+    pub transaction_arrow_linewidth: f32,
+
+    /// Transaction arrowhead angle in degrees
+    pub transaction_arrowhead_angle: f32,
+
+    /// Transaction arrowhead length
+    pub transaction_arrowhead_length: f32,
+
     /// Number of lines using standard background before changing to
     /// alternate background and so on, set to zero to disable
     pub alt_frequency: usize,
