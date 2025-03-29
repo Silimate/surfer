@@ -673,7 +673,7 @@ impl SystemState {
 
         let modifiers = egui_ctx.input(|i| i.modifiers);
         if !modifiers.command
-            && (response.dragged_by(PointerButton::Primary)
+            && ((response.dragged_by(PointerButton::Primary) && modifiers.shift)
                 || response.clicked_by(PointerButton::Primary))
         {
             if let Some(snap_point) =
@@ -692,7 +692,16 @@ impl SystemState {
         if response.drag_started_by(PointerButton::Middle)
             || modifiers.command && response.drag_started_by(PointerButton::Primary)
         {
-            msgs.push(Message::SetDragStart(
+            msgs.push(Message::SetMouseGestureDragStart(
+                response
+                    .interact_pointer_pos()
+                    .map(|p| to_screen.inverse().transform_pos(p)),
+            ));
+        }
+
+        // Check for measure drag starting
+        if response.drag_started_by(PointerButton::Primary) {
+            msgs.push(Message::SetMeasureDragStart(
                 response
                     .interact_pointer_pos()
                     .map(|p| to_screen.inverse().transform_pos(p)),
@@ -806,6 +815,16 @@ impl SystemState {
         }
 
         self.draw_mouse_gesture_widget(
+            egui_ctx,
+            waves,
+            pointer_pos_canvas,
+            &response,
+            msgs,
+            &mut ctx,
+            viewport_idx,
+        );
+
+        self.draw_measure_widget(
             egui_ctx,
             waves,
             pointer_pos_canvas,
@@ -1139,7 +1158,7 @@ impl SystemState {
 
         // Draws the relations of the focused transaction
         if let Some(focused_pos) = focused_transaction_start {
-            let arrow_color = self.user.config.theme.relation_arrow;
+            let arrow_color = self.user.config.theme.relation_arrow.style.color;
             for start_pos in inc_relation_starts {
                 self.draw_arrow(start_pos, focused_pos, arrow_color, ctx);
             }
@@ -1303,7 +1322,7 @@ impl SystemState {
         anchor2.x = end.x - (2. / 5.) * x_diff;
         anchor2.y = end.y;
 
-        let stroke = PathStroke::new(ctx.theme.transaction_arrow_linewidth, color);
+        let stroke = PathStroke::new(ctx.theme.relation_arrow.style.width, color);
 
         ctx.painter.add(Shape::CubicBezier(CubicBezierShape {
             points: [start, anchor1, anchor2, end],
@@ -1312,7 +1331,7 @@ impl SystemState {
             stroke,
         }));
 
-        let stroke = Stroke::new(ctx.theme.transaction_arrow_linewidth, color);
+        let stroke = Stroke::new(ctx.theme.relation_arrow.style.width, color);
         self.draw_arrowheads(anchor2, end, ctx, stroke);
     }
 
@@ -1325,22 +1344,22 @@ impl SystemState {
         ctx: &DrawingContext,
         stroke: Stroke,
     ) {
-        let scale = ctx.theme.transaction_arrowhead_length;
+        let head_length = ctx.theme.relation_arrow.head_length;
 
         let vec_x = vec_tip.x - vec_start.x;
         let vec_y = vec_tip.y - vec_start.y;
 
-        let alpha = 2. * PI / 360. * ctx.theme.transaction_arrowhead_angle;
+        let alpha = 2. * PI / 360. * ctx.theme.relation_arrow.head_angle;
 
         // calculate the points of the new vector, which forms an angle of the given degrees with the given vector
         let vec_angled_x = vec_x * alpha.cos() + vec_y * alpha.sin();
         let vec_angled_y = -vec_x * alpha.sin() + vec_y * alpha.cos();
 
-        // scale the new vector to be ´scale´ long
+        // scale the new vector to be head_length long
         let vec_angled_x =
-            (1. / (vec_angled_y - vec_angled_x).powi(2).sqrt()) * vec_angled_x * scale;
+            (1. / (vec_angled_y - vec_angled_x).powi(2).sqrt()) * vec_angled_x * head_length;
         let vec_angled_y =
-            (1. / (vec_angled_y - vec_angled_x).powi(2).sqrt()) * vec_angled_y * scale;
+            (1. / (vec_angled_y - vec_angled_x).powi(2).sqrt()) * vec_angled_y * head_length;
 
         let arrowhead_left_x = vec_tip.x - vec_angled_x;
         let arrowhead_left_y = vec_tip.y - vec_angled_y;

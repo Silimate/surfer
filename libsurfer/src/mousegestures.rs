@@ -116,7 +116,7 @@ impl SystemState {
                 _ => {}
             }
         }
-        msgs.push(Message::SetDragStart(None));
+        msgs.push(Message::SetMouseGestureDragStart(None));
     }
 
     fn start_dragging(
@@ -146,6 +146,7 @@ impl SystemState {
                     ctx,
                     waves,
                     viewport_idx,
+                    false,
                 ),
 
                 Some(GestureKind::GoToStart) => self.draw_gesture_line(
@@ -179,11 +180,11 @@ impl SystemState {
     ) {
         let stroke = Stroke {
             color: if active {
-                self.user.config.gesture.style.color
+                self.user.config.theme.gesture.color
             } else {
-                self.user.config.gesture.style.color.gamma_multiply(0.3)
+                self.user.config.theme.gesture.color.gamma_multiply(0.3)
             },
-            width: self.user.config.gesture.style.width,
+            width: self.user.config.theme.gesture.width,
         };
         ctx.painter.line_segment(
             [
@@ -209,10 +210,18 @@ impl SystemState {
         ctx: &mut DrawingContext<'_>,
         waves: &WaveData,
         viewport_idx: usize,
+        measure: bool,
     ) {
-        let stroke = Stroke {
-            color: self.user.config.gesture.style.color,
-            width: self.user.config.gesture.style.width,
+        let stroke = if measure {
+            Stroke {
+                color: self.user.config.theme.measure.color,
+                width: self.user.config.theme.measure.width,
+            }
+        } else {
+            Stroke {
+                color: self.user.config.theme.gesture.color,
+                width: self.user.config.theme.gesture.width,
+            }
         };
         let height = response.rect.height();
         let width = response.rect.width();
@@ -237,40 +246,48 @@ impl SystemState {
             ],
             stroke,
         );
-        let (minx, maxx) = if current_location.x < start_location.x {
-            (current_location.x, start_location.x)
-        } else {
+
+        let (minx, maxx) = if measure {
             (start_location.x, current_location.x)
+        } else {
+            if current_location.x < start_location.x {
+                (current_location.x, start_location.x)
+            } else {
+                (start_location.x, current_location.x)
+            }
         };
         let num_timestamps = waves.num_timestamps().unwrap_or(1.into());
         let start_time = waves.viewports[viewport_idx].as_time_bigint(minx, width, &num_timestamps);
         let end_time = waves.viewports[viewport_idx].as_time_bigint(maxx, width, &num_timestamps);
         let diff_time = &end_time - &start_time;
         let timescale = &waves.inner.metadata().timescale;
+        let time_format = &self.get_time_format();
+        let start_time_str = time_string(
+            &start_time,
+            timescale,
+            &self.user.wanted_timeunit,
+            time_format,
+        );
+        let end_time_str = time_string(
+            &end_time,
+            timescale,
+            &self.user.wanted_timeunit,
+            time_format,
+        );
+        let diff_time_str = time_string(
+            &diff_time,
+            timescale,
+            &self.user.wanted_timeunit,
+            time_format,
+        );
         draw_gesture_text(
             ctx,
             (ctx.to_screen)(current_location.x, current_location.y),
-            format!(
-                "Zoom in: {} ({} to {})",
-                time_string(
-                    &diff_time,
-                    timescale,
-                    &self.user.wanted_timeunit,
-                    &self.get_time_format()
-                ),
-                time_string(
-                    &start_time,
-                    timescale,
-                    &self.user.wanted_timeunit,
-                    &self.get_time_format()
-                ),
-                time_string(
-                    &end_time,
-                    timescale,
-                    &self.user.wanted_timeunit,
-                    &self.get_time_format()
-                ),
-            ),
+            if measure {
+                format!("{start_time_str} to {end_time_str}\nΔ = {diff_time_str}")
+            } else {
+                format!("Zoom in: {diff_time_str}\n{start_time_str} to {end_time_str}")
+            },
             &self.user.config.theme,
         );
     }
@@ -328,8 +345,8 @@ impl SystemState {
                 .transform_pos(Pos2::new(x, y) + Vec2::new(0.5, 0.5))
         };
         let stroke = Stroke {
-            color: self.user.config.gesture.style.color,
-            width: self.user.config.gesture.style.width,
+            color: self.user.config.theme.gesture.color,
+            width: self.user.config.theme.gesture.width,
         };
         let tan225deltax = tan225 * deltax;
         let tan225deltay = tan225 * deltay;
@@ -440,6 +457,37 @@ impl SystemState {
             FontId::default(),
             self.user.config.theme.foreground,
         );
+    }
+
+    pub fn draw_measure_widget(
+        &self,
+        egui_ctx: &egui::Context,
+        waves: &WaveData,
+        pointer_pos_canvas: Option<Pos2>,
+        response: &Response,
+        msgs: &mut Vec<Message>,
+        ctx: &mut DrawingContext,
+        viewport_idx: usize,
+    ) {
+        if let Some(start_location) = self.measure_start_location {
+            let modifiers = egui_ctx.input(|i| i.modifiers);
+            if !modifiers.shift && !modifiers.command && response.dragged_by(PointerButton::Primary)
+            {
+                let current_location = pointer_pos_canvas.unwrap();
+                self.draw_zoom_in_gesture(
+                    start_location,
+                    current_location,
+                    response,
+                    ctx,
+                    waves,
+                    viewport_idx,
+                    true,
+                );
+            }
+            if response.drag_stopped_by(PointerButton::Primary) {
+                msgs.push(Message::SetMeasureDragStart(None));
+            }
+        }
     }
 }
 

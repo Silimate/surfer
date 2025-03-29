@@ -202,8 +202,6 @@ pub struct SurferBehavior {
 
 #[derive(Debug, Deserialize)]
 pub struct SurferGesture {
-    /// Line style for gesture lines
-    pub style: SurferLineStyle,
     /// Size of the overlay help
     pub size: f32,
     /// (Squared) minimum distance to move to remove the overlay help and perform gesture
@@ -222,6 +220,18 @@ pub struct SurferTicks {
     /// 0 to 1, where 1 means as many ticks that can fit without overlap
     pub density: f32,
     pub style: SurferLineStyle,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct SurferRelationArrow {
+    /// Arrow line style
+    pub style: SurferLineStyle,
+
+    /// Arrowhead angle in degrees
+    pub head_angle: f32,
+
+    /// Arrowhead length
+    pub head_length: f32,
 }
 
 #[derive(Debug, Deserialize)]
@@ -252,6 +262,12 @@ pub struct SurferTheme {
     ///  Line style for cursor
     pub cursor: SurferLineStyle,
 
+    /// Line style for mouse gesture lines
+    pub gesture: SurferLineStyle,
+
+    /// Line style for measurement lines
+    pub measure: SurferLineStyle,
+
     ///  Line style for clock highlight lines
     pub clock_highlight_line: SurferLineStyle,
     #[serde(deserialize_with = "deserialize_hex_color")]
@@ -280,9 +296,8 @@ pub struct SurferTheme {
     #[serde(deserialize_with = "deserialize_hex_color")]
     /// Default transaction color
     pub transaction_default: Color32,
-    #[serde(deserialize_with = "deserialize_hex_color")]
-    // Color used for relation arrows of transactions
-    pub relation_arrow: Color32,
+    // Relation arrows of transactions
+    pub relation_arrow: SurferRelationArrow,
 
     /// Opacity with which variable backgrounds are drawn. 0 is fully transparent and 1 is fully
     /// opaque.
@@ -298,15 +313,6 @@ pub struct SurferTheme {
 
     /// Vector transition max width
     pub vector_transition_width: f32,
-
-    /// Transaction arrow line width
-    pub transaction_arrow_linewidth: f32,
-
-    /// Transaction arrowhead angle in degrees
-    pub transaction_arrowhead_angle: f32,
-
-    /// Transaction arrowhead length
-    pub transaction_arrowhead_length: f32,
 
     /// Number of lines using standard background before changing to
     /// alternate background and so on, set to zero to disable

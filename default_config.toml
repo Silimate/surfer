@@ -36,7 +36,6 @@ highlight_focused = false
 move_focus_on_inserted_marker = true
 
 [gesture]
-style = { color = "e9da16", width = 2 }
 size = 300
 deadzone = 20
 

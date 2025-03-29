@@ -879,8 +879,9 @@ impl WaveData {
                                     )
                                 {
                                     if let Some(current) = newres.current {
-                                        if let Some(newstime) = current.0.to_bigint() {
-                                            self.cursor = Some(newstime);
+                                        let newstime = current.0.to_bigint();
+                                        if newstime.is_some() {
+                                            self.cursor.clone_from(&newstime);
                                         }
                                     }
                                 }

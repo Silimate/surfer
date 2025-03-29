@@ -18,14 +18,12 @@ variable_dontcare = "4040ff"
 variable_weak = "808080"
 variable_parameter = "d4d4d4"
 transaction_default = "56c126"
-relation_arrow = "c61521"
 waveform_opacity = 0.2
-cursor = { color="b63935", width=2 }
+cursor = { color = "b63935", width=2 }
+gesture = { color = "e9da16", width = 2 }
+measure = { color = "808080", width = 2 }
 linewidth = 2
 vector_transition_width = 6
-transaction_arrow_linewidth = 1.3
-transaction_arrowhead_angle = 25
-transaction_arrowhead_length = 8
 alt_frequency = 3
 viewport_separator = { color="d4d4d4", width=4 }
 drag_threshold = 1.0
@@ -46,3 +44,8 @@ Violet = "646695"
 [ticks]
 style = { color="222222", width=2 }
 density = 1
+
+[relation_arrow]
+style = { color  = "c61521", width = 1.3 }
+head_angle = 25
+head_length = 8

@@ -64,6 +64,8 @@ pub struct SystemState {
 
     pub(crate) gesture_start_location: Option<Pos2>,
 
+    pub(crate) measure_start_location: Option<Pos2>,
+
     // Egui requires a place to store text field content between frames
     pub(crate) url: RefCell<String>,
     pub(crate) command_prompt_text: RefCell<String>,
@@ -172,6 +174,7 @@ impl SystemState {
             wcp_greeted_signal: Arc::new(AtomicBool::new(false)),
             wcp_client_capabilities: WcpClientCapabilities::new(),
             gesture_start_location: None,
+            measure_start_location: None,
             batch_commands: VecDeque::new(),
             batch_commands_completed: false,
             url: RefCell::new(String::new()),

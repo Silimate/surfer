@@ -1517,7 +1517,8 @@ impl SystemState {
                 self.user.show_performance = s;
             }
             Message::SetContinuousRedraw(s) => self.continuous_redraw = s,
-            Message::SetDragStart(pos) => self.gesture_start_location = pos,
+            Message::SetMouseGestureDragStart(pos) => self.gesture_start_location = pos,
+            Message::SetMeasureDragStart(pos) => self.measure_start_location = pos,
             Message::SetFilterFocused(s) => self.user.variable_name_filter_focused = s,
             Message::SetVariableNameFilterType(variable_name_filter_type) => {
                 self.user.variable_filter.name_filter_type = variable_name_filter_type;
