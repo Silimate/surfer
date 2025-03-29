@@ -712,7 +712,7 @@ impl WaveData {
     }
 
     /// Insert item after item vidx if Some(vidx).
-    /// If None, insert in relation to focused item (see [`focused_insert_position`]).
+    /// If None, insert in relation to focused item (see [`Self::focused_insert_position()`]).
     /// If nothing is selected, fall back to appending.
     /// Focus on the inserted item if there was a focused item.
     pub(crate) fn insert_item(

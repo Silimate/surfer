@@ -157,7 +157,7 @@ pub enum WcpCommand {
     clear,
     /// Loads a waveform from the specified file.
     /// Responds instantly with [WcpResponse::ack]
-    /// Once the file is loaded, a [WcpEvent::waveform_loaded] is emitted.
+    /// Once the file is loaded, a [WcpEvent::waveforms_loaded] is emitted.
     load { source: String },
     /// Zooms out fully to fit the whole waveform in the view
     /// Responds instantly with [WcpResponse::ack]
