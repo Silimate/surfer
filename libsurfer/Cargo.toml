@@ -103,6 +103,7 @@ web-sys = { version = "= 0.3.77", features = ["Location", "UrlSearchParams"] }
 egui_skia_renderer = { git = "https://gitlab.com/oscargus/egui_skia_renderer", rev = "daec4cc44d362291a5679a352052c9130e19ab82" }
 image = { version = "0.25", default-features = false, features = ["png"] }
 image-compare = "0.4.1"
+port_check = "0.2.1"
 project-root = "0.2.2"
 skia-safe = "0.82"
 tempfile = "3.12.0"

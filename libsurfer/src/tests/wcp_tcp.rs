@@ -3,6 +3,7 @@ use crate::wave_source::LoadOptions;
 use crate::wcp::proto::{WcpCSMessage, WcpCommand, WcpSCMessage};
 use crate::SystemState;
 
+use port_check::free_local_ipv4_port_in_range;
 use serde_json::Error as serde_Error;
 use test_log::test;
 use tokio::io::AsyncWriteExt;
@@ -15,12 +16,13 @@ use std::future::Future;
 use std::sync::atomic::Ordering;
 use std::sync::{Arc, Mutex};
 
-fn get_test_port() -> usize {
+fn get_test_port() -> u16 {
     lazy_static! {
-        static ref PORT_NUM: Arc<Mutex<usize>> = Arc::new(Mutex::new(54321));
+        static ref PORT_NUM: Arc<Mutex<u16>> = Arc::new(Mutex::new(54321));
     }
     let mut port = PORT_NUM.lock().unwrap();
-    *port += 1;
+    let free = free_local_ipv4_port_in_range(*port + 1..65535u16);
+    *port = free.unwrap();
     *port
 }
 
@@ -65,7 +67,7 @@ async fn greet(stream: &mut TcpStream) {
     send_message(stream, &WcpCSMessage::create_greeting(0, commands)).await;
 }
 
-async fn connect(port: usize) -> TcpStream {
+async fn connect(port: u16) -> TcpStream {
     let mut stream: TcpStream;
     loop {
         if let Ok(c) = TcpStream::connect(format!("127.0.0.1:{port}")).await {
