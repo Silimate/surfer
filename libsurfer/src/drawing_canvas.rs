@@ -571,6 +571,20 @@ impl SystemState {
         }))
     }
 
+    // Transform from screen coordinates taking timeline into account
+    fn transform_pos(&self, to_screen: RectTransform, p: Pos2, ui: &Ui) -> Pos2 {
+        to_screen
+            .inverse()
+            .transform_pos(if self.show_default_timeline() {
+                Pos2 {
+                    x: p.x,
+                    y: p.y - ui.text_style_height(&egui::TextStyle::Body),
+                }
+            } else {
+                p
+            })
+    }
+
     pub fn draw_items(
         &mut self,
         egui_ctx: &egui::Context,
@@ -616,18 +630,7 @@ impl SystemState {
         let to_screen = RectTransform::from_to(container_rect, response.rect);
         let frame_width = response.rect.width();
         let pointer_pos_global = ui.input(|i| i.pointer.interact_pos());
-        let pointer_pos_canvas = pointer_pos_global.map(|p| {
-            to_screen
-                .inverse()
-                .transform_pos(if self.show_default_timeline() {
-                    Pos2 {
-                        x: p.x,
-                        y: p.y - ui.text_style_height(&egui::TextStyle::Body),
-                    }
-                } else {
-                    p
-                })
-        });
+        let pointer_pos_canvas = pointer_pos_global.map(|p| self.transform_pos(to_screen, p, ui));
         let num_timestamps = waves.num_timestamps().unwrap_or(1.into());
 
         if ui.ui_contains_pointer() {
@@ -693,18 +696,16 @@ impl SystemState {
             || modifiers.command && response.drag_started_by(PointerButton::Primary)
         {
             msgs.push(Message::SetMouseGestureDragStart(
-                response
-                    .interact_pointer_pos()
-                    .map(|p| to_screen.inverse().transform_pos(p)),
+                ui.input(|i| i.pointer.press_origin())
+                    .map(|p| self.transform_pos(to_screen, p, ui)),
             ));
         }
 
         // Check for measure drag starting
         if response.drag_started_by(PointerButton::Primary) {
             msgs.push(Message::SetMeasureDragStart(
-                response
-                    .interact_pointer_pos()
-                    .map(|p| to_screen.inverse().transform_pos(p)),
+                ui.input(|i| i.pointer.press_origin())
+                    .map(|p| self.transform_pos(to_screen, p, ui)),
             ));
         }
 
