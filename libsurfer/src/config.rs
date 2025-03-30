@@ -216,6 +216,10 @@ pub struct SurferGesture {
     pub size: f32,
     /// (Squared) minimum distance to move to remove the overlay help and perform gesture
     pub deadzone: f32,
+    /// Circle radius for background as a factor of size
+    pub background_radius: f32,
+    /// Gamma factor for background circle, between 0 (opaque) and 1 (transparent)
+    pub background_gamma: f32,
 }
 
 #[derive(Debug, Deserialize)]
@@ -229,6 +233,7 @@ pub struct SurferLineStyle {
 pub struct SurferTicks {
     /// 0 to 1, where 1 means as many ticks that can fit without overlap
     pub density: f32,
+    /// Line style to use for ticks
     pub style: SurferLineStyle,
 }
 

@@ -305,8 +305,13 @@ impl SystemState {
                         "Press middle mouse button (or ctrl+primary mouse button) and drag",
                     ));
                     ui.add_space(20.);
-                    let (response, painter) =
-                        ui.allocate_painter(Vec2 { x: 300.0, y: 300.0 }, Sense::click());
+                    let (response, painter) = ui.allocate_painter(
+                        Vec2 {
+                            x: self.user.config.gesture.size,
+                            y: self.user.config.gesture.size,
+                        },
+                        Sense::click(),
+                    );
                     self.draw_gesture_help(&response, &painter, None, false);
                     ui.add_space(10.);
                     ui.separator();
@@ -354,9 +359,9 @@ impl SystemState {
         let right = midx + deltax;
         let top = midy - deltay;
         let bottom = midy + deltay;
-        let bg_radius = 1.35 * deltax;
         // Draw background
         if draw_bg {
+            let bg_radius = self.user.config.gesture.background_radius * deltax;
             painter.circle_filled(
                 to_screen(midx, midy),
                 bg_radius,
@@ -365,7 +370,7 @@ impl SystemState {
                     .theme
                     .canvas_colors
                     .background
-                    .gamma_multiply(0.75),
+                    .gamma_multiply(self.user.config.gesture.background_gamma),
             );
         }
         // Draw lines
