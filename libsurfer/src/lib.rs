@@ -626,9 +626,6 @@ impl SystemState {
                 let Some(vidx) = waves.focused_item else {
                     return;
                 };
-                let Some(idx) = waves.items_tree.to_displayed(vidx) else {
-                    return;
-                };
                 let mut vidx = vidx;
                 for _ in 0..count {
                     vidx = waves
