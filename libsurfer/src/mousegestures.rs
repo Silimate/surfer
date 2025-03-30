@@ -1,21 +1,42 @@
 //! Code related to the mouse gesture handling.
+use derive_more::Display;
 use egui::{Context, Painter, PointerButton, Response, RichText, Sense, Window};
 use emath::{Align2, Pos2, Rect, RectTransform, Vec2};
 use epaint::{FontId, Stroke};
+use serde::Deserialize;
 
-use crate::config::SurferTheme;
+use crate::config::{SurferConfig, SurferTheme};
 use crate::time::time_string;
 use crate::view::DrawingContext;
 use crate::{wave_data::WaveData, Message, SystemState};
 
 /// The supported mouse gesture operations.
-#[derive(Clone, PartialEq, Copy)]
+#[derive(Clone, PartialEq, Copy, Display, Debug, Deserialize)]
 enum GestureKind {
+    #[display("Zoom to fit")]
     ZoomToFit,
+    #[display("Zoom in")]
     ZoomIn,
+    #[display("Zoom out")]
     ZoomOut,
+    #[display("Go to end")]
     GoToEnd,
+    #[display("Go to start")]
     GoToStart,
+    Cancel,
+}
+
+/// The supported mouse gesture zones.
+#[derive(Clone, PartialEq, Copy, Debug, Deserialize)]
+pub struct GestureZones {
+    north: GestureKind,
+    northeast: GestureKind,
+    east: GestureKind,
+    southeast: GestureKind,
+    south: GestureKind,
+    southwest: GestureKind,
+    west: GestureKind,
+    northwest: GestureKind,
 }
 
 impl SystemState {
@@ -75,11 +96,11 @@ impl SystemState {
         let end_location = pointer_pos_canvas.unwrap();
         let distance = end_location - start_location;
         if distance.length_sq() >= self.user.config.gesture.deadzone {
-            match gesture_type(distance) {
-                Some(GestureKind::ZoomToFit) => {
+            match gesture_type(&self.user.config.gesture.mapping, distance) {
+                GestureKind::ZoomToFit => {
                     msgs.push(Message::ZoomToFit { viewport_idx });
                 }
-                Some(GestureKind::ZoomIn) => {
+                GestureKind::ZoomIn => {
                     let (minx, maxx) = if end_location.x < start_location.x {
                         (end_location.x, start_location.x)
                     } else {
@@ -100,20 +121,20 @@ impl SystemState {
                         viewport_idx,
                     });
                 }
-                Some(GestureKind::GoToStart) => {
+                GestureKind::GoToStart => {
                     msgs.push(Message::GoToStart { viewport_idx });
                 }
-                Some(GestureKind::GoToEnd) => {
+                GestureKind::GoToEnd => {
                     msgs.push(Message::GoToEnd { viewport_idx });
                 }
-                Some(GestureKind::ZoomOut) => {
+                GestureKind::ZoomOut => {
                     msgs.push(Message::CanvasZoom {
                         mouse_ptr: None,
                         delta: 2.0,
                         viewport_idx,
                     });
                 }
-                _ => {}
+                GestureKind::Cancel => {}
             }
         }
         msgs.push(Message::SetMouseGestureDragStart(None));
@@ -131,15 +152,15 @@ impl SystemState {
         let current_location = pointer_pos_canvas.unwrap();
         let distance = current_location - start_location;
         if distance.length_sq() >= self.user.config.gesture.deadzone {
-            match gesture_type(distance) {
-                Some(GestureKind::ZoomToFit) => self.draw_gesture_line(
+            match gesture_type(&self.user.config.gesture.mapping, distance) {
+                GestureKind::ZoomToFit => self.draw_gesture_line(
                     start_location,
                     current_location,
                     "Zoom to fit",
                     true,
                     ctx,
                 ),
-                Some(GestureKind::ZoomIn) => self.draw_zoom_in_gesture(
+                GestureKind::ZoomIn => self.draw_zoom_in_gesture(
                     start_location,
                     current_location,
                     response,
@@ -149,23 +170,31 @@ impl SystemState {
                     false,
                 ),
 
-                Some(GestureKind::GoToStart) => self.draw_gesture_line(
+                GestureKind::GoToStart => self.draw_gesture_line(
                     start_location,
                     current_location,
                     "Go to start",
                     true,
                     ctx,
                 ),
-                Some(GestureKind::GoToEnd) => {
+                GestureKind::GoToEnd => {
                     self.draw_gesture_line(start_location, current_location, "Go to end", true, ctx)
                 }
-                Some(GestureKind::ZoomOut) => {
+                GestureKind::ZoomOut => {
                     self.draw_gesture_line(start_location, current_location, "Zoom out", true, ctx)
                 }
-                _ => self.draw_gesture_line(start_location, current_location, "Cancel", false, ctx),
+                GestureKind::Cancel => {
+                    self.draw_gesture_line(start_location, current_location, "Cancel", false, ctx)
+                }
             }
         } else {
-            self.draw_gesture_help(response, ctx.painter, Some(start_location), true);
+            draw_gesture_help(
+                &self.user.config,
+                response,
+                ctx.painter,
+                Some(start_location),
+                true,
+            );
         }
     }
 
@@ -310,9 +339,9 @@ impl SystemState {
                             x: self.user.config.gesture.size,
                             y: self.user.config.gesture.size,
                         },
-                        Sense::click(),
+                        Sense::empty(),
                     );
-                    self.draw_gesture_help(&response, &painter, None, false);
+                    draw_gesture_help(&self.user.config, &response, &painter, None, false);
                     ui.add_space(10.);
                     ui.separator();
                     if ui.button("Close").clicked() {
@@ -323,145 +352,6 @@ impl SystemState {
         if !open {
             msgs.push(Message::SetGestureHelpVisible(false));
         }
-    }
-
-    /// Draw the "compass" showing the boundaries for different gestures.
-    fn draw_gesture_help(
-        &self,
-        response: &Response,
-        painter: &Painter,
-        midpoint: Option<Pos2>,
-        draw_bg: bool,
-    ) {
-        // Compute sizes and coordinates
-        let tan225 = 0.41421357;
-        let (midx, midy, deltax, deltay) = if let Some(midpoint) = midpoint {
-            let halfsize = self.user.config.gesture.size * 0.5;
-            (midpoint.x, midpoint.y, halfsize, halfsize)
-        } else {
-            let halfwidth = response.rect.width() * 0.5;
-            let halfheight = response.rect.height() * 0.5;
-            (halfwidth, halfheight, halfwidth, halfheight)
-        };
-
-        let container_rect = Rect::from_min_size(Pos2::ZERO, response.rect.size());
-        let to_screen = &|x, y| {
-            RectTransform::from_to(container_rect, response.rect)
-                .transform_pos(Pos2::new(x, y) + Vec2::new(0.5, 0.5))
-        };
-        let stroke = Stroke {
-            color: self.user.config.theme.gesture.color,
-            width: self.user.config.theme.gesture.width,
-        };
-        let tan225deltax = tan225 * deltax;
-        let tan225deltay = tan225 * deltay;
-        let left = midx - deltax;
-        let right = midx + deltax;
-        let top = midy - deltay;
-        let bottom = midy + deltay;
-        // Draw background
-        if draw_bg {
-            let bg_radius = self.user.config.gesture.background_radius * deltax;
-            painter.circle_filled(
-                to_screen(midx, midy),
-                bg_radius,
-                self.user
-                    .config
-                    .theme
-                    .canvas_colors
-                    .background
-                    .gamma_multiply(self.user.config.gesture.background_gamma),
-            );
-        }
-        // Draw lines
-        painter.line_segment(
-            [
-                to_screen(left, midy + tan225deltax),
-                to_screen(right, midy - tan225deltax),
-            ],
-            stroke,
-        );
-        painter.line_segment(
-            [
-                to_screen(left, midy - tan225deltax),
-                to_screen(right, midy + tan225deltax),
-            ],
-            stroke,
-        );
-        painter.line_segment(
-            [
-                to_screen(midx + tan225deltay, top),
-                to_screen(midx - tan225deltay, bottom),
-            ],
-            stroke,
-        );
-        painter.line_segment(
-            [
-                to_screen(midx - tan225deltay, top),
-                to_screen(midx + tan225deltay, bottom),
-            ],
-            stroke,
-        );
-
-        let halfwaytexty_upper = top + (deltay - tan225deltax) * 0.5;
-        let halfwaytexty_lower = bottom - (deltay - tan225deltax) * 0.5;
-        // Draw commands
-        painter.text(
-            to_screen(left, midy),
-            Align2::LEFT_CENTER,
-            "Zoom in",
-            FontId::default(),
-            self.user.config.theme.foreground,
-        );
-        painter.text(
-            to_screen(right, midy),
-            Align2::RIGHT_CENTER,
-            "Zoom in",
-            FontId::default(),
-            self.user.config.theme.foreground,
-        );
-        painter.text(
-            to_screen(left, halfwaytexty_upper),
-            Align2::LEFT_CENTER,
-            "Zoom to fit",
-            FontId::default(),
-            self.user.config.theme.foreground,
-        );
-        painter.text(
-            to_screen(right, halfwaytexty_upper),
-            Align2::RIGHT_CENTER,
-            "Zoom out",
-            FontId::default(),
-            self.user.config.theme.foreground,
-        );
-        painter.text(
-            to_screen(midx, top),
-            Align2::CENTER_TOP,
-            "Cancel",
-            FontId::default(),
-            self.user.config.theme.foreground,
-        );
-        painter.text(
-            to_screen(left, halfwaytexty_lower),
-            Align2::LEFT_CENTER,
-            "Go to start",
-            FontId::default(),
-            self.user.config.theme.foreground,
-        );
-        painter.text(
-            to_screen(right, halfwaytexty_lower),
-            Align2::RIGHT_CENTER,
-            "Go to end",
-            FontId::default(),
-            self.user.config.theme.foreground,
-        );
-        painter.text(
-            to_screen(midx, bottom),
-            Align2::CENTER_BOTTOM,
-            "Cancel",
-            FontId::default(),
-            self.user.config.theme.foreground,
-        );
     }
 
     pub fn draw_measure_widget(
@@ -496,43 +386,189 @@ impl SystemState {
     }
 }
 
+/// Draw the "compass" showing the boundaries for different gestures.
+fn draw_gesture_help(
+    config: &SurferConfig,
+    response: &Response,
+    painter: &Painter,
+    midpoint: Option<Pos2>,
+    draw_bg: bool,
+) {
+    // Compute sizes and coordinates
+    let tan225 = 0.41421357;
+    let (midx, midy, deltax, deltay) = if let Some(midpoint) = midpoint {
+        let halfsize = config.gesture.size * 0.5;
+        (midpoint.x, midpoint.y, halfsize, halfsize)
+    } else {
+        let halfwidth = response.rect.width() * 0.5;
+        let halfheight = response.rect.height() * 0.5;
+        (halfwidth, halfheight, halfwidth, halfheight)
+    };
+
+    let container_rect = Rect::from_min_size(Pos2::ZERO, response.rect.size());
+    let to_screen = &|x, y| {
+        RectTransform::from_to(container_rect, response.rect)
+            .transform_pos(Pos2::new(x, y) + Vec2::new(0.5, 0.5))
+    };
+    let stroke = Stroke {
+        color: config.theme.gesture.color,
+        width: config.theme.gesture.width,
+    };
+    let tan225deltax = tan225 * deltax;
+    let tan225deltay = tan225 * deltay;
+    let left = midx - deltax;
+    let right = midx + deltax;
+    let top = midy - deltay;
+    let bottom = midy + deltay;
+    // Draw background
+    if draw_bg {
+        let bg_radius = config.gesture.background_radius * deltax;
+        painter.circle_filled(
+            to_screen(midx, midy),
+            bg_radius,
+            config
+                .theme
+                .canvas_colors
+                .background
+                .gamma_multiply(config.gesture.background_gamma),
+        );
+    }
+    // Draw lines
+    painter.line_segment(
+        [
+            to_screen(left, midy + tan225deltax),
+            to_screen(right, midy - tan225deltax),
+        ],
+        stroke,
+    );
+    painter.line_segment(
+        [
+            to_screen(left, midy - tan225deltax),
+            to_screen(right, midy + tan225deltax),
+        ],
+        stroke,
+    );
+    painter.line_segment(
+        [
+            to_screen(midx + tan225deltay, top),
+            to_screen(midx - tan225deltay, bottom),
+        ],
+        stroke,
+    );
+    painter.line_segment(
+        [
+            to_screen(midx - tan225deltay, top),
+            to_screen(midx + tan225deltay, bottom),
+        ],
+        stroke,
+    );
+
+    let halfwaytexty_upper = top + (deltay - tan225deltax) * 0.5;
+    let halfwaytexty_lower = bottom - (deltay - tan225deltax) * 0.5;
+    // Draw commands
+    // West
+    painter.text(
+        to_screen(left, midy),
+        Align2::LEFT_CENTER,
+        config.gesture.mapping.west,
+        FontId::default(),
+        config.theme.foreground,
+    );
+    // East
+    painter.text(
+        to_screen(right, midy),
+        Align2::RIGHT_CENTER,
+        config.gesture.mapping.east,
+        FontId::default(),
+        config.theme.foreground,
+    );
+    // NorthWest
+    painter.text(
+        to_screen(left, halfwaytexty_upper),
+        Align2::LEFT_CENTER,
+        config.gesture.mapping.northwest,
+        FontId::default(),
+        config.theme.foreground,
+    );
+    // NorthEast
+    painter.text(
+        to_screen(right, halfwaytexty_upper),
+        Align2::RIGHT_CENTER,
+        config.gesture.mapping.northeast,
+        FontId::default(),
+        config.theme.foreground,
+    );
+    // North
+    painter.text(
+        to_screen(midx, top),
+        Align2::CENTER_TOP,
+        config.gesture.mapping.north,
+        FontId::default(),
+        config.theme.foreground,
+    );
+    // SouthWest
+    painter.text(
+        to_screen(left, halfwaytexty_lower),
+        Align2::LEFT_CENTER,
+        config.gesture.mapping.southwest,
+        FontId::default(),
+        config.theme.foreground,
+    );
+    // SouthEast
+    painter.text(
+        to_screen(right, halfwaytexty_lower),
+        Align2::RIGHT_CENTER,
+        config.gesture.mapping.southeast,
+        FontId::default(),
+        config.theme.foreground,
+    );
+    // South
+    painter.text(
+        to_screen(midx, bottom),
+        Align2::CENTER_BOTTOM,
+        config.gesture.mapping.south,
+        FontId::default(),
+        config.theme.foreground,
+    );
+}
+
 /// Determine which mouse gesture ([`GestureKind`]) is currently drawn.
-fn gesture_type(delta: Vec2) -> Option<GestureKind> {
+fn gesture_type(zones: &GestureZones, delta: Vec2) -> GestureKind {
     let tan225 = 0.41421357;
     let tan225x = tan225 * delta.x;
     let tan225y = tan225 * delta.y;
     if delta.x < 0.0 {
         if delta.y.abs() < -tan225x {
             // West
-            Some(GestureKind::ZoomIn)
+            zones.west
         } else if delta.y < 0.0 && delta.x < tan225y {
             // North west
-            Some(GestureKind::ZoomToFit)
+            zones.northwest
         } else if delta.y > 0.0 && delta.x < -tan225y {
             // South west
-            Some(GestureKind::GoToStart)
-        // } else if delta.y < 0.0 {
-        //    // North
-        //    None
+            zones.southwest
+        } else if delta.y < 0.0 {
+            // North
+            zones.north
         } else {
             // South
-            None
+            zones.south
         }
     } else if tan225x > delta.y.abs() {
         // East
-        Some(GestureKind::ZoomIn)
+        zones.east
     } else if delta.y < 0.0 && delta.x > -tan225y {
         // North east
-        Some(GestureKind::ZoomOut)
+        zones.northeast
     } else if delta.y > 0.0 && delta.x > tan225y {
         // South east
-        Some(GestureKind::GoToEnd)
-    // } else if delta.y > 0.0 {
-    //    // North
-    //    None
+        zones.southeast
+    } else if delta.y > 0.0 {
+        // North
+        zones.north
     } else {
         // South
-        None
+        zones.south
     }
 }
 

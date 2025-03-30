@@ -42,6 +42,16 @@ deadzone = 20
 background_radius = 1.35
 background_gamma = 0.75
 
+[gesture.mapping]
+north = "Cancel"
+south = "Cancel"
+west = "ZoomIn"
+east = "ZoomIn"
+northeast = "ZoomOut"
+northwest = "ZoomToFit"
+southeast = "GoToEnd"
+southwest = "GoToStart"
+
 [behavior]
 keep_during_reload = true
 arrow_key_bindings = "Edge"
