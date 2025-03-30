@@ -295,7 +295,7 @@ macro_rules! snapshot_ui_with_file_spade_and_msgs {
             wait_for_waves_fully_loaded(&mut state, 10);
 
             for msg in $late_msgs {
-                state.update(msg)
+                state.update(msg);
             }
 
             state

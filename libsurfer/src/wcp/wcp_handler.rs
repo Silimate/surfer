@@ -224,7 +224,7 @@ impl SystemState {
                     }
                     WcpCommand::clear => {
                         if let Some(wave) = &self.user.waves {
-                            self.update(Message::RemoveItems(self.get_displayed_items(wave)))
+                            self.update(Message::RemoveItems(self.get_displayed_items(wave)));
                         }
 
                         self.send_response(WcpResponse::ack);
