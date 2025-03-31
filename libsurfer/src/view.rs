@@ -817,8 +817,19 @@ impl SystemState {
         variables: &[VariableRef],
         filter: &VariableFilter,
     ) {
-        for variable in self.filtered_variables(variables, filter) {
-            let meta = wave_container.variable_meta(&variable).ok();
+        let variables = self.filtered_variables(variables, filter);
+        self.draw_filtered_variable_list(msgs, wave_container, ui, &variables);
+    }
+
+    pub fn draw_filtered_variable_list(
+        &self,
+        msgs: &mut Vec<Message>,
+        wave_container: &WaveContainer,
+        ui: &mut egui::Ui,
+        variables: &[VariableRef],
+    ) {
+        for variable in variables {
+            let meta = wave_container.variable_meta(variable).ok();
             let index = meta
                 .as_ref()
                 .and_then(|meta| meta.index)
@@ -854,9 +865,7 @@ impl SystemState {
                 .as_ref()
                 .is_some_and(|meta| meta.variable_type == Some(VariableType::VCDParameter))
             {
-                let res = wave_container
-                    .query_variable(&variable, &BigUint::ZERO)
-                    .ok();
+                let res = wave_container.query_variable(variable, &BigUint::ZERO).ok();
                 res.and_then(|o| o.and_then(|q| q.current.map(|v| format!(": {}", v.1))))
                     .unwrap_or_else(|| ": Undefined".to_string())
             } else {
@@ -872,10 +881,10 @@ impl SystemState {
 
                     if self.show_tooltip() {
                         // Should be possible to reuse the meta from above?
-                        let meta = wave_container.variable_meta(&variable).ok();
                         response = response.on_hover_ui(|ui| {
+                            let meta = wave_container.variable_meta(variable).ok();
                             ui.set_max_width(ui.spacing().tooltip_width);
-                            ui.add(egui::Label::new(variable_tooltip_text(&meta, &variable)));
+                            ui.add(egui::Label::new(variable_tooltip_text(&meta, variable)));
                         });
                     }
                     response.drag_started().then(|| {
