@@ -90,6 +90,9 @@ pub struct SystemState {
     // Undo and Redo stacks
     pub(crate) undo_stack: Vec<CanvasState>,
     pub(crate) redo_stack: Vec<CanvasState>,
+
+    // Only used for testing
+    pub(crate) expand_parameter_section: bool,
 }
 
 impl SystemState {
@@ -186,6 +189,7 @@ impl SystemState {
 
             items_to_expand: RefCell::new(vec![]),
             char_to_add_to_prompt: RefCell::new(None),
+            expand_parameter_section: false,
 
             continuous_redraw: false,
             #[cfg(feature = "performance_plot")]

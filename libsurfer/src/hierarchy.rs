@@ -72,7 +72,7 @@ fn draw_variables(state: &mut SystemState, msgs: &mut Vec<Message>, ui: &mut Ui)
                         egui::collapsing_header::CollapsingState::load_with_default_open(
                             ui.ctx(),
                             egui::Id::new(&parameters),
-                            false,
+                            state.expand_parameter_section,
                         )
                         .show_header(ui, |ui| {
                             ui.with_layout(

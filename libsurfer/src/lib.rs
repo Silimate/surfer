@@ -993,6 +993,9 @@ impl SystemState {
                     waves.cursor = Some(time);
                 }
             }
+            Message::ExpandParameterSection => {
+                self.expand_parameter_section = true;
+            }
             Message::LoadFile(filename, load_options) => {
                 self.load_from_file(filename, load_options).ok();
             }

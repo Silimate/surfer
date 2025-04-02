@@ -214,6 +214,7 @@ pub enum Message {
     ToggleSidePanel,
     ToggleItemSelected(Option<VisibleItemIndex>),
     ToggleDefaultTimeline,
+    ExpandParameterSection,
     SetTimeUnit(TimeUnit),
     SetTimeStringFormatting(Option<TimeStringFormatting>),
     SetHighlightFocused(bool),

@@ -2306,6 +2306,52 @@ snapshot_ui_with_file_and_msgs! {tx_stream_multiple_viewport_works, "examples/my
     Message::FocusTransaction(Some(transaction_container::TransactionRef { id: 34 }), None),
 ]}
 
+snapshot_ui_with_file_and_msgs! {parameter_in_scopes, "examples/picorv32.vcd", [
+    Message::ToggleSidePanel,
+    Message::ExpandParameterSection,
+    Message::SetActiveScope(ScopeType::WaveScope(ScopeRef::from_strs(&[
+        "testbench",
+        "top",
+    ]))),
+    Message::AddVariables(
+        [
+            VariableRef::from_hierarchy_string("testbench.top.clk"),
+        ]
+        .into(),
+    )
+]}
+
+snapshot_ui_with_file_and_msgs! {parameter_in_variables, "examples/picorv32.vcd", [
+    Message::ToggleSidePanel,
+    Message::ToggleParametersInScopes,
+    Message::SetActiveScope(ScopeType::WaveScope(ScopeRef::from_strs(&[
+        "testbench",
+        "top",
+    ]))),
+    Message::AddVariables(
+        [
+            VariableRef::from_hierarchy_string("testbench.top.clk"),
+        ]
+        .into(),
+    )
+]}
+
+snapshot_ui_with_file_and_msgs! {parameter_in_variables_expanded, "examples/picorv32.vcd", [
+    Message::ToggleSidePanel,
+    Message::ToggleParametersInScopes,
+    Message::ExpandParameterSection,
+    Message::SetActiveScope(ScopeType::WaveScope(ScopeRef::from_strs(&[
+        "testbench",
+        "top",
+    ]))),
+    Message::AddVariables(
+        [
+            VariableRef::from_hierarchy_string("testbench.top.clk"),
+        ]
+        .into(),
+    )
+]}
+
 snapshot_ui!(arrow_drawing, || {
     let mut state = SystemState::new_default_config()
         .unwrap()
