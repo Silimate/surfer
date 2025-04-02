@@ -17,27 +17,21 @@ use test_log::test;
 
 use crate::{
     clock_highlighting::ClockHighlightType,
-    config::{HierarchyStyle, SurferConfig},
+    config::SurferConfig,
     displayed_item::{DisplayedFieldRef, DisplayedItemRef},
     displayed_item_tree::VisibleItemIndex,
+    graphics::{Direction, GrPoint, Graphic, GraphicId},
+    hierarchy::HierarchyStyle,
     message::AsyncJob,
     setup_custom_font,
     state::UserState,
-    transaction_container,
+    transaction_container::{TransactionRef, TransactionStreamRef},
     variable_filter::{VariableIOFilterType, VariableNameFilterType},
-    wave_container::{ScopeRef, VariableRef},
-    wave_source::LoadOptions,
+    wave_container::{ScopeRef, ScopeRefExt, VariableRef, VariableRefExt},
+    wave_data::ScopeType,
+    wave_source::{LoadOptions, STATE_FILE_EXTENSION},
     Message, MoveDir, StartupParams, SystemState, WaveSource,
 };
-use crate::{
-    graphics::Direction,
-    wave_container::{ScopeRefExt, VariableRefExt},
-};
-use crate::{
-    graphics::{GrPoint, Graphic, GraphicId},
-    transaction_container::TransactionStreamRef,
-};
-use crate::{wave_data::ScopeType, wave_source::STATE_FILE_EXTENSION};
 
 fn print_image(img: &DynamicImage) {
     if std::io::stdout().is_terminal() {
@@ -2292,7 +2286,7 @@ snapshot_ui_with_file_and_msgs! {focus_transaction, "examples/my_db.ftr", [
     Message::AddStreamOrGenerator(TransactionStreamRef::new_gen(1, 5, "pipelined_stream.write".to_string())),
     Message::AddStreamOrGenerator(TransactionStreamRef::new_gen(2, 6, "addr_stream.addr".to_string())),
     Message::FocusTransaction(
-        Some(transaction_container::TransactionRef { id: 4 }),
+        Some(TransactionRef { id: 4 }),
         None,
     ),
 ]}
@@ -2303,7 +2297,7 @@ snapshot_ui_with_file_and_msgs! {tx_stream_multiple_viewport_works, "examples/my
     Message::AddStreamOrGenerator(TransactionStreamRef::new_stream(3, "data_stream".to_string())),
     Message::AddViewport,
     Message::CanvasScroll {delta: Vec2::new(-300., 0.),viewport_idx: 1},
-    Message::FocusTransaction(Some(transaction_container::TransactionRef { id: 34 }), None),
+    Message::FocusTransaction(Some(TransactionRef { id: 34 }), None),
 ]}
 
 snapshot_ui_with_file_and_msgs! {parameter_in_scopes, "examples/picorv32.vcd", [

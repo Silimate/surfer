@@ -21,6 +21,7 @@ use surfer_translation_types::{
 
 #[cfg(feature = "performance_plot")]
 use crate::benchmark::NUM_PERF_SAMPLES;
+use crate::command_parser::get_parser;
 use crate::displayed_item::{
     draw_rename_window, DisplayedFieldRef, DisplayedItem, DisplayedItemRef,
 };
@@ -35,13 +36,12 @@ use crate::util::uint_idx_to_alpha_idx;
 use crate::variable_direction::VariableDirectionExt;
 use crate::variable_filter::VariableFilter;
 use crate::wave_container::{
-    FieldRef, FieldRefExt, ScopeRef, ScopeRefExt, VariableRef, VariableRefExt,
+    FieldRef, FieldRefExt, ScopeRef, ScopeRefExt, VariableRef, VariableRefExt, WaveContainer,
 };
 use crate::wave_data::ScopeType;
 use crate::wave_source::LoadOptions;
-use crate::{command_parser::get_parser, wave_container::WaveContainer};
 use crate::{
-    command_prompt::show_command_prompt, config::HierarchyStyle, hierarchy, wave_data::WaveData,
+    command_prompt::show_command_prompt, hierarchy, hierarchy::HierarchyStyle, wave_data::WaveData,
     Message, MoveDir, SystemState,
 };
 use crate::{config::SurferTheme, wave_container::VariableMeta};

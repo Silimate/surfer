@@ -7,11 +7,12 @@ use std::sync::atomic::Ordering;
 use surfer_translation_types::{TranslationPreference, Translator};
 
 use crate::displayed_item_tree::VisibleItemIndex;
+use crate::hierarchy::HierarchyStyle;
 use crate::wave_container::{FieldRef, VariableRefExt};
 use crate::wcp::{proto::WcpEvent, proto::WcpSCMessage};
 use crate::{
     clock_highlighting::clock_highlight_type_menu,
-    config::{ArrowKeyBindings, HierarchyStyle},
+    config::ArrowKeyBindings,
     displayed_item::{DisplayedFieldRef, DisplayedItem},
     message::Message,
     time::{timeformat_menu, timeunit_menu},

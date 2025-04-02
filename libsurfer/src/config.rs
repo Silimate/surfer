@@ -15,28 +15,10 @@ use std::collections::HashMap;
 #[cfg(not(target_arch = "wasm32"))]
 use std::path::{Path, PathBuf};
 
+use crate::hierarchy::HierarchyStyle;
 use crate::mousegestures::GestureZones;
 use crate::time::TimeFormat;
 use crate::{clock_highlighting::ClockHighlightType, variable_name_type::VariableNameType};
-
-#[derive(Debug, Deserialize, Display, PartialEq, Eq, Sequence)]
-pub enum HierarchyStyle {
-    #[display("Separate")]
-    Separate,
-
-    #[display("Tree")]
-    Tree,
-}
-
-impl From<String> for HierarchyStyle {
-    fn from(string: String) -> Self {
-        match string.as_str() {
-            "Separate" => Self::Separate,
-            "Tree" => Self::Tree,
-            _ => Self::Separate,
-        }
-    }
-}
 
 /// Selects the function of the arrow keys
 #[derive(Debug, Deserialize, Display, PartialEq, Eq, Sequence)]
@@ -65,6 +47,7 @@ pub struct SurferConfig {
     pub layout: SurferLayout,
     #[serde(deserialize_with = "deserialize_theme")]
     pub theme: SurferTheme,
+    /// Mouse gesture configurations. Color and linewidth are configured in the theme using [SurferTheme::gesture].
     pub gesture: SurferGesture,
     pub behavior: SurferBehavior,
     /// Time stamp format
@@ -212,6 +195,7 @@ pub struct SurferBehavior {
 }
 
 #[derive(Debug, Deserialize)]
+/// Mouse gesture configurations. Color and linewidth are configured in the theme using [SurferTheme::gesture].
 pub struct SurferGesture {
     /// Size of the overlay help
     pub size: f32,
@@ -233,6 +217,7 @@ pub struct SurferLineStyle {
 }
 
 #[derive(Debug, Deserialize)]
+/// Tick mark configuration
 pub struct SurferTicks {
     /// 0 to 1, where 1 means as many ticks that can fit without overlap
     pub density: f32,
@@ -339,7 +324,7 @@ pub struct SurferTheme {
     /// Viewport separator line
     pub viewport_separator: SurferLineStyle,
 
-    // drag hint and threshold parameters
+    // Drag hint and threshold parameters
     #[serde(deserialize_with = "deserialize_hex_color")]
     pub drag_hint_color: Color32,
     pub drag_hint_width: f32,

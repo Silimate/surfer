@@ -1,9 +1,10 @@
 //! Command prompt handling.
 use std::{fs, str::FromStr};
 
-use crate::config::{ArrowKeyBindings, HierarchyStyle};
+use crate::config::ArrowKeyBindings;
 use crate::displayed_item_tree::{Node, VisibleItemIndex};
 use crate::fzcmd::{Command, ParamGreed};
+use crate::hierarchy::HierarchyStyle;
 use crate::lazy_static;
 use crate::transaction_container::StreamScopeRef;
 use crate::wave_container::{ScopeRef, ScopeRefExt, VariableRef, VariableRefExt};

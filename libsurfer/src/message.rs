@@ -18,21 +18,20 @@ use crate::transaction_container::{
 use crate::translation::DynTranslator;
 use crate::viewport::ViewportStrategy;
 use crate::wave_data::ScopeType;
-use crate::wave_source::CxxrtlKind;
 use crate::{
     clock_highlighting::ClockHighlightType,
     config::ArrowKeyBindings,
     dialog::{OpenSiblingStateFileDialog, ReloadWaveformDialog},
     displayed_item::{DisplayedFieldRef, DisplayedItemRef},
+    hierarchy::HierarchyStyle,
     time::{TimeStringFormatting, TimeUnit},
     variable_filter::VariableIOFilterType,
     variable_name_type::VariableNameType,
     wave_container::{ScopeRef, VariableRef, WaveContainer},
-    wave_source::{LoadOptions, OpenMode},
+    wave_source::{CxxrtlKind, LoadOptions, OpenMode, WaveFormat},
     wellen::LoadSignalsResult,
     MoveDir, VariableNameFilterType, WaveSource,
 };
-use crate::{config::HierarchyStyle, wave_source::WaveFormat};
 
 type CommandCount = usize;
 

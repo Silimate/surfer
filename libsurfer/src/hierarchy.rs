@@ -5,8 +5,30 @@ use crate::variable_filter::VariableFilter;
 use crate::wave_container::{ScopeRef, ScopeRefExt};
 use crate::wave_data::ScopeType;
 use crate::SystemState;
+use derive_more::Display;
 use egui::{CentralPanel, Frame, Layout, Margin, ScrollArea, TextWrapMode, TopBottomPanel, Ui};
 use emath::Align;
+use enum_iterator::Sequence;
+use serde::Deserialize;
+
+#[derive(Debug, Deserialize, Display, PartialEq, Eq, Sequence)]
+pub enum HierarchyStyle {
+    #[display("Separate")]
+    Separate,
+
+    #[display("Tree")]
+    Tree,
+}
+
+impl From<String> for HierarchyStyle {
+    fn from(string: String) -> Self {
+        match string.as_str() {
+            "Separate" => Self::Separate,
+            "Tree" => Self::Tree,
+            _ => Self::Separate,
+        }
+    }
+}
 
 /// Scopes and variables in two separate lists
 pub fn separate(state: &mut SystemState, ui: &mut Ui, msgs: &mut Vec<Message>) {
