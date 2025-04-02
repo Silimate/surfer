@@ -111,6 +111,10 @@ impl ScopeRefExt for ScopeRef {
     fn cxxrtl_repr(&self) -> String {
         self.strs.join(" ")
     }
+
+    fn has_empty_strs(&self) -> bool {
+        self.strs.is_empty()
+    }
 }
 
 #[local_impl::local_impl]
@@ -146,7 +150,7 @@ impl VariableRefExt for VariableRef {
 
     /// A human readable full path to the scope
     fn full_path_string(&self) -> String {
-        if self.path.strs().is_empty() {
+        if self.path.has_empty_strs() {
             self.name.clone()
         } else {
             format!("{}.{}", self.path, self.name)

@@ -202,6 +202,13 @@ impl WellenContainer {
         }
     }
 
+    fn has_scope(&self, scope: &ScopeRef) -> bool {
+        match scope.id {
+            ScopeId::Wellen(_) => true,
+            ScopeId::None => self.hierarchy.lookup_scope(scope.strs()).is_some(),
+        }
+    }
+
     pub fn variables(&self) -> Vec<VariableRef> {
         let h = &self.hierarchy;
         h.iter_vars()
@@ -212,7 +219,7 @@ impl WellenContainer {
     pub fn variables_in_scope(&self, scope_ref: &ScopeRef) -> Vec<VariableRef> {
         let h = &self.hierarchy;
         // special case of an empty scope means that we want to variables that are part of the toplevel
-        if scope_ref.strs().is_empty() {
+        if scope_ref.has_empty_strs() {
             h.vars()
                 .map(|id| {
                     VariableRef::new_with_id(
@@ -246,8 +253,8 @@ impl WellenContainer {
     pub fn no_variables_in_scope(&self, scope_ref: &ScopeRef) -> bool {
         let h = &self.hierarchy;
         // special case of an empty scope means that we want to variables that are part of the toplevel
-        if scope_ref.strs().is_empty() {
-            h.vars().collect::<Vec<_>>().is_empty()
+        if scope_ref.has_empty_strs() {
+            h.vars().next().is_none()
         } else {
             let scope = match self.lookup_scope(scope_ref) {
                 Some(id) => &h[id],
@@ -256,7 +263,7 @@ impl WellenContainer {
                     return true;
                 }
             };
-            scope.vars(h).collect::<Vec<_>>().is_empty()
+            scope.vars(h).next().is_none()
         }
     }
 
@@ -264,7 +271,7 @@ impl WellenContainer {
         // IMPORTANT: lookup by name!
         let h = &self.hierarchy;
 
-        let (var, new_scope_ref) = if variable.path.strs.is_empty() {
+        let (var, new_scope_ref) = if variable.path.has_empty_strs() {
             let var = h.lookup_var(&[], &variable.name)?;
             (var, variable.path.clone())
         } else {
@@ -489,7 +496,7 @@ impl WellenContainer {
     }
 
     pub fn scope_exists(&self, scope: &ScopeRef) -> bool {
-        scope.strs.is_empty() | self.lookup_scope(scope).is_some()
+        scope.has_empty_strs() | self.has_scope(scope)
     }
 
     pub fn get_scope_tooltip_data(&self, scope: &ScopeRef) -> String {
