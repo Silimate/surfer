@@ -2,9 +2,8 @@ use std::sync::Mutex;
 
 use chrono::prelude::{DateTime, Utc};
 use color_eyre::{eyre::bail, Result};
-use itertools::Itertools;
 use num::BigUint;
-use surfer_translation_types::{VariableType, VariableValue};
+use surfer_translation_types::VariableValue;
 
 use crate::cxxrtl_container::CxxrtlContainer;
 use crate::message::BodyResult;
@@ -279,37 +278,21 @@ impl WaveContainer {
 
     /// Return all variables (excluding parameters) in a scope.
     pub fn variables_in_scope(&self, scope: &ScopeRef) -> Vec<VariableRef> {
-        let all_variables = match self {
+        match self {
             WaveContainer::Wellen(f) => f.variables_in_scope(scope),
             WaveContainer::Empty => vec![],
             WaveContainer::Cxxrtl(c) => c.lock().unwrap().variables_in_module(scope),
-        };
-        // Get rid of parameters
-        all_variables
-            .iter()
-            .filter(|var| {
-                let meta = self.variable_meta(var).ok();
-                meta.unwrap().variable_type != Some(VariableType::VCDParameter)
-            })
-            .cloned()
-            .collect_vec()
+        }
     }
 
     /// Return all parameters in a scope.
     pub fn parameters_in_scope(&self, scope: &ScopeRef) -> Vec<VariableRef> {
-        let all_variables = match self {
-            WaveContainer::Wellen(f) => f.variables_in_scope(scope),
+        match self {
+            WaveContainer::Wellen(f) => f.parameters_in_scope(scope),
             WaveContainer::Empty => vec![],
-            WaveContainer::Cxxrtl(c) => c.lock().unwrap().variables_in_module(scope),
-        };
-        all_variables
-            .iter()
-            .filter(|var| {
-                let meta = self.variable_meta(var).ok();
-                meta.unwrap().variable_type == Some(VariableType::VCDParameter)
-            })
-            .cloned()
-            .collect_vec()
+            // No parameters in Cxxrtl
+            WaveContainer::Cxxrtl(_) => vec![],
+        }
     }
 
     /// Return true if there are no variables or parameters in the scope.

@@ -221,6 +221,7 @@ impl WellenContainer {
         // special case of an empty scope means that we want to variables that are part of the toplevel
         if scope_ref.has_empty_strs() {
             h.vars()
+                .filter(|id| h[*id].var_type() != VarType::Parameter)
                 .map(|id| {
                     VariableRef::new_with_id(
                         scope_ref.clone(),
@@ -239,6 +240,43 @@ impl WellenContainer {
             };
             scope
                 .vars(h)
+                .filter(|id| h[*id].var_type() != VarType::Parameter)
+                .map(|id| {
+                    VariableRef::new_with_id(
+                        scope_ref.clone(),
+                        h[id].name(h).to_string(),
+                        VarId::Wellen(id),
+                    )
+                })
+                .collect::<Vec<_>>()
+        }
+    }
+
+    pub fn parameters_in_scope(&self, scope_ref: &ScopeRef) -> Vec<VariableRef> {
+        let h = &self.hierarchy;
+        // special case of an empty scope means that we want to variables that are part of the toplevel
+        if scope_ref.strs().is_empty() {
+            h.vars()
+                .filter(|id| h[*id].var_type() == VarType::Parameter)
+                .map(|id| {
+                    VariableRef::new_with_id(
+                        scope_ref.clone(),
+                        h[id].name(h).to_string(),
+                        VarId::Wellen(id),
+                    )
+                })
+                .collect::<Vec<_>>()
+        } else {
+            let scope = match self.lookup_scope(scope_ref) {
+                Some(id) => &h[id],
+                None => {
+                    warn!("Found no scope '{scope_ref}'. Defaulting to no variables");
+                    return vec![];
+                }
+            };
+            scope
+                .vars(h)
+                .filter(|id| h[*id].var_type() == VarType::Parameter)
                 .map(|id| {
                     VariableRef::new_with_id(
                         scope_ref.clone(),
