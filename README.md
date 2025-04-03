@@ -74,8 +74,8 @@ git submodule update --init --recursive
 cargo build --release
 ```
 
-If all goes well, the `surfer` executable can found in `./target/release/`.
-You can run it from there, or you can use `cargo run --bin surfer`.
+If all goes well, the `surfer` the release executable can found in `./target/release/`.
+To build and run the debug executable you can use `cargo run --bin surfer`.
 
 You can install your own version of surfer with `cargo install --path surfer`.
 
