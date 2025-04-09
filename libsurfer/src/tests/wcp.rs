@@ -238,10 +238,33 @@ wcp_test! {
         assert_eq!(source, "../examples/counter.vcd".to_string());
 
         tx.send(WcpCSMessage::command(
-            proto::WcpCommand::add_scope {scope: "tb".to_string()})).await?;
+            proto::WcpCommand::add_scope {scope: "tb".to_string(), recursive: false})).await?;
         expect_response!(rx, WcpSCMessage::response(WcpResponse::add_scope{ ids: indices }));
 
         assert_eq!(indices.len(), 4);
+
+        Ok(())
+    }
+}
+
+wcp_test! {
+    add_scope_recursive,
+    (tx, rx) {
+        greet(&tx, &mut rx).await?;
+
+        tx.send(WcpCSMessage::command(proto::WcpCommand::load {
+            source: "../examples/counter.vcd".to_string()
+        })).await?;
+        expect_ack(&mut rx).await?;
+
+        expect_response!(rx, WcpSCMessage::event(WcpEvent::waveforms_loaded{source}));
+        assert_eq!(source, "../examples/counter.vcd".to_string());
+
+        tx.send(WcpCSMessage::command(
+            proto::WcpCommand::add_scope {scope: "tb".to_string(), recursive: true})).await?;
+        expect_response!(rx, WcpSCMessage::response(WcpResponse::add_scope{ ids: indices }));
+
+        assert_eq!(indices.len(), 8);
 
         Ok(())
     }
@@ -280,7 +303,7 @@ wcp_test! {
         load_file(&tx, &mut rx, "../examples/counter.vcd").await?;
 
         send_commands(&tx, vec![
-            WcpCommand::add_scope {scope: "tb".to_string()},
+            WcpCommand::add_scope {scope: "tb".to_string(), recursive: false},
         ]).await?;
         expect_response!(rx, WcpSCMessage::response(WcpResponse::add_scope{ ids: refs }));
 
@@ -300,7 +323,7 @@ wcp_test! {
         load_file(&tx, &mut rx, "../examples/counter.vcd").await?;
 
         send_commands(&tx, vec![
-            WcpCommand::add_scope {scope: "tb".to_string()},
+            WcpCommand::add_scope {scope: "tb".to_string(), recursive: false},
         ]).await?;
         expect_response!(rx, WcpSCMessage::response(WcpResponse::add_scope{ ids: refs }));
 
@@ -317,7 +340,7 @@ wcp_test! {
         load_file(&tx, &mut rx, "../examples/counter.vcd").await?;
 
         send_commands(&tx, vec![
-            WcpCommand::add_scope {scope: "tb".to_string()},
+            WcpCommand::add_scope {scope: "tb".to_string(), recursive: false},
             WcpCommand::clear,
         ]).await?;
         expect_response!(rx, WcpSCMessage::response(WcpResponse::add_scope{ ids: _ }));
@@ -331,7 +354,7 @@ wcp_test! {
         load_file(&tx, &mut rx, "../examples/counter.vcd").await?;
 
         send_commands(&tx, vec![
-            WcpCommand::add_scope {scope: "tb".to_string()},
+            WcpCommand::add_scope {scope: "tb".to_string(), recursive: false},
             WcpCommand::set_viewport_to { timestamp: BigInt::from(70) },
         ]).await?;
         expect_response!(rx, WcpSCMessage::response(WcpResponse::add_scope{ ids: _ }));
@@ -346,7 +369,7 @@ wcp_test! {
         load_file(&tx, &mut rx, "../examples/counter.vcd").await?;
 
         send_commands(&tx, vec![
-            WcpCommand::add_scope {scope: "tb".to_string()},
+            WcpCommand::add_scope {scope: "tb".to_string(), recursive: false},
             WcpCommand::set_viewport_to { timestamp: BigInt::from(70) },
             WcpCommand::zoom_to_fit { viewport_idx: 0 }
         ]).await?;
@@ -364,7 +387,7 @@ wcp_test! {
         load_file(&tx, &mut rx, "../examples/counter.vcd").await?;
 
         send_commands(&tx, vec![
-            WcpCommand::add_scope {scope: "tb".to_string()},
+            WcpCommand::add_scope {scope: "tb".to_string(), recursive: false},
         ]).await?;
         expect_response!(rx, WcpSCMessage::response(WcpResponse::add_scope{ ids: items }));
 
@@ -403,7 +426,7 @@ wcp_test! {
         load_file(&tx, &mut rx, "../examples/counter.vcd").await?;
 
         send_commands(&tx, vec![
-            WcpCommand::add_scope {scope: "tb".to_string()},
+            WcpCommand::add_scope {scope: "tb".to_string(), recursive: false},
         ]).await?;
         expect_response!(rx, WcpSCMessage::response(WcpResponse::add_scope{ ids: _ }));
 

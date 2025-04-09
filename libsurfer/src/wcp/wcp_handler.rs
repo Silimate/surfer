@@ -147,12 +147,12 @@ impl SystemState {
                             )
                         }
                     }
-                    WcpCommand::add_scope { scope } => {
+                    WcpCommand::add_scope { scope, recursive } => {
                         if self.user.waves.is_some() {
                             self.save_current_canvas(format!("Add scope {}", scope));
                         }
                         let scope = ScopeRef::from_hierarchy_string(scope);
-                        let variables = self.get_scope(scope, false);
+                        let variables = self.get_scope(scope, *recursive);
                         if let Some(waves) = self.user.waves.as_mut() {
                             let (cmd, ids) =
                                 waves.add_variables(&self.translators, variables, None);

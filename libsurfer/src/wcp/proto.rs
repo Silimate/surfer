@@ -125,10 +125,11 @@ pub enum WcpCommand {
     /// Responds with an error if no waveforms are loaded
     add_variables { variables: Vec<String> },
     /// Adds all variables in the specified scope to the view.
+    /// Does so recursively if specified
     /// Responds with [WcpResponse::add_variables] which contains a list of the item references
     /// that can be used to reference the added items later
     /// Responds with an error if no waveforms are loaded
-    add_scope { scope: String },
+    add_scope { scope: String, recursive: bool },
     /// Reloads the waveform from disk if this is possible for the current waveform format.
     /// If it is not possible, this has no effect.
     /// Responds instantly with [WcpResponse::ack]
