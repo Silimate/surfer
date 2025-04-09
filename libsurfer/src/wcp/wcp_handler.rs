@@ -304,7 +304,7 @@ impl SystemState {
             "set_viewport_to",
             "cursor_set",
             "reload",
-            "add_scopes",
+            "add_scope",
             "get_item_list",
             "set_item_color",
             "get_item_info",
