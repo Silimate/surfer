@@ -199,35 +199,30 @@ impl SystemState {
         self.handle_wcp_commands();
     }
 
-    pub(crate) fn add_scope(&mut self, scope: ScopeRef, recursive: bool) {
+    pub(crate) fn get_scope(&mut self, scope: ScopeRef, recursive: bool) -> Vec<VariableRef> {
         let Some(waves) = self.user.waves.as_mut() else {
-            warn!("Adding scope without waves loaded");
-            return;
+            return vec![];
         };
 
         let wave_cont = waves.inner.as_waves().unwrap();
 
         let children = wave_cont.child_scopes(&scope);
-        let variables = wave_cont
+        let mut variables = wave_cont
             .variables_in_scope(&scope)
             .iter()
             .sorted_by(|a, b| numeric_sort::cmp(&a.name, &b.name))
             .cloned()
             .collect_vec();
 
-        // TODO add parameter to add_variables, insert to (self.drag_target_idx, self.drag_source_idx)
-        if let (Some(cmd), _) = waves.add_variables(&self.translators, variables, None) {
-            self.load_variables(cmd);
-        }
-
         if recursive {
             if let Ok(children) = children {
                 for child in children {
-                    self.add_scope(child, true);
+                    variables.append(&mut self.get_scope(child, true));
                 }
             }
         }
-        self.invalidate_draw_commands();
+
+        variables
     }
 
     pub(crate) fn on_waves_loaded(

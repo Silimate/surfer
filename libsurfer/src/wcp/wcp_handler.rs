@@ -151,11 +151,9 @@ impl SystemState {
                         if self.user.waves.is_some() {
                             self.save_current_canvas(format!("Add scope {}", scope));
                         }
+                        let scope = ScopeRef::from_hierarchy_string(scope);
+                        let variables = self.get_scope(scope, false);
                         if let Some(waves) = self.user.waves.as_mut() {
-                            let scope = ScopeRef::from_hierarchy_string(scope);
-
-                            let variables =
-                                waves.inner.as_waves().unwrap().variables_in_scope(&scope);
                             let (cmd, ids) =
                                 waves.add_variables(&self.translators, variables, None);
                             if let Some(cmd) = cmd {

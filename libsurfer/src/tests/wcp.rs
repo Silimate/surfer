@@ -374,7 +374,7 @@ wcp_test! {
 
         expect_response!(rx, WcpSCMessage::response(WcpResponse::get_item_info{ results: info }));
         let expected = vec![
-            proto::ItemInfo { name: "overflow".to_string(),
+             proto::ItemInfo { name: "_tmp".to_string(),
                  t: "Variable".to_string(),
                  id: proto::DisplayedItemRef(1)
              },
@@ -382,14 +382,14 @@ wcp_test! {
                  t: "Variable".to_string(),
                  id: proto::DisplayedItemRef(2)
              },
-             proto::ItemInfo { name: "reset".to_string(),
+             proto::ItemInfo { name: "overflow".to_string(),
                  t: "Variable".to_string(),
                  id: proto::DisplayedItemRef(3)
              },
-             proto::ItemInfo { name: "_tmp".to_string(),
+             proto::ItemInfo { name: "reset".to_string(),
                  t: "Variable".to_string(),
                  id: proto::DisplayedItemRef(4)
-             }
+             },
         ];
         assert_eq!(info, expected);
 

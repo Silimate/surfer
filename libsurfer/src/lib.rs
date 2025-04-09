@@ -319,7 +319,20 @@ impl SystemState {
             }
             Message::AddScope(scope, recursive) => {
                 self.save_current_canvas(format!("Add scope {}", scope.name()));
-                self.add_scope(scope, recursive);
+
+                let vars = self.get_scope(scope, recursive);
+
+                let Some(waves) = self.user.waves.as_mut() else {
+                    warn!("Adding scope without waves loaded");
+                    return;
+                };
+
+                // TODO add parameter to add_variables, insert to (self.drag_target_idx, self.drag_source_idx)
+                if let (Some(cmd), _) = waves.add_variables(&self.translators, vars, None) {
+                    self.load_variables(cmd);
+                }
+
+                self.invalidate_draw_commands();
             }
             Message::AddCount(digit) => {
                 if let Some(count) = &mut self.user.count {
