@@ -1399,9 +1399,9 @@ dependencies = [
 
 [[package]]
 name = "egui_plot"
-version = "0.31.0"
+version = "0.32.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1794c66fb727dac28dffed2e4b548e5118d1cccc331d368a35411d68725dde71"
+checksum = "14ae092b46ea532f6c69d3e71036fb3b688fd00fd09c2a1e43d17051a8ae43e6"
 dependencies = [
  "ahash",
  "egui",
@@ -2721,7 +2721,7 @@ dependencies = [
  "regex",
  "reqwest",
  "rfd",
- "ron",
+ "ron 0.10.1",
  "serde",
  "serde_json",
  "serde_stacker",
@@ -4149,6 +4149,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "ron"
+version = "0.10.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "beceb6f7bf81c73e73aeef6dd1356d9a1b2b4909e1f0fc3e59b034f9572d7b7f"
+dependencies = [
+ "base64 0.22.1",
+ "bitflags 2.8.0",
+ "serde",
+ "serde_derive",
+ "unicode-ident",
+]
+
+[[package]]
 name = "rustc-demangle"
 version = "0.1.24"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4645,7 +4658,7 @@ dependencies = [
  "indoc",
  "itertools 0.14.0",
  "logos",
- "ron",
+ "ron 0.8.1",
  "serde",
  "serde_json",
  "spade-ast",
@@ -4816,7 +4829,7 @@ dependencies = [
  "egui",
  "libsurfer",
  "log",
- "ron",
+ "ron 0.10.1",
  "surver",
  "tokio",
  "wasm-bindgen-futures",

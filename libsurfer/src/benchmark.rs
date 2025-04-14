@@ -233,29 +233,23 @@ impl SystemState {
                     .include_x(NUM_PERF_SAMPLES as f64);
 
                 plot.show(ui, |plot_ui| {
-                    plot_ui.line(
-                        Line::new(PlotPoints::from_ys_f32(
+                    plot_ui.line(Line::new(
+                        "egui CPU draw time",
+                        PlotPoints::from_ys_f32(
                             &self.rendering_cpu_times.iter().cloned().collect::<Vec<_>>(),
-                        ))
-                        .name("egui CPU draw time"),
-                    );
+                        ),
+                    ));
 
                     draw_timing_region(plot_ui, &vec![], &timing);
 
-                    plot_ui.line(
-                        Line::new(PlotPoints::new(vec![
-                            [0., 1. / 60.],
-                            [NUM_PERF_SAMPLES as f64, 1. / 60.],
-                        ]))
-                        .name("60 fps"),
-                    );
-                    plot_ui.line(
-                        Line::new(PlotPoints::new(vec![
-                            [0., 1. / 30.],
-                            [NUM_PERF_SAMPLES as f64, 1. / 30.],
-                        ]))
-                        .name("30 fps"),
-                    );
+                    plot_ui.line(Line::new(
+                        "60 fps",
+                        PlotPoints::new(vec![[0., 1. / 60.], [NUM_PERF_SAMPLES as f64, 1. / 60.]]),
+                    ));
+                    plot_ui.line(Line::new(
+                        "30 fps",
+                        PlotPoints::new(vec![[0., 1. / 30.], [NUM_PERF_SAMPLES as f64, 1. / 30.]]),
+                    ));
                 });
             });
         if !open {
@@ -278,11 +272,12 @@ pub fn draw_timing_region(plot_ui: &mut PlotUi, region: &Vec<String>, timing: &T
         .map(|t| t.as_nanos() as f32 / 1_000_000_000.)
         .collect::<Vec<_>>();
 
-    plot_ui.line(
-        Line::new(PlotPoints::from_ys_f32(&times_f32)).name(if region.is_empty() {
+    plot_ui.line(Line::new(
+        if region.is_empty() {
             "total".to_string()
         } else {
             region.join(".")
-        }),
-    );
+        },
+        PlotPoints::from_ys_f32(&times_f32),
+    ));
 }

@@ -57,7 +57,7 @@ impl SpadeTranslator {
         let mut opt = ron::Options::default();
         opt.recursion_limit = None;
 
-        let mut de = ron::Deserializer::from_str_with_options(state_content, opt)
+        let mut de = ron::Deserializer::from_str_with_options(state_content, &opt)
             .context("Failed to initialize ron deserializer")?;
         let de = serde_stacker::Deserializer::new(&mut de);
         let state =
