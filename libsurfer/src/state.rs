@@ -336,13 +336,13 @@ impl SystemState {
         }
         self.invalidate_draw_commands();
 
-        // Set time unit to the file time unit before consuming new_wave
-        self.user.wanted_timeunit = new_wave.inner.metadata().timescale.unit;
-
         self.user.waves = Some(new_wave);
 
         if !is_reload {
             if let Some(waves) = &mut self.user.waves {
+                // Set time unit
+                self.user.wanted_timeunit = waves.inner.metadata().timescale.unit;
+                // Possibly open state file load dialog
                 if waves.source.sibling_state_file().is_some() {
                     self.update(Message::SuggestOpenSiblingStateFile);
                 }
