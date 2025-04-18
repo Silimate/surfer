@@ -102,6 +102,7 @@ impl SystemState {
                     Message::ReloadWaveform(self.user.config.behavior.keep_during_reload),
                 )
                 .shortcut("r")
+                .enabled(self.user.waves.is_some())
                 .add_closing_menu(msgs, ui);
             }
 
