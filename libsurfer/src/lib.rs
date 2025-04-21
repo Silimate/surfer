@@ -555,7 +555,7 @@ impl SystemState {
                     }
                 };
             }
-            Message::RemoveItems(mut items) => {
+            Message::RemoveItems(items) => {
                 let undo_msg = self
                     .user
                     .waves
@@ -576,11 +576,8 @@ impl SystemState {
                 self.save_current_canvas(undo_msg);
 
                 let waves = self.user.waves.as_mut()?;
-
-                items.sort();
-                items.reverse(); // TODO do with sorting already...
-                for id in items {
-                    waves.remove_displayed_item(id);
+                for id in items.iter().sorted_unstable_by(|a, b| Ord::cmp(b, a)) {
+                    waves.remove_displayed_item(*id);
                 }
             }
             Message::MoveFocusedItem(direction, count) => {
