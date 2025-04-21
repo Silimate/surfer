@@ -415,7 +415,7 @@ impl SystemState {
                 let waves = self.user.waves.as_mut()?;
 
                 let visible_items_len = waves.displayed_items.len();
-                if visible_items_len > 0 && idx.0 < visible_items_len {
+                if idx.0 < visible_items_len {
                     waves.focused_item = Some(idx);
                 } else {
                     error!(
