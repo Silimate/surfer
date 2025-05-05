@@ -616,6 +616,8 @@ fn scope_type_to_string(tpe: ScopeType) -> &'static str {
         ScopeType::VhdlPackage => "package",
         ScopeType::GhwGeneric => "generic",
         ScopeType::VhdlArray => "array",
+        ScopeType::Unknown => "unknown",
+        _ => todo!(),
     }
 }
 
