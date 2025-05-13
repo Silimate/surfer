@@ -1,5 +1,5 @@
 # VSCode Dark+ theme
-# This re-uses a lot of the colors from the default theme, so we only need to update a few
+# This reuses a lot of the colors from the default theme, so we only need to update a few
 # values
 
 foreground = "d4d4d4"

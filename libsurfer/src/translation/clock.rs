@@ -5,7 +5,7 @@ use crate::translation::{AnyTranslator, BitTranslator};
 use crate::wave_container::{ScopeId, VarId, VariableMeta};
 
 pub struct ClockTranslator {
-    // In order to not duplicate logic, we'll re-use the bit translator internally
+    // In order to not duplicate logic, we reuse the bit translator internally
     inner: AnyTranslator,
 }
 

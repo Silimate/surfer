@@ -33,7 +33,7 @@ impl From<String> for RestQuery {
 
 pub type QuerySplitter = dyn Fn(&str) -> (String, String, String, String);
 
-// Removing things that are unused for now would require removal of useable code
+// Removing things that are unused for now would require removal of usable code
 #[allow(dead_code)]
 pub enum ParamGreed {
     Word,
@@ -138,7 +138,7 @@ pub enum FuzzyError {
     // lead to trying to do fuzzy matching on a terminal
     ReachedTerminal,
     // The query was expanded based on the suggestions, but the expansion
-    // was not a vailid command
+    // was not a valid command
     MalformedCommand(Vec<String>, String),
     // The fuzzy expander ran out of input and can not make any more suggestions.
     // This should never be returned publicly
