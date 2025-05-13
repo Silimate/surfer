@@ -152,6 +152,17 @@ pub fn new_mips_translator() -> InstructionTranslator {
     }
 }
 
+pub fn new_la64_translator() -> InstructionTranslator {
+    InstructionTranslator {
+        name: "LA64".into(),
+        decoder: Decoder::new(&[
+            include_str!("../../../instruction-decoder/toml/la64.toml").to_string()
+        ])
+        .expect("Can't build LA64 decoder"),
+        num_bits: 32,
+    }
+}
+
 #[cfg(test)]
 mod test {
 
@@ -300,6 +311,64 @@ mod test {
         );
         assert_eq!(
             mips_translator
+                .basic_translate(
+                    32,
+                    &VariableValue::String("01011-hlw0010001000100010001000".to_owned())
+                )
+                .0,
+            "DON'T CARE"
+        );
+    }
+
+    #[test]
+    fn la64_from_bigunit() {
+        let la64_translator = new_la64_translator();
+        assert_eq!(
+            la64_translator
+                .basic_translate(32, &VariableValue::BigUint(0xffffffffu32.into()))
+                .0,
+            "UNKNOWN INSN (0xffffffff)"
+        );
+        assert_eq!(
+            la64_translator
+                .basic_translate(32, &VariableValue::BigUint(0x1a000004u32.into()))
+                .0,
+            "pcalau12i $a0, 0"
+        );
+    }
+
+    #[test]
+    fn la64_from_string() {
+        let la64_translator = new_la64_translator();
+        assert_eq!(
+            la64_translator
+                .basic_translate(
+                    32,
+                    &VariableValue::String("00101001101111111011001011001100".to_owned())
+                )
+                .0,
+            "st.w $t0, $fp, -20"
+        );
+        assert_eq!(
+            la64_translator
+                .basic_translate(
+                    32,
+                    &VariableValue::String("01xzz-hlw0010001000100010001000".to_owned())
+                )
+                .0,
+            "UNDEF"
+        );
+        assert_eq!(
+            la64_translator
+                .basic_translate(
+                    32,
+                    &VariableValue::String("010zz-hlw0010001000100010001000".to_owned())
+                )
+                .0,
+            "HIGHIMP"
+        );
+        assert_eq!(
+            la64_translator
                 .basic_translate(
                     32,
                     &VariableValue::String("01011-hlw0010001000100010001000".to_owned())

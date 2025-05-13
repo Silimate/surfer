@@ -242,6 +242,7 @@ pub fn all_translators() -> TranslatorList {
         Box::new(new_rv32_translator()),
         Box::new(new_rv64_translator()),
         Box::new(new_mips_translator()),
+        Box::new(new_la64_translator()),
         Box::new(LebTranslator {}),
         Box::new(UnsignedTranslator {}),
         Box::new(SignedTranslator {}),
