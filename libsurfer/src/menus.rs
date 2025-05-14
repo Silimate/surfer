@@ -14,10 +14,10 @@ use crate::{
     clock_highlighting::clock_highlight_type_menu,
     config::ArrowKeyBindings,
     displayed_item::{DisplayedFieldRef, DisplayedItem},
+    file_dialog::OpenMode,
     message::Message,
     time::{timeformat_menu, timeunit_menu},
     variable_name_type::VariableNameType,
-    wave_source::OpenMode,
     SystemState,
 };
 

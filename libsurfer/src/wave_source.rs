@@ -1,7 +1,6 @@
 use std::fmt::{Display, Formatter};
 use std::fs;
 use std::io::Cursor;
-use std::path::PathBuf;
 use std::sync::atomic::AtomicU64;
 use std::sync::mpsc::Sender;
 use std::sync::Arc;
@@ -16,11 +15,10 @@ use color_eyre::Result;
 use ftr_parser::parse;
 use futures_util::FutureExt;
 use log::{error, info, warn};
-use rfd::AsyncFileDialog;
 use serde::{Deserialize, Serialize};
 use web_time::Instant;
 
-use crate::message::{AsyncJob, BodyResult, HeaderResult};
+use crate::message::{BodyResult, HeaderResult};
 use crate::transaction_container::TransactionContainer;
 use crate::wave_container::WaveContainer;
 use crate::wellen::{LoadSignalPayload, LoadSignalsCmd, LoadSignalsResult};
@@ -168,12 +166,6 @@ impl LoadOptions {
             keep_unavailable: false,
         }
     }
-}
-
-#[derive(Debug, Deserialize)]
-pub enum OpenMode {
-    Open,
-    Switch,
 }
 
 pub struct LoadProgress {
@@ -732,179 +724,6 @@ impl SystemState {
         self.progress_tracker = Some(LoadProgress::new(LoadProgressStatus::LoadingVariables(
             num_signals,
         )));
-    }
-
-    fn create_file_dialog(filter: (String, Vec<String>)) -> AsyncFileDialog {
-        AsyncFileDialog::new()
-            .set_title("Open waveform file")
-            .add_filter(filter.0, &filter.1)
-            .add_filter("All files", &["*"])
-    }
-
-    #[cfg(not(target_arch = "wasm32"))]
-    fn file_dialog<F>(&mut self, filter: (String, Vec<String>), message: F)
-    where
-        F: FnOnce(PathBuf) -> Message + Send + 'static,
-    {
-        let sender = self.channels.msg_sender.clone();
-
-        perform_async_work(async move {
-            if let Some(file) = Self::create_file_dialog(filter).pick_file().await {
-                sender.send(message(file.path().to_path_buf())).unwrap();
-            }
-        });
-    }
-
-    #[cfg(target_arch = "wasm32")]
-    fn file_dialog<F>(&mut self, filter: (String, Vec<String>), message: F)
-    where
-        F: FnOnce(Vec<u8>) -> Message + Send + 'static,
-    {
-        let sender = self.channels.msg_sender.clone();
-
-        perform_async_work(async move {
-            if let Some(file) = Self::create_file_dialog(filter).pick_file().await {
-                sender.send(message(file.read().await)).unwrap();
-            }
-        });
-    }
-
-    pub fn open_file_dialog(&mut self, mode: OpenMode) {
-        let keep_unavailable = self.user.config.behavior.keep_during_reload;
-        let keep_variables = match mode {
-            OpenMode::Open => false,
-            OpenMode::Switch => true,
-        };
-
-        #[cfg(not(target_arch = "wasm32"))]
-        let message = move |file: PathBuf| {
-            Message::LoadFile(
-                Utf8PathBuf::from_path_buf(file).unwrap(),
-                LoadOptions {
-                    keep_variables,
-                    keep_unavailable,
-                },
-            )
-        };
-
-        #[cfg(target_arch = "wasm32")]
-        let message = move |file: Vec<u8>| {
-            Message::LoadFromData(
-                file,
-                LoadOptions {
-                    keep_variables,
-                    keep_unavailable,
-                },
-            )
-        };
-
-        self.file_dialog(
-            (
-                "Waveform/Transaction-files (*.vcd, *.fst, *.ghw, *.ftr)".to_string(),
-                vec![
-                    "vcd".to_string(),
-                    "fst".to_string(),
-                    "ghw".to_string(),
-                    "ftr".to_string(),
-                ],
-            ),
-            message,
-        );
-    }
-
-    #[cfg(feature = "python")]
-    pub fn open_python_file_dialog(&mut self) {
-        self.file_dialog(
-            ("Python files (*.py)".to_string(), vec!["py".to_string()]),
-            |file| Message::LoadPythonTranslator(Utf8PathBuf::from_path_buf(file).unwrap()),
-        );
-    }
-
-    pub fn load_state_file(&mut self, path: Option<PathBuf>) {
-        let sender = self.channels.msg_sender.clone();
-
-        perform_async_work(async move {
-            let source = if let Some(_path) = path.clone() {
-                #[cfg(not(target_arch = "wasm32"))]
-                {
-                    Some(_path.into())
-                }
-                #[cfg(target_arch = "wasm32")]
-                {
-                    None
-                }
-            } else {
-                AsyncFileDialog::new()
-                    .set_title("Load state")
-                    .add_filter(
-                        format!("Surfer state files (*.{})", STATE_FILE_EXTENSION),
-                        &[STATE_FILE_EXTENSION],
-                    )
-                    .add_filter("All files", &["*"])
-                    .pick_file()
-                    .await
-            };
-            let Some(source) = source else {
-                return;
-            };
-            let bytes = source.read().await;
-            let new_state = match ron::de::from_bytes(&bytes)
-                .context(format!("Failed loading {}", source.file_name()))
-            {
-                Ok(s) => s,
-                Err(e) => {
-                    error!("Failed to load state: {e:#?}");
-                    return;
-                }
-            };
-            sender.send(Message::LoadState(new_state, path)).unwrap();
-        });
-    }
-
-    pub fn save_state_file(&mut self, path: Option<PathBuf>) {
-        let sender = self.channels.msg_sender.clone();
-        let Some(encoded) = self.encode_state() else {
-            return;
-        };
-
-        perform_async_work(async move {
-            let destination = if let Some(_path) = path {
-                #[cfg(not(target_arch = "wasm32"))]
-                {
-                    Some(_path.into())
-                }
-                #[cfg(target_arch = "wasm32")]
-                {
-                    None
-                }
-            } else {
-                AsyncFileDialog::new()
-                    .set_title("Save state")
-                    .add_filter(
-                        format!("Surfer state files (*.{})", STATE_FILE_EXTENSION),
-                        &[STATE_FILE_EXTENSION],
-                    )
-                    .add_filter("All files", &["*"])
-                    .save_file()
-                    .await
-            };
-            let Some(destination) = destination else {
-                return;
-            };
-
-            #[cfg(not(target_arch = "wasm32"))]
-            sender
-                .send(Message::SetStateFile(destination.path().into()))
-                .unwrap();
-            destination
-                .write(encoded.as_bytes())
-                .await
-                .map_err(|e| error!("Failed to write state to {destination:#?} {e:#?}"))
-                .ok();
-            sender
-                .send(Message::AsyncDone(AsyncJob::SaveState))
-                .unwrap();
-        });
     }
 }
 

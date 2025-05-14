@@ -27,14 +27,12 @@ use crate::{
     wave_source::{LoadOptions, WaveFormat, WaveSource},
     CanvasState, StartupParams,
 };
-use color_eyre::eyre::Context;
 use egui::{
     style::{Selection, WidgetVisuals, Widgets},
     CornerRadius, Stroke, Visuals,
 };
 use itertools::Itertools;
 use log::{error, info, trace, warn};
-use ron::ser::PrettyConfig;
 use serde::{Deserialize, Serialize};
 
 /// The parts of the program state that need to be serialized when loading/saving state
@@ -478,15 +476,6 @@ impl SystemState {
             },
             ..Visuals::dark()
         }
-    }
-
-    pub(crate) fn encode_state(&self) -> Option<String> {
-        let opt = ron::Options::default();
-
-        opt.to_string_pretty(&self.user, PrettyConfig::default())
-            .context("Failed to encode state")
-            .map_err(|e| error!("Failed to encode state. {e:#?}"))
-            .ok()
     }
 
     pub(crate) fn load_state(&mut self, mut loaded_state: UserState, path: Option<PathBuf>) {
