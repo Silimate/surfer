@@ -56,6 +56,12 @@ pub enum VariableIOFilterType {
     Other,
 }
 
+impl Default for VariableFilter {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl VariableFilter {
     pub fn new() -> VariableFilter {
         VariableFilter {
@@ -357,19 +363,17 @@ impl SystemState {
         b: &VariableRef,
         wave_container: Option<&WaveContainer>,
     ) -> Ordering {
-        let dir_order = [
-            VariableDirection::Input,
-            VariableDirection::Output,
-            VariableDirection::InOut,
-        ];
         let a_direction = get_variable_direction(a, wave_container);
         let b_direction = get_variable_direction(b, wave_container);
 
-        if !self.user.variable_filter.group_by_direction {
-            numeric_sort::cmp(&a.name, &b.name)
-        } else if a_direction == b_direction {
+        if !self.user.variable_filter.group_by_direction || a_direction == b_direction {
             numeric_sort::cmp(&a.name, &b.name)
         } else {
+            let dir_order = [
+                VariableDirection::Input,
+                VariableDirection::Output,
+                VariableDirection::InOut,
+            ];
             let a_dir_pos = dir_order
                 .into_iter()
                 .position(|d| d == a_direction)
@@ -379,12 +383,10 @@ impl SystemState {
                 .position(|d| d == b_direction)
                 .unwrap_or(dir_order.len());
 
-            if a_dir_pos < b_dir_pos {
-                Ordering::Less
-            } else if a_dir_pos > b_dir_pos {
-                Ordering::Greater
-            } else {
+            if a_dir_pos == b_dir_pos {
                 numeric_sort::cmp(&a.name, &b.name)
+            } else {
+                a_dir_pos.cmp(&b_dir_pos)
             }
         }
     }

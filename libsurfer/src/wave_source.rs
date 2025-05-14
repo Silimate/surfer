@@ -289,7 +289,7 @@ impl SystemState {
         let path = file.path.and_then(|x| Utf8PathBuf::try_from(x).ok());
 
         if let Some(bytes) = file.bytes {
-            if bytes.len() == 0 {
+            if bytes.is_empty() {
                 Err(anyhow!("Dropped an empty file"))
             } else {
                 if let Some(path) = path.clone() {

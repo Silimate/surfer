@@ -1234,6 +1234,7 @@ impl SystemState {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn draw_bool_transition(
         &self,
         ((old_x, prev_region), (new_x, new_region)): (&(f32, DrawnRegion), &(f32, DrawnRegion)),
@@ -1359,10 +1360,8 @@ impl SystemState {
         let vec_angled_y = -vec_x * alpha.sin() + vec_y * alpha.cos();
 
         // scale the new vector to be head_length long
-        let vec_angled_x =
-            (1. / (vec_angled_y - vec_angled_x).powi(2).sqrt()) * vec_angled_x * head_length;
-        let vec_angled_y =
-            (1. / (vec_angled_y - vec_angled_x).powi(2).sqrt()) * vec_angled_y * head_length;
+        let vec_angled_x = (1. / (vec_angled_y - vec_angled_x).abs()) * vec_angled_x * head_length;
+        let vec_angled_y = (1. / (vec_angled_y - vec_angled_x).abs()) * vec_angled_y * head_length;
 
         let arrowhead_left_x = vec_tip.x - vec_angled_x;
         let arrowhead_left_y = vec_tip.y - vec_angled_y;

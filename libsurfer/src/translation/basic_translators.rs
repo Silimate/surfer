@@ -465,7 +465,7 @@ impl BasicTranslator<VarId, ScopeId> for LeadingOnesTranslator {
                 self.basic_translate(num_bits, &VariableValue::String(s))
             }
             VariableValue::String(s) => (
-                if s.bytes().len() == (num_bits as usize) {
+                if s.len() == (num_bits as usize) {
                     format!(
                         "{ones}",
                         ones = s.bytes().take_while(|b| *b == b'1').count()

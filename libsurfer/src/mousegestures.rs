@@ -231,6 +231,7 @@ impl SystemState {
     }
 
     /// Draw the lines used for the zoom-in gesture.
+    #[allow(clippy::too_many_arguments)]
     fn draw_zoom_in_gesture(
         &self,
         start_location: Pos2,
@@ -276,14 +277,10 @@ impl SystemState {
             stroke,
         );
 
-        let (minx, maxx) = if measure {
+        let (minx, maxx) = if measure || current_location.x > start_location.x {
             (start_location.x, current_location.x)
         } else {
-            if current_location.x < start_location.x {
-                (current_location.x, start_location.x)
-            } else {
-                (start_location.x, current_location.x)
-            }
+            (current_location.x, start_location.x)
         };
         let num_timestamps = waves.num_timestamps().unwrap_or(1.into());
         let start_time = waves.viewports[viewport_idx].as_time_bigint(minx, width, &num_timestamps);
@@ -354,6 +351,7 @@ impl SystemState {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn draw_measure_widget(
         &self,
         egui_ctx: &egui::Context,
