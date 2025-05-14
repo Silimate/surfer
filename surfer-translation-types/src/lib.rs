@@ -148,12 +148,9 @@ pub enum VariableType {
     StdULogicVector,
 }
 
-#[derive(Clone, Display, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Display, Copy, PartialOrd, Debug, Eq, PartialEq)]
 pub enum VariableDirection {
-    #[display("unknown")]
-    Unknown,
-    #[display("implicit")]
-    Implicit,
+    // Ordering is used for sorting variable list
     #[display("input")]
     Input,
     #[display("output")]
@@ -164,6 +161,10 @@ pub enum VariableDirection {
     Buffer,
     #[display("linkage")]
     Linkage,
+    #[display("implicit")]
+    Implicit,
+    #[display("unknown")]
+    Unknown,
 }
 
 #[derive(Clone, Debug)]

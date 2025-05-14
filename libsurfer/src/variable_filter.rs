@@ -368,26 +368,10 @@ impl SystemState {
 
         if !self.user.variable_filter.group_by_direction || a_direction == b_direction {
             numeric_sort::cmp(&a.name, &b.name)
+        } else if a_direction < b_direction {
+            Ordering::Less
         } else {
-            let dir_order = [
-                VariableDirection::Input,
-                VariableDirection::Output,
-                VariableDirection::InOut,
-            ];
-            let a_dir_pos = dir_order
-                .into_iter()
-                .position(|d| d == a_direction)
-                .unwrap_or(dir_order.len());
-            let b_dir_pos = dir_order
-                .into_iter()
-                .position(|d| d == b_direction)
-                .unwrap_or(dir_order.len());
-
-            if a_dir_pos == b_dir_pos {
-                numeric_sort::cmp(&a.name, &b.name)
-            } else {
-                a_dir_pos.cmp(&b_dir_pos)
-            }
+            Ordering::Greater
         }
     }
 
