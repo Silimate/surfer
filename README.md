@@ -60,7 +60,7 @@ sudo pacman -S openssl
 Then, install [Rust via Rustup](https://rustup.rs) and run
 
 ```bash
-cargo install --git https://gitlab.com/surfer-project/surfer surfer
+cargo install --git https://gitlab.com/surfer-project/surfer.git surfer
 ```
 
 You can also install the latest version of `surfer` via the [AUR](https://wiki.archlinux.org/title/Arch_User_Repository) package [`surfer-waveform-git`](https://aur.archlinux.org/packages/surfer-waveform-git).
