@@ -9,14 +9,18 @@ A waveform viewer with a focus on a snappy usable interface, and extensibility.
 
 ![A screenshot of surfer](snapshots/render_readme_screenshot.png)
 
+## Documentation
+
+There are automatically generated [source documentation](https://docs.surfer-project.org/surfer/)
+and an extremely early version of [user documentation](https://docs.surfer-project.org/book/).
+
 ## Development Discussion
 
 Contributions are more than welcome! The easiest way is to just create an issue
 to discuss a change, or just make merge request with your changes directly. If
 you want more in-depth discussion we have bi-weekly meetings to coordinate
-development, see https://hackmd.io/k_C-F7CdS9KVSRJu08tKGg for more details. You
-can also hop in our matrix channel at
-https://matrix.to/#/#surfer-project:matrix.org for asynchronous discussions.
+development, see [meeting notes](https://hackmd.io/k_C-F7CdS9KVSRJu08tKGg) for more details. You
+can also hop in our [matrix channel](https://matrix.to/#/#surfer-project:matrix.org) for asynchronous discussions.
 
 ## Installation
 
@@ -160,7 +164,8 @@ To control the embedded waveform viewer, use the `postMessage` function on the
 loaded. To ensure this, modify the HTML to replace `/*SURFER_SETUP_HOOKS*/` with JavaScript which
 notifies your application that it has loaded, for example, the VSCode plugin
 does this using the following snippet
-```
+
+```javascript
 const load_notifier = `
     (function() {
         const vscode = acquireVsCodeApi();
