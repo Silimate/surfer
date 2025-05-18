@@ -109,6 +109,8 @@ pub struct SurferLayout {
     pub waveforms_text_size: f32,
     /// Line height in points for waves
     pub waveforms_line_height: f32,
+    /// Line height multiples for higher variables
+    pub waveforms_line_height_multiples: Vec<f32>,
     /// Line height in points for transaction streams
     pub transactions_line_height: f32,
     /// UI zoom factors
