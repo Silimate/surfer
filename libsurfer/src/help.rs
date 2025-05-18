@@ -179,6 +179,7 @@ pub fn draw_control_help_window(ctx: &Context, msgs: &mut Vec<Message>) {
     }
 }
 
+/// Long list of key binding for the dialog.
 fn key_listing(ui: &mut Ui) {
     let keys = vec![
         ("🚀", "Space", "Show command prompt"),
@@ -255,6 +256,7 @@ fn key_listing(ui: &mut Ui) {
     add_hint_text(ui);
 }
 
+/// Shorter list displayed at startup screen.
 fn controls_listing(ui: &mut Ui) {
     let controls = vec![
         ("🚀", "Space", "Show command prompt"),
@@ -291,6 +293,7 @@ fn add_hint_text(ui: &mut Ui) {
     ui.label(RichText::new("Hint: You can repeat keybinds by typing Alt+0-9 before them. For example, Alt+1 Alt+0 k scrolls 10 steps up."));
 }
 
+// Display information about licenses for Surfer and used crates.
 pub fn draw_license_window(ctx: &Context, msgs: &mut Vec<Message>) {
     let mut open = true;
     let text = include_str!("../../LICENSE-EUPL-1.2.txt");

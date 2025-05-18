@@ -48,6 +48,7 @@ pub enum TimeUnit {
     #[display("No unit")]
     None,
 
+    /// Use the largest time unit feasible for each time.
     #[display("Auto")]
     Auto,
 }
@@ -85,6 +86,7 @@ impl From<ftr_parser::types::Timescale> for TimeUnit {
 }
 
 impl TimeUnit {
+    /// Get the power-of-ten exponent for a time unit.
     fn exponent(&self) -> i8 {
         match self {
             TimeUnit::FemtoSeconds => -15,
@@ -97,6 +99,7 @@ impl TimeUnit {
             TimeUnit::Auto => 0,
         }
     }
+    /// Convert a power-of-ten exponent to a time unit.
     fn from_exponent(exponent: i8) -> Self {
         match exponent {
             -15 => TimeUnit::FemtoSeconds,
@@ -122,14 +125,14 @@ pub fn timeunit_menu(ui: &mut Ui, msgs: &mut Vec<Message>, wanted_timeunit: &Tim
     }
 }
 
-/// How to format the time stamps
+/// How to format the time stamps.
 #[derive(Debug, Deserialize, Serialize)]
 pub struct TimeFormat {
-    /// How to format the numeric part of the time string
+    /// How to format the numeric part of the time string.
     format: TimeStringFormatting,
-    /// Insert a space between number and unit
+    /// Insert a space between number and unit.
     show_space: bool,
-    /// Display time unit
+    /// Display time unit.
     show_unit: bool,
 }
 
@@ -159,6 +162,7 @@ impl TimeFormat {
     }
 }
 
+/// Draw the menu for selecting the time format.
 pub fn timeformat_menu(ui: &mut Ui, msgs: &mut Vec<Message>, current_timeformat: &TimeFormat) {
     for time_string_format in enum_iterator::all::<TimeStringFormatting>() {
         ui.radio(
@@ -180,10 +184,10 @@ pub fn timeformat_menu(ui: &mut Ui, msgs: &mut Vec<Message>, current_timeformat:
     }
 }
 
-/// How to format the numeric part of the time string
+/// How to format the numeric part of the time string.
 #[derive(Debug, Clone, Copy, Display, Eq, PartialEq, Serialize, Deserialize, Sequence)]
 pub enum TimeStringFormatting {
-    /// No additional formatting
+    /// No additional formatting.
     #[display("No")]
     No,
 

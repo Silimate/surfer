@@ -37,11 +37,11 @@ use crate::{
 type CommandCount = usize;
 
 pub enum HeaderResult {
-    /// result of locally parsing the header of a waveform file with wellen from a file
+    /// Result of locally parsing the header of a waveform file with wellen from a file.
     LocalFile(Box<wellen::viewers::HeaderResult<std::io::BufReader<std::fs::File>>>),
-    /// result of locally parsing the header of a waveform file with wellen from bytes
+    /// Result of locally parsing the header of a waveform file with wellen from bytes.
     LocalBytes(Box<wellen::viewers::HeaderResult<std::io::Cursor<Vec<u8>>>>),
-    /// result of querying a remote surfer server
+    /// Result of querying a remote surfer server.
     Remote(
         std::sync::Arc<wellen::Hierarchy>,
         wellen::FileFormat,
@@ -50,9 +50,9 @@ pub enum HeaderResult {
 }
 
 pub enum BodyResult {
-    /// result of locally parsing the body of a waveform file with wellen
+    /// Result of locally parsing the body of a waveform file with wellen.
     Local(wellen::viewers::BodyResult),
-    /// result of querying a remote surfer server
+    /// Result of querying a remote surfer server.
     Remote(Vec<wellen::Time>, String),
 }
 
@@ -62,36 +62,52 @@ pub enum AsyncJob {
 }
 
 #[derive(Debug, Deserialize)]
+/// The design of Surfer relies on sending messages to trigger actions.
 pub enum Message {
+    /// Set active scope
     SetActiveScope(ScopeType),
+    /// Add one or more variables to wave view.
     AddVariables(Vec<VariableRef>),
+    /// Add scope to wave view. If second argument is true, add subscopes recursively.
     AddScope(ScopeRef, bool),
+    /// Add a character to the repeat command counter.
     AddCount(char),
     AddStreamOrGenerator(TransactionStreamRef),
     AddStreamOrGeneratorFromName(Option<StreamScopeRef>, String),
     AddAllFromStreamScope(String),
+    /// Reset the repeat command counter.
     InvalidateCount,
     RemoveItemByIndex(VisibleItemIndex),
     RemoveItems(Vec<DisplayedItemRef>),
+    /// Focus a wave/item.
     FocusItem(VisibleItemIndex),
     ItemSelectRange(VisibleItemIndex),
+    /// Select all waves/items.
     ItemSelectAll,
+    /// Unfocus a wave/item.
     UnfocusItem,
     RenameItem(Option<VisibleItemIndex>),
     MoveFocus(MoveDir, CommandCount, bool),
     MoveFocusedItem(MoveDir, CommandCount),
     FocusTransaction(Option<TransactionRef>, Option<Transaction>),
     VerticalScroll(MoveDir, CommandCount),
+    /// Scroll in vertical direction so that the item at a given location in the list is at the top (or visible).
     ScrollToItem(usize),
     SetScrollOffset(f32),
+    /// Change format (translator) of a variable. Passing None as first element means all selected variables.
     VariableFormatChange(Option<DisplayedFieldRef>, String),
     ItemSelectionClear,
+    /// Change color of waves/items. If first argument is None, change for selected items. If second argument is None, change to default value.
     ItemColorChange(Option<VisibleItemIndex>, Option<String>),
+    /// Change background color of waves/items. If first argument is None, change for selected items. If second argument is None, change to default value.
     ItemBackgroundColorChange(Option<VisibleItemIndex>, Option<String>),
     ItemNameChange(Option<VisibleItemIndex>, Option<String>),
+    /// Change scaling factor/height of waves/items. If first argument is None, change for selected items.
     ItemHeightScalingFactorChange(Option<VisibleItemIndex>, f32),
+    /// Change variable name type of waves/items. If first argument is None, change for selected items.
     ChangeVariableNameType(Option<VisibleItemIndex>, VariableNameType),
     ForceVariableNameTypes(VariableNameType),
+    /// Set or unset right alignment of names
     SetNameAlignRight(bool),
     SetClockHighlightType(ClockHighlightType),
     SetFillHighValues(bool),
@@ -112,13 +128,18 @@ pub enum Message {
         end: BigInt,
         viewport_idx: usize,
     },
+    /// Set cursor at time.
     CursorSet(BigInt),
     #[serde(skip)]
     SurferServerStatus(web_time::Instant, String, Status),
+    /// Load file from file path.
     LoadFile(Utf8PathBuf, LoadOptions),
+    /// Load file from URL.
     LoadWaveformFileFromUrl(String, LoadOptions),
+    /// Load file from data.
     LoadFromData(Vec<u8>, LoadOptions),
     #[cfg(feature = "python")]
+    /// Load translator from Python file path.
     LoadPythonTranslator(Utf8PathBuf),
     /// Load a spade translator using the specified top and the specified state encoded as ron.
     LoadSpadeTranslator {
@@ -128,6 +149,7 @@ pub enum Message {
     },
     SetupCxxrtl(CxxrtlKind),
     #[serde(skip)]
+    /// Message sent when waveform file header is loaded.
     WaveHeaderLoaded(
         web_time::Instant,
         WaveSource,
@@ -135,6 +157,7 @@ pub enum Message {
         #[debug(skip)] HeaderResult,
     ),
     #[serde(skip)]
+    /// Message sent when waveform file body is loaded.
     WaveBodyLoaded(web_time::Instant, WaveSource, #[debug(skip)] BodyResult),
     #[serde(skip)]
     WavesLoaded(
@@ -160,8 +183,10 @@ pub enum Message {
     /// specified variable
     BlacklistTranslator(VariableRef, String),
     ShowCommandPrompt(Option<String>),
+    /// Message sent when file is loadedropped onto Surfer.
     FileDropped(DroppedFile),
     #[serde(skip)]
+    /// Message sent when download of a waveform file is complete.
     FileDownloaded(String, Bytes, LoadOptions),
     ReloadConfig,
     ReloadWaveform(bool),
@@ -214,8 +239,13 @@ pub enum Message {
     ToggleSidePanel,
     ToggleItemSelected(Option<VisibleItemIndex>),
     ToggleDefaultTimeline,
-    ExpandParameterSection,
+    ToggleTickLines,
+    ToggleVariableTooltip,
+    ToggleScopeTooltip,
+    ToggleFullscreen,
+    /// Set which time unit to use.
     SetTimeUnit(TimeUnit),
+    /// Set how to format the time strings. Passing None resets it to default.
     SetTimeStringFormatting(Option<TimeStringFormatting>),
     SetHighlightFocused(bool),
     CommandPromptClear,
@@ -253,7 +283,6 @@ pub enum Message {
     SetPerformanceVisible(bool),
     SetContinuousRedraw(bool),
     SetCursorWindowVisible(bool),
-    ToggleFullscreen,
     SetHierarchyStyle(HierarchyStyle),
     SetArrowKeyBindings(ArrowKeyBindings),
     // Second argument is position to insert after, None inserts after focused item,
@@ -262,9 +291,6 @@ pub enum Message {
     // Argument is position to insert after, None inserts after focused item,
     // or last if no focused item
     AddTimeLine(Option<VisibleItemIndex>),
-    ToggleTickLines,
-    ToggleVariableTooltip,
-    ToggleScopeTooltip,
     AddMarker {
         time: BigInt,
         name: Option<String>,
@@ -275,8 +301,11 @@ pub enum Message {
         id: u8,
         time: BigInt,
     },
+    /// Remove marker.
     RemoveMarker(u8),
+    /// Set or move a marker to the position of the current cursor.
     MoveMarkerToCursor(u8),
+    /// Scroll in horizontal direction so that the cursor is visible.
     GoToCursorIfNotInView,
     GoToMarkerPosition(u8, usize),
     MoveCursorToTransition {
@@ -351,5 +380,7 @@ pub enum Message {
     /// Exit the application. This has no effect on wasm and closes the window
     /// on other platforms
     Exit,
+    /// Should only used for tests. Expands the parameter section so that one can test the rendering.
+    ExpandParameterSection,
     AsyncDone(AsyncJob),
 }

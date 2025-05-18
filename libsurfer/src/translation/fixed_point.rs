@@ -2,7 +2,7 @@ use num::{BigUint, One, Zero};
 use std::cmp::Ordering;
 use std::ops::BitAnd;
 
-/// Converts a `BigUint` to a string interpreted as unsigned fixed point value.
+/// Convert a `BigUint` to a string interpreted as unsigned fixed point value.
 ///
 /// The output is equivalent to `uint / (2 ** lg_scaling_factor)` (without integer truncation
 /// through division)
@@ -43,7 +43,7 @@ pub(crate) fn big_uint_to_ufixed(uint: &BigUint, lg_scaling_factor: i64) -> Stri
     }
 }
 
-/// Converts a `BigUint` to a string interpreted as signed fixed point value.
+/// Convert a `BigUint` to a string interpreted as signed fixed point value.
 ///
 /// The output is equivalent to `as_signed(uint) / (2 ** lg_scaling_factor)` (without integer
 /// truncation through division)
