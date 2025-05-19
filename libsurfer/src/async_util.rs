@@ -1,5 +1,14 @@
+/// Code related to asynchronous features.
+///
+/// As wasm32 and most other platforms behave differently, there are these wrappers.
 use futures_core::Future;
 use log::info;
+use serde::Deserialize;
+
+#[derive(Debug, Deserialize, PartialEq, Eq)]
+pub enum AsyncJob {
+    SaveState,
+}
 
 // Wasm doesn't seem to support std::thread, so this spawns a thread where we can
 // but runs the work sequentially where we can not.
@@ -42,25 +51,6 @@ where
     F: Future<Output = ()> + Send + 'static,
 {
     tokio::spawn(f);
-}
-
-pub struct UrlArgs {
-    pub load_url: Option<String>,
-    pub startup_commands: Option<String>,
-}
-
-#[cfg(target_arch = "wasm32")]
-pub fn vcd_from_url() -> UrlArgs {
-    let search_params = web_sys::window()
-        .and_then(|window| window.location().search().ok())
-        .and_then(|l| web_sys::UrlSearchParams::new_with_str(&l).ok());
-
-    UrlArgs {
-        load_url: search_params.as_ref().and_then(|p| p.get("load_url")),
-        startup_commands: search_params
-            .as_ref()
-            .and_then(|p| p.get("startup_commands")),
-    }
 }
 
 #[cfg(target_arch = "wasm32")]

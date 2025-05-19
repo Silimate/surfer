@@ -13,7 +13,6 @@ use wellen::{
     TimeTable, TimeTableIdx, Timescale, TimescaleUnit, Var, VarRef, VarType,
 };
 
-use crate::message::BodyResult;
 use crate::time::{TimeScale, TimeUnit};
 use crate::variable_direction::VariableDirectionExt;
 use crate::variable_index::VariableIndexExt;
@@ -49,6 +48,22 @@ pub struct LoadSignalsCmd {
     signals: Vec<SignalRef>,
     from_unique_id: u64,
     payload: LoadSignalPayload,
+}
+
+pub enum HeaderResult {
+    /// Result of locally parsing the header of a waveform file with wellen from a file.
+    LocalFile(Box<wellen::viewers::HeaderResult<std::io::BufReader<std::fs::File>>>),
+    /// Result of locally parsing the header of a waveform file with wellen from bytes.
+    LocalBytes(Box<wellen::viewers::HeaderResult<std::io::Cursor<Vec<u8>>>>),
+    /// Result of querying a remote surfer server (which has used wellen).
+    Remote(std::sync::Arc<Hierarchy>, FileFormat, String),
+}
+
+pub enum BodyResult {
+    /// Result of locally parsing the body of a waveform file with wellen.
+    Local(wellen::viewers::BodyResult),
+    /// Result of querying a remote surfer server (which has used wellen).
+    Remote(Vec<wellen::Time>, String),
 }
 
 pub enum LoadSignalPayload {

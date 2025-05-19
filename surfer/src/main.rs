@@ -218,7 +218,7 @@ mod main_impl {
     use libsurfer::wasm_api::WebHandle;
 
     // Calling main is not the intended way to start surfer, instead, it should be
-    // started by `wasm_util::WebHandle`
+    // started by `wasm_api::WebHandle`
     pub(crate) fn main() -> color_eyre::Result<()> {
         let document = web_sys::window()
             .expect("No window")

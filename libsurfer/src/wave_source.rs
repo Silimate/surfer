@@ -6,9 +6,9 @@ use std::sync::mpsc::Sender;
 use std::sync::Arc;
 use std::sync::Mutex;
 
+use crate::async_util::{perform_async_work, perform_work, sleep_ms};
 use crate::cxxrtl_container::CxxrtlContainer;
 use crate::util::get_multi_extension;
-use crate::wasm_util::{perform_async_work, perform_work, sleep_ms};
 use camino::{Utf8Path, Utf8PathBuf};
 use color_eyre::eyre::{anyhow, WrapErr};
 use color_eyre::Result;
@@ -18,10 +18,11 @@ use log::{error, info, warn};
 use serde::{Deserialize, Serialize};
 use web_time::Instant;
 
-use crate::message::{BodyResult, HeaderResult};
 use crate::transaction_container::TransactionContainer;
 use crate::wave_container::WaveContainer;
-use crate::wellen::{LoadSignalPayload, LoadSignalsCmd, LoadSignalsResult};
+use crate::wellen::{
+    BodyResult, HeaderResult, LoadSignalPayload, LoadSignalsCmd, LoadSignalsResult,
+};
 use crate::{message::Message, SystemState};
 use surver::{Status, HTTP_SERVER_KEY, HTTP_SERVER_VALUE_SURFER, WELLEN_SURFER_DEFAULT_OPTIONS};
 

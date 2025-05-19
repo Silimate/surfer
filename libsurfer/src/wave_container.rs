@@ -6,9 +6,8 @@ use num::BigUint;
 use surfer_translation_types::VariableValue;
 
 use crate::cxxrtl_container::CxxrtlContainer;
-use crate::message::BodyResult;
 use crate::time::{TimeScale, TimeUnit};
-use crate::wellen::{LoadSignalsCmd, LoadSignalsResult, WellenContainer};
+use crate::wellen::{BodyResult, LoadSignalsCmd, LoadSignalsResult, WellenContainer};
 
 pub type FieldRef = surfer_translation_types::FieldRef<VarId, ScopeId>;
 pub type ScopeRef = surfer_translation_types::ScopeRef<ScopeId>;

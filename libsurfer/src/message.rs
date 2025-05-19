@@ -9,6 +9,7 @@ use serde::Deserialize;
 use std::path::PathBuf;
 use surver::Status;
 
+use crate::async_util::AsyncJob;
 use crate::displayed_item_tree::{ItemIndex, VisibleItemIndex};
 use crate::graphics::{Graphic, GraphicId};
 use crate::state::UserState;
@@ -30,36 +31,11 @@ use crate::{
     variable_name_type::VariableNameType,
     wave_container::{ScopeRef, VariableRef, WaveContainer},
     wave_source::{CxxrtlKind, LoadOptions, WaveFormat},
-    wellen::LoadSignalsResult,
+    wellen::{BodyResult, HeaderResult, LoadSignalsResult},
     MoveDir, VariableNameFilterType, WaveSource,
 };
 
 type CommandCount = usize;
-
-pub enum HeaderResult {
-    /// Result of locally parsing the header of a waveform file with wellen from a file.
-    LocalFile(Box<wellen::viewers::HeaderResult<std::io::BufReader<std::fs::File>>>),
-    /// Result of locally parsing the header of a waveform file with wellen from bytes.
-    LocalBytes(Box<wellen::viewers::HeaderResult<std::io::Cursor<Vec<u8>>>>),
-    /// Result of querying a remote surfer server.
-    Remote(
-        std::sync::Arc<wellen::Hierarchy>,
-        wellen::FileFormat,
-        String,
-    ),
-}
-
-pub enum BodyResult {
-    /// Result of locally parsing the body of a waveform file with wellen.
-    Local(wellen::viewers::BodyResult),
-    /// Result of querying a remote surfer server.
-    Remote(Vec<wellen::Time>, String),
-}
-
-#[derive(Debug, Deserialize, PartialEq, Eq)]
-pub enum AsyncJob {
-    SaveState,
-}
 
 #[derive(Debug, Deserialize)]
 /// The design of Surfer relies on sending messages to trigger actions.

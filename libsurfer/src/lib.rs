@@ -1,5 +1,6 @@
 #![deny(unused_crate_dependencies)]
 
+pub mod async_util;
 #[cfg(feature = "performance_plot")]
 pub mod benchmark;
 mod channels;
@@ -51,7 +52,6 @@ pub mod viewport;
 pub mod wasm_api;
 #[cfg(target_arch = "wasm32")]
 pub mod wasm_panic;
-pub mod wasm_util;
 pub mod wave_container;
 pub mod wave_data;
 pub mod wave_source;
@@ -88,24 +88,24 @@ pub use system_state::SystemState;
 use tokio_stream as _;
 use wcp::{proto::WcpCSMessage, proto::WcpEvent, proto::WcpSCMessage};
 
+use crate::async_util::perform_work;
 use crate::config::{SurferConfig, SurferTheme};
 use crate::dialog::{OpenSiblingStateFileDialog, ReloadWaveformDialog};
 use crate::displayed_item::{DisplayedFieldRef, DisplayedItem, DisplayedItemRef, FieldFormat};
 use crate::displayed_item_tree::VisibleItemIndex;
 use crate::drawing_canvas::TxDrawingCommands;
-use crate::message::{HeaderResult, Message};
+use crate::message::Message;
 use crate::transaction_container::{StreamScopeRef, TransactionRef, TransactionStreamRef};
 #[cfg(feature = "spade")]
 use crate::translation::spade::SpadeTranslator;
 use crate::translation::{all_translators, AnyTranslator};
 use crate::variable_filter::{VariableIOFilterType, VariableNameFilterType};
 use crate::viewport::Viewport;
-use crate::wasm_util::{perform_work, UrlArgs};
 use crate::wave_container::VariableRefExt;
 use crate::wave_container::{ScopeRefExt, WaveContainer};
 use crate::wave_data::{ScopeType, WaveData};
 use crate::wave_source::{LoadOptions, WaveFormat, WaveSource};
-use crate::wellen::convert_format;
+use crate::wellen::{convert_format, HeaderResult};
 
 lazy_static! {
     pub static ref EGUI_CONTEXT: RwLock<Option<Arc<egui::Context>>> = RwLock::new(None);
@@ -132,19 +132,6 @@ pub struct StartupParams {
     pub waves: Option<WaveSource>,
     pub wcp_initiate: Option<u16>,
     pub startup_commands: Vec<String>,
-}
-
-impl StartupParams {
-    #[allow(dead_code)] // NOTE: Only used in wasm version
-    pub fn from_url(url: UrlArgs) -> Self {
-        Self {
-            spade_state: None,
-            spade_top: None,
-            waves: url.load_url.map(WaveSource::Url),
-            wcp_initiate: None,
-            startup_commands: url.startup_commands.map(|c| vec![c]).unwrap_or_default(),
-        }
-    }
 }
 
 fn setup_custom_font(ctx: &egui::Context) {

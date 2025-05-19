@@ -23,13 +23,13 @@ use crate::graphics::GraphicsY;
 use crate::logs;
 use crate::setup_custom_font;
 use crate::wasm_panic;
-use crate::wasm_util;
 use crate::wave_container::VariableRefExt;
 use crate::wave_source::CxxrtlKind;
 use crate::DisplayedItem;
 use crate::Message;
 use crate::StartupParams;
 use crate::SystemState;
+use crate::WaveSource;
 use crate::EGUI_CONTEXT;
 use crate::WCP_CS_HANDLER;
 use crate::WCP_SC_HANDLER;
@@ -96,7 +96,7 @@ impl WebHandle {
             ..Default::default()
         };
 
-        let url = wasm_util::vcd_from_url();
+        let url = vcd_from_url();
 
         // NOTE: Safe unwrap, we're loading a system config which cannot be changed by the
         // user
@@ -335,5 +335,37 @@ impl SystemState {
             (cb.function)(self);
             let _ = cb.executed.send(());
         }
+    }
+}
+
+struct UrlArgs {
+    pub load_url: Option<String>,
+    pub startup_commands: Option<String>,
+}
+
+impl StartupParams {
+    #[allow(dead_code)] // NOTE: Only used in wasm version
+    pub fn from_url(url: UrlArgs) -> Self {
+        Self {
+            spade_state: None,
+            spade_top: None,
+            waves: url.load_url.map(WaveSource::Url),
+            wcp_initiate: None,
+            startup_commands: url.startup_commands.map(|c| vec![c]).unwrap_or_default(),
+        }
+    }
+}
+
+#[cfg(target_arch = "wasm32")]
+fn vcd_from_url() -> UrlArgs {
+    let search_params = web_sys::window()
+        .and_then(|window| window.location().search().ok())
+        .and_then(|l| web_sys::UrlSearchParams::new_with_str(&l).ok());
+
+    UrlArgs {
+        load_url: search_params.as_ref().and_then(|p| p.get("load_url")),
+        startup_commands: search_params
+            .as_ref()
+            .and_then(|p| p.get("startup_commands")),
     }
 }

@@ -22,7 +22,7 @@ use surfer_translation_types::{
 };
 
 use crate::wave_container::{ScopeId, VarId, VariableRefExt};
-use crate::{message::Message, wasm_util::perform_work, wave_container::VariableMeta, WaveSource};
+use crate::{async_util::perform_work, message::Message, wave_container::VariableMeta, WaveSource};
 
 use super::{TranslationPreference, ValueKind, VariableInfo, VariableValue};
 

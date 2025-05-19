@@ -6,8 +6,8 @@ use camino::Utf8PathBuf;
 use rfd::AsyncFileDialog;
 use serde::Deserialize;
 
+use crate::async_util::perform_async_work;
 use crate::message::Message;
-use crate::wasm_util::perform_async_work;
 use crate::wave_source::{LoadOptions, STATE_FILE_EXTENSION};
 use crate::SystemState;
 

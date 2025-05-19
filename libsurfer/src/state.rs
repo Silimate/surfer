@@ -9,6 +9,7 @@ use crate::fzcmd::parse_command;
 #[cfg(feature = "spade")]
 use crate::translation::spade::SpadeTranslator;
 use crate::{
+    async_util::perform_work,
     command_parser::get_parser,
     config::SurferConfig,
     data_container::DataContainer,
@@ -21,7 +22,6 @@ use crate::{
     transaction_container::TransactionContainer,
     variable_filter::VariableFilter,
     viewport::Viewport,
-    wasm_util::perform_work,
     wave_container::{ScopeRef, VariableRef, WaveContainer},
     wave_data::WaveData,
     wave_source::{LoadOptions, WaveFormat, WaveSource},

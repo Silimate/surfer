@@ -3,9 +3,9 @@ use std::path::PathBuf;
 use color_eyre::eyre::Context;
 
 use crate::{
+    async_util::{perform_async_work, AsyncJob},
     file_dialog::{load_state_dialog, save_state_dialog},
-    message::{AsyncJob, Message},
-    wasm_util::perform_async_work,
+    message::Message,
     SystemState,
 };
 

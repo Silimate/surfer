@@ -16,13 +16,13 @@ use skia_safe::EncodedImageFormat;
 use test_log::test;
 
 use crate::{
+    async_util::AsyncJob,
     clock_highlighting::ClockHighlightType,
     config::SurferConfig,
     displayed_item::{DisplayedFieldRef, DisplayedItemRef},
     displayed_item_tree::VisibleItemIndex,
     graphics::{Direction, GrPoint, Graphic, GraphicId},
     hierarchy::HierarchyStyle,
-    message::AsyncJob,
     setup_custom_font,
     state::UserState,
     transaction_container::{TransactionRef, TransactionStreamRef},
