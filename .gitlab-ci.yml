@@ -66,6 +66,16 @@ cargo_about:
     script:
         - cargo about generate about.hbs -o /dev/null
 
+build_book:
+    stage: test
+    extends: .build-dependencies
+    before_script:
+        - cargo install --no-default-features --features search --locked mdbook
+    script:
+        - cp snapshots/theme_*.png docs/configuration/themes
+        - /builds/surfer-project/surfer/cargo/bin/mdbook build
+
+
 test:
     stage: test
     extends: .snapshots
