@@ -73,7 +73,7 @@ build_book:
         - cargo install --no-default-features --features search --locked mdbook
     script:
         - cp snapshots/theme_*.png docs/configuration/themes
-        - /builds/surfer-project/surfer/cargo/bin/mdbook build
+        - /builds/${CI_PROJECT_PATH}/cargo/bin/mdbook build
 
 
 test:
