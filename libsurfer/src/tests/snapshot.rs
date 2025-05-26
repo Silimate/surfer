@@ -6,13 +6,12 @@ use std::{
 };
 
 use base64::{engine::general_purpose, Engine};
-use egui_skia_renderer::draw_onto_surface;
+use egui_skia_renderer::{create_surface, draw_onto_surface, EncodedImageFormat};
 use emath::Vec2;
 use image::{DynamicImage, ImageFormat};
 use log::info;
 use num::{bigint::ToBigInt, BigInt};
 use project_root::get_project_root;
-use skia_safe::EncodedImageFormat;
 use test_log::test;
 
 use crate::{
@@ -82,9 +81,8 @@ pub(crate) fn render_and_compare_inner(
 
     let size_i = (size.x as i32, size.y as i32);
 
-    let mut surface =
-        skia_safe::surfaces::raster_n32_premul(size_i).expect("Failed to create surface");
-    surface.canvas().clear(skia_safe::Color::BLACK);
+    let mut surface = create_surface(size_i);
+    surface.canvas().clear(egui_skia_renderer::Color::BLACK);
 
     draw_onto_surface(
         &mut surface,
@@ -591,7 +589,7 @@ snapshot_ui! {resizing_the_canvas_redraws, || {
     state.update(Message::ToggleToolbar);
     state.update(Message::ToggleOverview);
     state.update(Message::AddScope(ScopeRef::from_strs(&["tb"]), false));
-    state.update(        Message::CloseOpenSiblingStateFileDialog {load_state: false, do_not_show_again: true}    );
+    state.update(Message::CloseOpenSiblingStateFileDialog {load_state: false, do_not_show_again: true});
     state.update(Message::CursorSet(BigInt::from(100)));
     // make sure all the signals added by the proceeding messages are properly loaded
     wait_for_waves_fully_loaded(&mut state, 10);
@@ -599,8 +597,8 @@ snapshot_ui! {resizing_the_canvas_redraws, || {
     // Render the UI once with the sidebar shown
     let size = Vec2::new(1280., 720.);
     let size_i = (size.x as i32, size.y as i32);
-    let mut surface = skia_safe::surfaces::raster_n32_premul(size_i).expect("Failed to create surface");
-    surface.canvas().clear(skia_safe::Color::BLACK);
+    let mut surface = create_surface(size_i);
+    surface.canvas().clear(egui_skia_renderer::Color::BLACK);
 
     draw_onto_surface(
         &mut surface,

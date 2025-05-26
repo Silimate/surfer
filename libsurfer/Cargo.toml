@@ -100,13 +100,12 @@ wasm-bindgen-futures.workspace = true
 web-sys = { version = "= 0.3.77", features = ["Location", "UrlSearchParams"] }
 
 [dev-dependencies]
-egui_skia_renderer = { git = "https://gitlab.com/oscargus/egui_skia_renderer.git", rev = "daec4cc44d362291a5679a352052c9130e19ab82" }
+egui_skia_renderer = { git = "https://gitlab.com/oscargus/egui_skia_renderer.git", rev = "1cc4c31cee56d27e8a13376a6e058a0ecca78eb5" }
 image = { version = "0.25", default-features = false, features = ["png"] }
 image-compare = "0.4.1"
 port_check = "0.2.1"
 project-root = "0.2.2"
-skia-safe = "0.82"
-tempfile = "3.12.0"
+tempfile = "3.20.0"
 test-log = "0.2.15"
 
 [build-dependencies]
