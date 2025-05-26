@@ -13,18 +13,7 @@ edition = "2021"
 rust-version = "1.82"
 repository = "https://gitlab.com/surfer-project/surfer/"
 
-[profile.release]
-opt-level = 3 # fast and small wasm
-lto = true
-
-# Optimize all dependencies even in debug builds:
-[profile.dev.package."*"]
-opt-level = 3
-debug = false
-
 [workspace.dependencies]
-surfer = { path = "surfer", default-features = false }
-surver = { path = "surver", default-features = false }
 
 base64 = "0.22"
 bincode = "1.3.3"
@@ -43,12 +32,12 @@ derive_more = { version = "2.0", default-features = false, features = [
     "debug"
 ] }
 ecolor = "0.31.1"
-emath = "0.31.1"
 eframe = { version = "0.31.1", default-features = false, features = ["default_fonts", "glow", "wayland", "x11"] }
 egui = { version = "0.31.1", default-features = false, features = ["serde"] }
 egui-remixicon = { version = "0.29.1", default-features = false }
 egui_extras = { version = "0.31.1", default-features = false }
 egui_plot = "0.32.1"
+emath = "0.31.1"
 enum-iterator = "2.1"
 epaint = "0.31.1"
 fern = { version = "0.7.1", features = ["colored"] }
@@ -77,9 +66,20 @@ ron = { version = "0.10.1", features = ["integer128"] }
 serde = { version = "1.0.218", features = ["derive"] }
 serde_json = "1.0.139"
 softposit = "0.4.0"
+surfer = { path = "surfer", default-features = false }
+surver = { path = "surver", default-features = false }
 sys-locale = "0.3.2"
-toml = { version = "0.8.20", default-features = false, features = ["parse"] }
 tokio = { version = "1.43", features = ["rt", "time", "macros"] }
+toml = { version = "0.8.20", default-features = false, features = ["parse"] }
 wasm-bindgen-futures = "0.4.50"
 web-time = "1.1.0"
 wellen = { version = "0.15.0", features = ["serde1"] }
+
+[profile.release]
+opt-level = 3 # fast and small wasm
+lto = true
+
+# Optimize all dependencies even in debug builds:
+[profile.dev.package."*"]
+opt-level = 3
+debug = false
