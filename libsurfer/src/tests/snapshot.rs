@@ -279,15 +279,15 @@ macro_rules! snapshot_ui_with_file_spade_and_msgs {
                     panic!("Timeout")
                 }
             }
-            state.add_startup_message(Message::ToggleMenu);
-            state.add_startup_message(Message::ToggleSidePanel);
-            state.add_startup_message(Message::ToggleToolbar);
-            state.add_startup_message(Message::ToggleOverview);
-            state.add_startup_message(Message::CloseOpenSiblingStateFileDialog {
+            state.add_batch_message(Message::ToggleMenu);
+            state.add_batch_message(Message::ToggleSidePanel);
+            state.add_batch_message(Message::ToggleToolbar);
+            state.add_batch_message(Message::ToggleOverview);
+            state.add_batch_message(Message::CloseOpenSiblingStateFileDialog {
                 load_state: false,
                 do_not_show_again: true,
             });
-            state.add_startup_messages($msgs);
+            state.add_batch_messages($msgs);
 
             // make sure all the signals added by the proceeding messages are properly loaded
             wait_for_waves_fully_loaded(&mut state, 10);
@@ -400,7 +400,7 @@ fn render_readme_screenshot() {
                 Message::ItemColorChange(None, Some("violet".to_string())),
                 Message::CursorSet(1820000.to_bigint().unwrap()),
             ];
-            state.add_startup_messages(msgs);
+            state.add_batch_messages(msgs);
 
             // make sure all the signals added by the proceeding messages are properly loaded
             wait_for_waves_fully_loaded(&mut state, 10);
@@ -792,7 +792,7 @@ snapshot_ui_with_file_and_msgs! {
     startup_commands_work,
     "examples/counter.vcd",
     state_mods: (|state: &mut SystemState| {
-        state.add_startup_commands(vec!["scope_add tb".to_string()]);
+        state.add_batch_commands(vec!["scope_add tb".to_string()]);
     }),
     []
 }
@@ -805,7 +805,7 @@ snapshot_ui_with_file_and_msgs! {
     yosys_blogpost_startup_commands_work,
     "examples/picorv32.vcd",
     state_mods: (|state: &mut SystemState| {
-        state.add_startup_commands(vec!["startup_commands=module_add testbench;divider_add .;divider_add top;module_add testbench.top;show_quick_start".to_string()]);
+        state.add_batch_commands(vec!["startup_commands=module_add testbench;divider_add .;divider_add top;module_add testbench.top;show_quick_start".to_string()]);
     }),
     []
 }

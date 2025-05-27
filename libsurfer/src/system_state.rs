@@ -41,9 +41,9 @@ pub struct SystemState {
     /// The context to egui, we need this to change the visual settings when the config is reloaded
     pub(crate) context: Option<Arc<egui::Context>>,
 
-    /// List of batch commands which will executed as soon as possible
-    pub(crate) batch_commands: VecDeque<Message>,
-    pub(crate) batch_commands_completed: bool,
+    /// List of batch messages which will executed as soon as possible
+    pub(crate) batch_messages: VecDeque<Message>,
+    pub(crate) batch_messages_completed: bool,
 
     /// The WCP server
     #[allow(unused)]
@@ -179,8 +179,8 @@ impl SystemState {
             wcp_client_capabilities: WcpClientCapabilities::new(),
             gesture_start_location: None,
             measure_start_location: None,
-            batch_commands: VecDeque::new(),
-            batch_commands_completed: false,
+            batch_messages: VecDeque::new(),
+            batch_messages_completed: false,
             url: RefCell::new(String::new()),
             command_prompt_text: RefCell::new(String::new()),
             draw_data: RefCell::new(vec![None]),

@@ -1,6 +1,7 @@
 #![deny(unused_crate_dependencies)]
 
 pub mod async_util;
+pub mod batch_commands;
 #[cfg(feature = "performance_plot")]
 pub mod benchmark;
 mod channels;

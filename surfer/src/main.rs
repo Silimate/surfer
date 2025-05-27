@@ -8,8 +8,13 @@ mod main_impl {
     use color_eyre::Result;
     use egui::Vec2;
     use libsurfer::{
-        file_watcher::FileWatcher, logs, message::Message, run_egui,
-        wave_source::string_to_wavesource, wave_source::WaveSource, StartupParams, SystemState,
+        batch_commands::read_command_file,
+        file_watcher::FileWatcher,
+        logs,
+        message::Message,
+        run_egui,
+        wave_source::{string_to_wavesource, WaveSource},
+        StartupParams, SystemState,
     };
     use log::error;
 
@@ -84,16 +89,7 @@ mod main_impl {
     #[allow(dead_code)] // NOTE: Only used in desktop version
     fn startup_params_from_args(args: Args) -> StartupParams {
         let startup_commands = if let Some(cmd_file) = args.command_file() {
-            std::fs::read_to_string(cmd_file)
-                .map_err(|e| error!("Failed to read commands from {cmd_file}. {e:#?}"))
-                .ok()
-                .map(|file_content| {
-                    file_content
-                        .lines()
-                        .map(std::string::ToString::to_string)
-                        .collect()
-                })
-                .unwrap_or_default()
+            read_command_file(cmd_file)
         } else {
             vec![]
         };

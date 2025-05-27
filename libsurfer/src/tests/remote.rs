@@ -61,8 +61,8 @@ fn run_with_server(
         Message::ToggleOverview,
     ];
 
-    state.add_startup_messages(msgs);
-    state.add_startup_messages(custom_messages());
+    state.add_batch_messages(msgs);
+    state.add_batch_messages(custom_messages());
 
     // update state until all batch commands have been processed
     wait_for_waves_fully_loaded(&mut state, 10);

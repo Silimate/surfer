@@ -5,12 +5,10 @@ use std::{
 };
 
 use crate::displayed_item_tree::VisibleItemIndex;
-use crate::fzcmd::parse_command;
 #[cfg(feature = "spade")]
 use crate::translation::spade::SpadeTranslator;
 use crate::{
     async_util::perform_work,
-    command_parser::get_parser,
     config::SurferConfig,
     data_container::DataContainer,
     dialog::OpenSiblingStateFileDialog,
@@ -139,21 +137,18 @@ impl SystemState {
         }
 
         // we turn the waveform argument and any startup command file into batch commands
-        self.batch_commands = VecDeque::new();
+        self.batch_messages = VecDeque::new();
 
         match args.waves {
             Some(WaveSource::Url(url)) => {
-                self.add_startup_message(Message::LoadWaveformFileFromUrl(
-                    url,
-                    LoadOptions::clean(),
-                ));
+                self.add_batch_message(Message::LoadWaveformFileFromUrl(url, LoadOptions::clean()));
             }
             Some(WaveSource::File(file)) => {
-                self.add_startup_message(Message::LoadFile(file, LoadOptions::clean()));
+                self.add_batch_message(Message::LoadFile(file, LoadOptions::clean()));
             }
             Some(WaveSource::Data) => error!("Attempted to load data at startup"),
             Some(WaveSource::Cxxrtl(url)) => {
-                self.add_startup_message(Message::SetupCxxrtl(url));
+                self.add_batch_message(Message::SetupCxxrtl(url));
             }
             Some(WaveSource::DragAndDrop(_)) => {
                 error!("Attempted to load from drag and drop at startup (how?)");
@@ -163,34 +158,15 @@ impl SystemState {
 
         if let Some(port) = args.wcp_initiate {
             let addr = format!("127.0.0.1:{}", port);
-            self.add_startup_message(Message::StartWcpServer {
+            self.add_batch_message(Message::StartWcpServer {
                 address: Some(addr),
                 initiate: true,
             });
         }
 
-        self.add_startup_commands(args.startup_commands);
+        self.add_batch_commands(args.startup_commands);
 
         self
-    }
-
-    pub fn add_startup_commands<I: IntoIterator<Item = String>>(&mut self, commands: I) {
-        let parsed = self.parse_startup_commands(commands);
-        for msg in parsed {
-            self.batch_commands.push_back(msg);
-            self.batch_commands_completed = false;
-        }
-    }
-
-    pub fn add_startup_messages<I: IntoIterator<Item = Message>>(&mut self, messages: I) {
-        for msg in messages {
-            self.batch_commands.push_back(msg);
-            self.batch_commands_completed = false;
-        }
-    }
-
-    pub fn add_startup_message(&mut self, msg: Message) {
-        self.add_startup_messages([msg]);
     }
 
     pub fn wcp(&mut self) {
@@ -408,33 +384,6 @@ impl SystemState {
         }
     }
 
-    /// After user messages are addressed, we try to execute batch commands as they are ready to run
-    pub(crate) fn handle_batch_commands(&mut self) {
-        // we only execute commands while we aren't waiting for background operations to complete
-        while self.can_start_batch_command() {
-            if let Some(cmd) = self.batch_commands.pop_front() {
-                info!("Applying startup command: {cmd:?}");
-                self.update(cmd);
-            } else {
-                break; // no more messages
-            }
-        }
-
-        // if there are no messages and all operations have completed, we are done
-        if !self.batch_commands_completed
-            && self.batch_commands.is_empty()
-            && self.can_start_batch_command()
-        {
-            self.batch_commands_completed = true;
-        }
-    }
-
-    /// Returns whether it is OK to start a new batch command.
-    pub(crate) fn can_start_batch_command(&self) -> bool {
-        // if the progress tracker is none -> all operations have completed
-        self.progress_tracker.is_none()
-    }
-
     pub fn get_visuals(&self) -> Visuals {
         let widget_style = WidgetVisuals {
             bg_fill: self.user.config.theme.secondary_ui_color.background,
@@ -534,50 +483,6 @@ impl SystemState {
             .waves
             .as_ref()
             .is_some_and(|w| w.inner.is_fully_loaded())
-    }
-
-    /// Returns true once all batch commands have been completed and their effects are all executed.
-    pub fn batch_commands_completed(&self) -> bool {
-        debug_assert!(
-            self.batch_commands_completed || !self.batch_commands.is_empty(),
-            "completed implies no commands"
-        );
-        self.batch_commands_completed
-    }
-
-    fn parse_startup_commands<I: IntoIterator<Item = String>>(&mut self, cmds: I) -> Vec<Message> {
-        trace!("Parsing startup commands");
-        let parsed = cmds
-            .into_iter()
-            // Add line numbers
-            .enumerate()
-            // trace
-            .map(|(no, line)| {
-                trace!("{no: >2} {line}");
-                (no, line)
-            })
-            // Make the line numbers start at 1 as is tradition
-            .map(|(no, line)| (no + 1, line))
-            .map(|(no, line)| (no, line.trim().to_string()))
-            // NOTE: Safe unwrap. Split will always return one element
-            .map(|(no, line)| (no, line.split('#').next().unwrap().to_string()))
-            .filter(|(_no, line)| !line.is_empty())
-            .flat_map(|(no, line)| {
-                line.split(';')
-                    .map(|cmd| (no, cmd.to_string()))
-                    .collect::<Vec<_>>()
-            })
-            .filter_map(|(no, command)| {
-                parse_command(&command, get_parser(self))
-                    .map_err(|e| {
-                        error!("Error on startup commands line {no}: {e:#?}");
-                        e
-                    })
-                    .ok()
-            })
-            .collect::<Vec<_>>();
-
-        parsed
     }
 
     /// Returns the current canvas state
