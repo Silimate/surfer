@@ -193,6 +193,7 @@ mod main_impl {
 
         let options = eframe::NativeOptions {
             viewport: egui::ViewportBuilder::default()
+                .with_app_id("org.surfer-project.surfer")
                 .with_title("Surfer")
                 .with_inner_size(Vec2::new(
                     state.user.config.layout.window_width as f32,
