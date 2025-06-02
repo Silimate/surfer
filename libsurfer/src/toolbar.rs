@@ -3,6 +3,7 @@ use egui::{Button, Context, Layout, RichText, TopBottomPanel, Ui};
 use egui_remixicon::icons;
 use emath::{Align, Vec2};
 
+use crate::message::MessageTarget;
 use crate::wave_container::SimulationStatus;
 use crate::{
     file_dialog::OpenMode,
@@ -116,7 +117,7 @@ impl SystemState {
                 msgs,
                 icons::FILE_COPY_FILL,
                 "Copy variable value",
-                Message::VariableValueToClipbord(None),
+                Message::VariableValueToClipbord(MessageTarget::CurrentSelection),
                 item_selected && cursor_set,
             );
 

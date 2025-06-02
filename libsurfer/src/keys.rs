@@ -3,6 +3,7 @@ use egui::{Context, Event, Key, Modifiers};
 use emath::Vec2;
 
 use crate::config::ArrowKeyBindings;
+use crate::message::MessageTarget;
 use crate::{
     message::Message,
     wave_data::{PER_SCROLL_EVENT, SCROLL_EVENTS_PER_PAGE},
@@ -302,7 +303,9 @@ impl SystemState {
                     }
                     _ => {}
                 },
-                Event::Copy => msgs.push(Message::VariableValueToClipbord(None)),
+                Event::Copy => msgs.push(Message::VariableValueToClipbord(
+                    MessageTarget::CurrentSelection,
+                )),
                 _ => {}
             });
         });

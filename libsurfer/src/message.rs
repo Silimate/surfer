@@ -37,6 +37,33 @@ use crate::{
 
 type CommandCount = usize;
 
+/// Encapsulates either a specific variable or all selected variables
+#[derive(Debug, Deserialize, Clone)]
+pub enum MessageTarget<T> {
+    Explicit(T),
+    CurrentSelection,
+}
+
+impl<T> From<MessageTarget<T>> for Option<T> {
+    fn from(value: MessageTarget<T>) -> Self {
+        match value {
+            MessageTarget::Explicit(val) => Some(val),
+            MessageTarget::CurrentSelection => None,
+        }
+    }
+}
+
+impl<T> From<Option<T>> for MessageTarget<T> {
+    fn from(value: Option<T>) -> Self {
+        match value {
+            Some(val) => Self::Explicit(val),
+            None => Self::CurrentSelection,
+        }
+    }
+}
+
+impl<T: Copy> Copy for MessageTarget<T> {}
+
 #[derive(Debug, Deserialize)]
 /// The design of Surfer relies on sending messages to trigger actions.
 pub enum Message {
@@ -71,17 +98,17 @@ pub enum Message {
     ScrollToItem(usize),
     SetScrollOffset(f32),
     /// Change format (translator) of a variable. Passing None as first element means all selected variables.
-    VariableFormatChange(Option<DisplayedFieldRef>, String),
+    VariableFormatChange(MessageTarget<DisplayedFieldRef>, String),
     ItemSelectionClear,
     /// Change color of waves/items. If first argument is None, change for selected items. If second argument is None, change to default value.
-    ItemColorChange(Option<VisibleItemIndex>, Option<String>),
+    ItemColorChange(MessageTarget<VisibleItemIndex>, Option<String>),
     /// Change background color of waves/items. If first argument is None, change for selected items. If second argument is None, change to default value.
-    ItemBackgroundColorChange(Option<VisibleItemIndex>, Option<String>),
+    ItemBackgroundColorChange(MessageTarget<VisibleItemIndex>, Option<String>),
     ItemNameChange(Option<VisibleItemIndex>, Option<String>),
     /// Change scaling factor/height of waves/items. If first argument is None, change for selected items.
-    ItemHeightScalingFactorChange(Option<VisibleItemIndex>, f32),
+    ItemHeightScalingFactorChange(MessageTarget<VisibleItemIndex>, f32),
     /// Change variable name type of waves/items. If first argument is None, change for selected items.
-    ChangeVariableNameType(Option<VisibleItemIndex>, VariableNameType),
+    ChangeVariableNameType(MessageTarget<VisibleItemIndex>, VariableNameType),
     ForceVariableNameTypes(VariableNameType),
     /// Set or unset right alignment of names
     SetNameAlignRight(bool),
@@ -292,9 +319,9 @@ pub enum Message {
     MoveTransaction {
         next: bool,
     },
-    VariableValueToClipbord(Option<VisibleItemIndex>),
-    VariableNameToClipboard(Option<VisibleItemIndex>),
-    VariableFullNameToClipboard(Option<VisibleItemIndex>),
+    VariableValueToClipbord(MessageTarget<VisibleItemIndex>),
+    VariableNameToClipboard(MessageTarget<VisibleItemIndex>),
+    VariableFullNameToClipboard(MessageTarget<VisibleItemIndex>),
     InvalidateDrawCommands,
     AddGraphic(GraphicId, Graphic),
     RemoveGraphic(GraphicId),

@@ -81,6 +81,7 @@ use futures::executor::block_on;
 use itertools::Itertools;
 use lazy_static::lazy_static;
 use log::{error, info, warn};
+use message::MessageTarget;
 use num::BigInt;
 use serde::Deserialize;
 use surfer_translation_types::Translator;
@@ -705,30 +706,40 @@ impl SystemState {
 
                 let mut redraw = false;
 
-                if let Some(id @ DisplayedItemRef(_)) =
-                    displayed_field_ref.as_ref().map(|r| r.item).or(focused)
-                {
-                    if let Some(DisplayedItem::Variable(displayed_variable)) =
-                        waves.displayed_items.get_mut(&id)
-                    {
-                        update_format(displayed_variable, DisplayedFieldRef::from(id));
-                    }
-                    redraw = true;
-                }
-                if displayed_field_ref.is_none() {
-                    for item in waves
-                        .items_tree
-                        .iter_visible_selected()
-                        .map(|node| node.item_ref)
-                    {
-                        let field_ref = DisplayedFieldRef::from(item);
-                        if let Some(DisplayedItem::Variable(variable)) =
+                match displayed_field_ref {
+                    MessageTarget::Explicit(DisplayedFieldRef { item, .. }) => {
+                        if let Some(DisplayedItem::Variable(displayed_variable)) =
                             waves.displayed_items.get_mut(&item)
                         {
-                            update_format(variable, field_ref);
+                            update_format(displayed_variable, DisplayedFieldRef::from(item));
+                            redraw = true;
                         }
                     }
-                    redraw = true;
+                    MessageTarget::CurrentSelection => {
+                        //If an item is focused, update its format too
+                        if let Some(focused) = focused {
+                            if let Some(DisplayedItem::Variable(displayed_variable)) =
+                                waves.displayed_items.get_mut(&focused)
+                            {
+                                update_format(displayed_variable, DisplayedFieldRef::from(focused));
+                                redraw = true;
+                            }
+                        }
+                        for item in waves
+                            .items_tree
+                            .iter_visible_selected()
+                            .map(|node| node.item_ref)
+                        {
+                            //Update format for all selected
+                            let field_ref = DisplayedFieldRef::from(item);
+                            if let Some(DisplayedItem::Variable(variable)) =
+                                waves.displayed_items.get_mut(&item)
+                            {
+                                update_format(variable, field_ref);
+                            }
+                            redraw = true;
+                        }
+                    }
                 }
 
                 if redraw {
@@ -746,19 +757,30 @@ impl SystemState {
                 ));
                 self.invalidate_draw_commands();
                 let waves = self.user.waves.as_mut()?;
-                if let Some(vidx) = vidx.or(waves.focused_item) {
-                    let node = waves.items_tree.get_visible(vidx)?;
-                    waves
-                        .displayed_items
-                        .entry(node.item_ref)
-                        .and_modify(|item| item.set_color(color_name.clone()));
-                }
-                if vidx.is_none() {
-                    for node in waves.items_tree.iter_visible_selected() {
+
+                match vidx {
+                    MessageTarget::Explicit(vidx) => {
+                        let node = waves.items_tree.get_visible(vidx)?;
                         waves
                             .displayed_items
                             .entry(node.item_ref)
                             .and_modify(|item| item.set_color(color_name.clone()));
+                    }
+                    MessageTarget::CurrentSelection => {
+                        if let Some(focused) = waves.focused_item {
+                            let node = waves.items_tree.get_visible(focused)?;
+                            waves
+                                .displayed_items
+                                .entry(node.item_ref)
+                                .and_modify(|item| item.set_color(color_name.clone()));
+                        }
+
+                        for node in waves.items_tree.iter_visible_selected() {
+                            waves
+                                .displayed_items
+                                .entry(node.item_ref)
+                                .and_modify(|item| item.set_color(color_name.clone()));
+                        }
                     }
                 }
             }
@@ -781,26 +803,40 @@ impl SystemState {
                     color_name.clone().unwrap_or("default".into())
                 ));
                 let waves = self.user.waves.as_mut()?;
-                if let Some(vidx) = vidx.or(waves.focused_item) {
-                    let node = waves.items_tree.get_visible(vidx)?;
-                    waves
-                        .displayed_items
-                        .entry(node.item_ref)
-                        .and_modify(|item| item.set_background_color(color_name.clone()));
-                }
-                if vidx.is_none() {
-                    for node in waves.items_tree.iter_visible_selected() {
+
+                match vidx {
+                    MessageTarget::Explicit(vidx) => {
+                        let node = waves.items_tree.get_visible(vidx)?;
                         waves
                             .displayed_items
                             .entry(node.item_ref)
                             .and_modify(|item| item.set_background_color(color_name.clone()));
+                    }
+                    MessageTarget::CurrentSelection => {
+                        if let Some(focused) = waves.focused_item {
+                            let node = waves.items_tree.get_visible(focused)?;
+                            waves
+                                .displayed_items
+                                .entry(node.item_ref)
+                                .and_modify(|item| item.set_background_color(color_name.clone()));
+                        }
+
+                        for node in waves.items_tree.iter_visible_selected() {
+                            waves
+                                .displayed_items
+                                .entry(node.item_ref)
+                                .and_modify(|item| item.set_background_color(color_name.clone()));
+                        }
                     }
                 }
             }
             Message::ItemHeightScalingFactorChange(vidx, scale) => {
                 self.save_current_canvas(format!("Change item height scaling factor to {}", scale));
                 let waves = self.user.waves.as_mut()?;
-                let vidx = vidx.or(waves.focused_item)?;
+                let vidx = match vidx {
+                    MessageTarget::Explicit(vidx) => vidx,
+                    MessageTarget::CurrentSelection => waves.focused_item?,
+                };
                 let node = waves.items_tree.get_visible(vidx)?;
                 waves
                     .displayed_items
@@ -1319,7 +1355,10 @@ impl SystemState {
             Message::ChangeVariableNameType(vidx, name_type) => {
                 let waves = self.user.waves.as_mut()?;
                 // checks if vidx is Some then use that, else try focused variable
-                let vidx = vidx.or(waves.focused_item)?;
+                let vidx = match vidx {
+                    MessageTarget::Explicit(vidx) => vidx,
+                    MessageTarget::CurrentSelection => waves.focused_item?,
+                };
                 let item_ref = waves
                     .items_tree
                     .get_visible(vidx)
@@ -1853,14 +1892,21 @@ impl SystemState {
         Some(())
     }
 
-    fn handle_variable_clipboard_operation<F>(&self, vidx: Option<VisibleItemIndex>, get_text: F)
-    where
+    fn handle_variable_clipboard_operation<F>(
+        &self,
+        vidx: MessageTarget<VisibleItemIndex>,
+        get_text: F,
+    ) where
         F: FnOnce(&WaveData, DisplayedItemRef) -> Option<String>,
     {
         let Some(waves) = &self.user.waves else {
             return;
         };
-        let Some(vidx) = vidx.or(waves.focused_item) else {
+        let vidx = if let MessageTarget::Explicit(vidx) = vidx {
+            vidx
+        } else if let Some(focused) = waves.focused_item {
+            focused
+        } else {
             return;
         };
         let Some(item_ref) = waves.items_tree.get_visible(vidx).map(|node| node.item_ref) else {

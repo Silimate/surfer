@@ -22,6 +22,7 @@ use crate::{
     displayed_item_tree::VisibleItemIndex,
     graphics::{Direction, GrPoint, Graphic, GraphicId},
     hierarchy::HierarchyStyle,
+    message::MessageTarget,
     setup_custom_font,
     state::UserState,
     transaction_container::{TransactionRef, TransactionStreamRef},
@@ -365,14 +366,14 @@ fn render_readme_screenshot() {
                     do_not_show_again: true,
                 },
                 Message::VariableFormatChange(
-                    Some(DisplayedFieldRef {
+                    MessageTarget::Explicit(DisplayedFieldRef {
                         item: DisplayedItemRef(1),
                         field: vec![],
                     }),
                     String::from("Clock"),
                 ),
                 Message::VariableFormatChange(
-                    Some(DisplayedFieldRef {
+                    MessageTarget::Explicit(DisplayedFieldRef {
                         item: DisplayedItemRef(2),
                         field: vec![],
                     }),
@@ -381,7 +382,10 @@ fn render_readme_screenshot() {
                 Message::FocusItem(VisibleItemIndex(2)),
                 Message::AddDivider(None, None),
                 Message::AddDivider(Some("Top module:".to_string()), None),
-                Message::ItemColorChange(None, Some("green".to_string())),
+                Message::ItemColorChange(
+                    MessageTarget::CurrentSelection,
+                    Some("green".to_string()),
+                ),
                 Message::AddScope(ScopeRef::from_strs(&["testbench", "top"]), false),
                 Message::ZoomToRange {
                     start: 1612078.to_bigint().unwrap(),
@@ -392,12 +396,18 @@ fn render_readme_screenshot() {
                     id: 0,
                     time: 1764339.to_bigint().unwrap(),
                 },
-                Message::ItemColorChange(None, Some("orange".to_string())),
+                Message::ItemColorChange(
+                    MessageTarget::CurrentSelection,
+                    Some("orange".to_string()),
+                ),
                 Message::SetMarker {
                     id: 1,
                     time: 1912676.to_bigint().unwrap(),
                 },
-                Message::ItemColorChange(None, Some("violet".to_string())),
+                Message::ItemColorChange(
+                    MessageTarget::CurrentSelection,
+                    Some("violet".to_string()),
+                ),
                 Message::CursorSet(1820000.to_bigint().unwrap()),
             ];
             state.add_batch_messages(msgs);
@@ -618,19 +628,19 @@ snapshot_ui! {resizing_the_canvas_redraws, || {
 
 snapshot_ui_with_file_and_msgs! {clock_pulses_render_line, "examples/counter.vcd", [
     Message::AddScope(ScopeRef::from_strs(&["tb"]), false),
-    Message::VariableFormatChange(Some(DisplayedFieldRef{item: DisplayedItemRef(2), field: vec![]}), String::from("Clock")),
+    Message::VariableFormatChange(MessageTarget::Explicit(DisplayedFieldRef{item: DisplayedItemRef(2), field: vec![]}), String::from("Clock")),
     Message::SetClockHighlightType(ClockHighlightType::Line),
 ]}
 
 snapshot_ui_with_file_and_msgs! {clock_pulses_render_cycle, "examples/counter.vcd", [
     Message::AddScope(ScopeRef::from_strs(&["tb"]), false),
-    Message::VariableFormatChange(Some(DisplayedFieldRef{item: DisplayedItemRef(2), field: vec![]}), String::from("Clock")),
+    Message::VariableFormatChange(MessageTarget::Explicit(DisplayedFieldRef{item: DisplayedItemRef(2), field: vec![]}), String::from("Clock")),
     Message::SetClockHighlightType(ClockHighlightType::Cycle),
 ]}
 
 snapshot_ui_with_file_and_msgs! {clock_pulses_render_none, "examples/counter.vcd", [
     Message::AddScope(ScopeRef::from_strs(&["tb"]), false),
-    Message::VariableFormatChange(Some(DisplayedFieldRef{item: DisplayedItemRef(2), field: vec![]}), String::from("Clock")),
+    Message::VariableFormatChange(MessageTarget::Explicit(DisplayedFieldRef{item: DisplayedItemRef(2), field: vec![]}), String::from("Clock")),
     Message::SetClockHighlightType(ClockHighlightType::None),
 ]}
 
@@ -726,8 +736,8 @@ snapshot_ui_with_file_and_msgs! {divider_works, "examples/counter.vcd", [
     Message::AddScope(ScopeRef::from_strs(&["tb"]), false),
     Message::AddDivider(Some("Divider".to_string()), None),
     Message::AddScope(ScopeRef::from_strs(&["tb"]), false),
-    Message::ItemBackgroundColorChange(Some(VisibleItemIndex(4)), Some("Blue".to_string())),
-    Message::ItemColorChange(Some(VisibleItemIndex(4)), Some("Green".to_string()))
+    Message::ItemBackgroundColorChange(MessageTarget::Explicit(VisibleItemIndex(4)), Some("Blue".to_string())),
+    Message::ItemColorChange(MessageTarget::Explicit(VisibleItemIndex(4)), Some("Green".to_string()))
 ]}
 
 snapshot_ui_with_file_and_msgs! {markers_work, "examples/counter.vcd", [
@@ -735,10 +745,10 @@ snapshot_ui_with_file_and_msgs! {markers_work, "examples/counter.vcd", [
     Message::AddScope(ScopeRef::from_strs(&["tb"]), false),
     Message::CursorSet(BigInt::from(600)),
     Message::MoveMarkerToCursor(2),
-    Message::ItemColorChange(Some(VisibleItemIndex(4)), Some("Blue".to_string())),
+    Message::ItemColorChange(MessageTarget::Explicit(VisibleItemIndex(4)), Some("Blue".to_string())),
     Message::CursorSet(BigInt::from(200)),
     Message::MoveMarkerToCursor(1),
-    Message::ItemColorChange(Some(VisibleItemIndex(5)), Some("Green".to_string())),
+    Message::ItemColorChange(MessageTarget::Explicit(VisibleItemIndex(5)), Some("Green".to_string())),
     Message::CursorSet(BigInt::from(500)),
 ]}
 
@@ -747,10 +757,10 @@ snapshot_ui_with_file_and_msgs! {markers_dialog_work, "examples/counter.vcd", [
     Message::AddScope(ScopeRef::from_strs(&["tb"]), false),
     Message::CursorSet(BigInt::from(600)),
     Message::MoveMarkerToCursor(2),
-    Message::ItemColorChange(Some(VisibleItemIndex(4)), Some("Blue".to_string())),
+    Message::ItemColorChange(MessageTarget::Explicit(VisibleItemIndex(4)), Some("Blue".to_string())),
     Message::CursorSet(BigInt::from(200)),
     Message::MoveMarkerToCursor(1),
-    Message::ItemColorChange(Some(VisibleItemIndex(5)), Some("Green".to_string())),
+    Message::ItemColorChange(MessageTarget::Explicit(VisibleItemIndex(5)), Some("Green".to_string())),
     Message::CursorSet(BigInt::from(500)),
     Message::SetCursorWindowVisible(true)
 ]}
@@ -963,7 +973,7 @@ snapshot_ui_with_file_and_msgs! {zoom_to_range, "examples/counter.vcd", [
 
 snapshot_ui_with_file_and_msgs! {height_scaling, "examples/counter.vcd", [
     Message::AddScope(ScopeRef::from_strs(&["tb"]), false),
-    Message::ItemHeightScalingFactorChange(Some(VisibleItemIndex(2)), 4.0)
+    Message::ItemHeightScalingFactorChange(MessageTarget::Explicit(VisibleItemIndex(2)), 4.0)
 ]}
 
 snapshot_ui_with_file_and_msgs! {remove_item, "examples/counter.vcd", [
@@ -1058,7 +1068,7 @@ snapshot_ui_with_file_and_msgs! {selection_extend_change_color, "examples/counte
     Message::AddScope(ScopeRef::from_strs(&["tb"]), false),
     Message::FocusItem(VisibleItemIndex(2)),
     Message::MoveFocus(MoveDir::Up, 1, true),
-    Message::ItemColorChange(None, Some("Blue".to_string())),
+    Message::ItemColorChange(MessageTarget::CurrentSelection, Some("Blue".to_string())),
 ]}
 
 snapshot_ui!(regex_error_indication, || {
@@ -1872,7 +1882,7 @@ snapshot_ui!(rising_clock_markers, || {
         VariableRef::from_hierarchy_string("tb.clk"),
     ]));
     state.update(Message::VariableFormatChange(
-        Some(DisplayedFieldRef {
+        MessageTarget::Explicit(DisplayedFieldRef {
             item: DisplayedItemRef(1),
             field: vec![],
         }),
@@ -1948,7 +1958,7 @@ snapshot_ui!(save_and_start_with_state, || {
         .into(),
     ));
     state.update(Message::VariableFormatChange(
-        Some(DisplayedFieldRef {
+        MessageTarget::Explicit(DisplayedFieldRef {
             item: DisplayedItemRef(1),
             field: vec![],
         }),
@@ -1967,7 +1977,7 @@ snapshot_ui!(save_and_start_with_state, || {
     );
 
     state.update(Message::VariableFormatChange(
-        Some(DisplayedFieldRef {
+        MessageTarget::Explicit(DisplayedFieldRef {
             item: DisplayedItemRef(2),
             field: vec![],
         }),
@@ -2048,14 +2058,14 @@ snapshot_ui!(switch, || {
     );
 
     state.update(Message::VariableFormatChange(
-        Some(DisplayedFieldRef {
+        MessageTarget::Explicit(DisplayedFieldRef {
             item: DisplayedItemRef(1),
             field: vec![],
         }),
         String::from("Binary"),
     ));
     state.update(Message::VariableFormatChange(
-        Some(DisplayedFieldRef {
+        MessageTarget::Explicit(DisplayedFieldRef {
             item: DisplayedItemRef(3),
             field: vec![],
         }),
@@ -2113,14 +2123,14 @@ snapshot_ui!(switch_and_switch_back, || {
         .into(),
     ));
     state.update(Message::VariableFormatChange(
-        Some(DisplayedFieldRef {
+        MessageTarget::Explicit(DisplayedFieldRef {
             item: DisplayedItemRef(1),
             field: vec![],
         }),
         String::from("RV32"),
     ));
     state.update(Message::VariableFormatChange(
-        Some(DisplayedFieldRef {
+        MessageTarget::Explicit(DisplayedFieldRef {
             item: DisplayedItemRef(2),
             field: vec![],
         }),
@@ -2198,7 +2208,7 @@ snapshot_ui!(save_and_load, || {
         .into(),
     ));
     state.update(Message::VariableFormatChange(
-        Some(DisplayedFieldRef {
+        MessageTarget::Explicit(DisplayedFieldRef {
             item: DisplayedItemRef(1),
             field: vec![],
         }),
@@ -2256,7 +2266,7 @@ snapshot_ui_with_file_and_msgs!(
                 .unwrap()
         ),
         Message::VariableFormatChange(
-            Some(DisplayedFieldRef {
+            MessageTarget::Explicit(DisplayedFieldRef {
                 item: DisplayedItemRef(1),
                 field: vec![],
             }),

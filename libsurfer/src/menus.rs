@@ -8,6 +8,7 @@ use surfer_translation_types::{TranslationPreference, Translator};
 
 use crate::displayed_item_tree::VisibleItemIndex;
 use crate::hierarchy::HierarchyStyle;
+use crate::message::MessageTarget;
 use crate::wave_container::{FieldRef, VariableRefExt};
 use crate::wcp::{proto::WcpEvent, proto::WcpSCMessage};
 use crate::{
@@ -401,7 +402,7 @@ impl SystemState {
                     .then(|| {
                         ui.close_menu();
                         msgs.push(Message::ItemColorChange(
-                            affected_vidxs,
+                            affected_vidxs.into(),
                             Some(color_name.clone()),
                         ));
                     });
@@ -411,7 +412,10 @@ impl SystemState {
                 .clicked()
                 .then(|| {
                     ui.close_menu();
-                    msgs.push(Message::ItemColorChange(Some(vidx), None));
+                    msgs.push(Message::ItemColorChange(
+                        MessageTarget::Explicit(vidx),
+                        None,
+                    ));
                 });
         });
 
@@ -423,7 +427,7 @@ impl SystemState {
                     .then(|| {
                         ui.close_menu();
                         msgs.push(Message::ItemBackgroundColorChange(
-                            affected_vidxs,
+                            affected_vidxs.into(),
                             Some(color_name.clone()),
                         ));
                     });
@@ -433,7 +437,10 @@ impl SystemState {
                 .clicked()
                 .then(|| {
                     ui.close_menu();
-                    msgs.push(Message::ItemBackgroundColorChange(Some(vidx), None));
+                    msgs.push(Message::ItemBackgroundColorChange(
+                        MessageTarget::Explicit(vidx),
+                        None,
+                    ));
                 });
         });
 
@@ -445,7 +452,10 @@ impl SystemState {
                         .clicked()
                         .then(|| {
                             ui.close_menu();
-                            msgs.push(Message::ChangeVariableNameType(Some(vidx), name_type));
+                            msgs.push(Message::ChangeVariableNameType(
+                                MessageTarget::Explicit(vidx),
+                                name_type,
+                            ));
                         });
                 }
             });
@@ -458,7 +468,7 @@ impl SystemState {
                         .then(|| {
                             ui.close_menu();
                             msgs.push(Message::ItemHeightScalingFactorChange(
-                                affected_vidxs,
+                                affected_vidxs.into(),
                                 *size,
                             ));
                         });
@@ -531,16 +541,22 @@ impl SystemState {
                 if waves.cursor.is_some() {
                     if ui.button("Value").clicked() {
                         ui.close_menu();
-                        msgs.push(Message::VariableValueToClipbord(Some(vidx)));
+                        msgs.push(Message::VariableValueToClipbord(MessageTarget::Explicit(
+                            vidx,
+                        )));
                     }
                 }
                 if ui.button("Name").clicked() {
                     ui.close_menu();
-                    msgs.push(Message::VariableNameToClipboard(Some(vidx)));
+                    msgs.push(Message::VariableNameToClipboard(MessageTarget::Explicit(
+                        vidx,
+                    )));
                 }
                 if ui.button("Full name").clicked() {
                     ui.close_menu();
-                    msgs.push(Message::VariableFullNameToClipboard(Some(vidx)));
+                    msgs.push(Message::VariableFullNameToClipboard(
+                        MessageTarget::Explicit(vidx),
+                    ));
                 }
             });
         }
@@ -701,9 +717,9 @@ impl SystemState {
                             .map(|node| node.item_ref)
                             .contains(&displayed_field_ref.item)
                         {
-                            None
+                            MessageTarget::CurrentSelection
                         } else {
-                            Some(displayed_field_ref.clone())
+                            MessageTarget::Explicit(displayed_field_ref.clone())
                         },
                         name.to_string(),
                     ));
