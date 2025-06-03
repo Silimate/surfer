@@ -46,7 +46,7 @@ impl SpadeTranslator {
             .with_context(|| format!("Failed to read {state_file}"))?;
 
         Self::new_from_string(top_name, &file_content, Some(state_file.to_path_buf()))
-            .context("When loading Spade state from {state_file}")
+            .context(format!("When loading Spade state from {state_file}"))
     }
 
     pub fn new_from_string(

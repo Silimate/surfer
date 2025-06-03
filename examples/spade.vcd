@@ -1,5 +1,5 @@
 $date
-	Fri Feb  7 16:00:22 2025
+	Sat May 31 12:06:42 2025
 $end
 $version
 	Icarus Verilog
@@ -11,13 +11,13 @@ $scope module proj::pipeline_ready_valid::ready_valid_pipeline $end
 $var wire 1 ! \#s1_enable $end
 $var wire 1 " \#s2_enable $end
 $var wire 1 # \#s3_enable $end
-$var wire 1 $ _e_1565 $end
-$var wire 1 % _e_1567 $end
-$var wire 1 & _e_1570 $end
-$var wire 1 ' _e_1572 $end
-$var wire 1 ( _e_1575 $end
-$var wire 1 ) _e_1577 $end
-$var wire 1 * _e_1581 $end
+$var wire 1 $ _e_1534 $end
+$var wire 1 % _e_1536 $end
+$var wire 1 & _e_1539 $end
+$var wire 1 ' _e_1541 $end
+$var wire 1 ( _e_1544 $end
+$var wire 1 ) _e_1546 $end
+$var wire 1 * _e_1550 $end
 $var wire 1 + clk $end
 $var wire 1 , clk_i $end
 $var wire 4 - enables [3:0] $end
@@ -30,44 +30,44 @@ $var wire 2 3 s3 [1:0] $end
 $var wire 2 4 s2 [1:0] $end
 $var wire 2 5 s1 [1:0] $end
 $var wire 2 6 s0 [1:0] $end
-$var wire 1 7 _e_1580 $end
-$var wire 1 8 _e_1579 $end
-$var wire 1 9 _e_1578 $end
-$var wire 1 : _e_1576 $end
-$var wire 1 ; _e_1574 $end
-$var wire 1 < _e_1573 $end
-$var wire 1 = _e_1571 $end
-$var wire 1 > _e_1569 $end
-$var wire 1 ? _e_1568 $end
-$var wire 1 @ _e_1566 $end
-$var wire 1 A _e_1564 $end
-$var wire 1 B _e_1562 $end
-$var wire 8 C _e_1561 [7:0] $end
-$var wire 8 D _e_1560 [7:0] $end
-$var wire 8 E _e_1559 [7:0] $end
-$var wire 8 F _e_1558 [7:0] $end
-$var wire 1 G _e_1148 $end
-$var wire 1 H _e_1145 $end
-$var wire 1 I _e_1142 $end
-$var wire 1 J _e_1139 $end
-$var wire 1 K _e_1136 $end
-$var wire 1 L _e_1133 $end
-$var wire 1 M _e_1130 $end
-$var wire 1 N _e_1127 $end
-$var wire 1 O _e_1124 $end
-$var wire 1 P _e_1121 $end
-$var wire 18 Q _e_1120 [17:0] $end
-$var wire 1 R _e_1102 $end
-$var wire 1 S _e_1093 $end
-$var wire 1 T _e_1084 $end
+$var wire 1 7 _e_1549 $end
+$var wire 1 8 _e_1548 $end
+$var wire 1 9 _e_1547 $end
+$var wire 1 : _e_1545 $end
+$var wire 1 ; _e_1543 $end
+$var wire 1 < _e_1542 $end
+$var wire 1 = _e_1540 $end
+$var wire 1 > _e_1538 $end
+$var wire 1 ? _e_1537 $end
+$var wire 1 @ _e_1535 $end
+$var wire 1 A _e_1533 $end
+$var wire 1 B _e_1531 $end
+$var wire 8 C _e_1530 [7:0] $end
+$var wire 8 D _e_1529 [7:0] $end
+$var wire 8 E _e_1528 [7:0] $end
+$var wire 8 F _e_1527 [7:0] $end
+$var wire 1 G _e_1239 $end
+$var wire 1 H _e_1236 $end
+$var wire 1 I _e_1233 $end
+$var wire 1 J _e_1230 $end
+$var wire 1 K _e_1227 $end
+$var wire 1 L _e_1224 $end
+$var wire 1 M _e_1221 $end
+$var wire 1 N _e_1218 $end
+$var wire 1 O _e_1215 $end
+$var wire 1 P _e_1212 $end
+$var wire 18 Q _e_1211 [17:0] $end
+$var wire 1 R _e_1193 $end
+$var wire 1 S _e_1184 $end
+$var wire 1 T _e_1175 $end
 $var wire 1 U \#s4_enable $end
-$var parameter 1 V _e_1081 $end
-$var parameter 2 W _e_1087 $end
-$var parameter 2 X _e_1096 $end
-$var parameter 2 Y _e_1105 $end
-$var parameter 2 Z _e_1114 $end
-$var parameter 1 [ _e_1118 $end
-$var parameter 1 \ _e_1563 $end
+$var parameter 1 V _e_1172 $end
+$var parameter 2 W _e_1178 $end
+$var parameter 2 X _e_1187 $end
+$var parameter 2 Y _e_1196 $end
+$var parameter 2 Z _e_1205 $end
+$var parameter 1 [ _e_1209 $end
+$var parameter 1 \ _e_1532 $end
 $var reg 1 ] \#s1_valid $end
 $var reg 1 ^ \#s2_valid $end
 $var reg 1 _ \#s3_valid $end
