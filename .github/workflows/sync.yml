@@ -1,0 +1,22 @@
+name: Sync GitLab to GitHub
+
+on:
+  schedule:
+    - cron: '0 * * * *'  # hourly
+  workflow_dispatch:
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Clone GitLab repo
+        run: |
+          git config --global user.name "Silimate Sync Bot"
+          git config --global user.email "bot@silimate.com"
+
+          git clone https://gitlab.com/surfer-project/surfer.git repo
+          cd repo
+
+          git remote add github https://x-access-token:${{ secrets.GH_PAT }}@github.com/silimate/surfer.git
+          git push --force github main:main
