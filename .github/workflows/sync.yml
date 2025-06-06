@@ -20,4 +20,4 @@ jobs:
           cd repo
 
           git remote add github https://x-access-token:${{ secrets.GH_PAT }}@github.com/silimate/surfer.git
-          git push --force github main:main
+          git push --force github mirror:mirror
