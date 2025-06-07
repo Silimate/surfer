@@ -69,6 +69,7 @@ web-time.workspace = true
 wellen.workspace = true
 leb128.workspace = true
 tokio-stream = "0.1.17"
+font-kit = "0.11.0"
 
 [features]
 default = ["spade", "performance_plot"]

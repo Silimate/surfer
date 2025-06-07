@@ -109,6 +109,14 @@ use crate::wave_data::{ScopeType, WaveData};
 use crate::wave_source::{LoadOptions, WaveFormat, WaveSource};
 use crate::wellen::{convert_format, HeaderResult};
 
+use font_kit::{
+    family_name::FamilyName,
+    handle::Handle,
+    properties::Properties,
+    source::SystemSource,
+};
+use std::fs::read;
+
 lazy_static! {
     pub static ref EGUI_CONTEXT: RwLock<Option<Arc<egui::Context>>> = RwLock::new(None);
     /// A number that is non-zero if there are asynchronously triggered operations that
@@ -143,6 +151,30 @@ fn setup_custom_font(ctx: &egui::Context) {
         "remix_icons".to_owned(),
         FontData::from_static(egui_remixicon::FONT).into(),
     );
+
+    // Load system sans-serif font
+    if let Ok(handle) = SystemSource::new()
+        .select_best_match(&[FamilyName::SansSerif], &Properties::new())
+    {
+        let buf: Vec<u8> = match handle {
+            Handle::Memory { bytes, .. } => bytes.to_vec(),
+            Handle::Path { path, .. } => read(path).unwrap_or_default(),
+        };
+
+        if !buf.is_empty() {
+            fonts.font_data.insert(
+                "System Sans Serif".to_owned(),
+                FontData::from_owned(buf).into(),
+            );
+
+            // Set as default proportional font
+            fonts
+                .families
+                .get_mut(&FontFamily::Proportional)
+                .unwrap()
+                .insert(0, "System Sans Serif".to_owned());
+        }
+    }
 
     fonts
         .families
