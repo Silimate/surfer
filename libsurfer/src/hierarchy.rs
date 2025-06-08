@@ -42,7 +42,8 @@ pub fn separate(state: &mut SystemState, ui: &mut Ui, msgs: &mut Vec<Message>) {
         .max_height(total_space - 64.0)
         .frame(Frame::new().inner_margin(Margin::same(5)))
         .show_inside(ui, |ui| {
-            ui.heading("Scopes");
+            ui.add_space(3.0);
+            ui.heading(egui::RichText::new("Scopes").size(16.0));
             ui.add_space(3.0);
 
             ScrollArea::both()
@@ -60,7 +61,8 @@ pub fn separate(state: &mut SystemState, ui: &mut Ui, msgs: &mut Vec<Message>) {
         .frame(Frame::new().inner_margin(Margin::same(5)))
         .show_inside(ui, |ui| {
             ui.with_layout(Layout::left_to_right(Align::TOP), |ui| {
-                ui.heading("Variables");
+                ui.add_space(3.0);
+                ui.heading(egui::RichText::new("Variables").size(16.0));
                 ui.add_space(3.0);
                 state.draw_variable_filter_edit(ui, msgs);
             });
@@ -162,7 +164,8 @@ pub fn tree(state: &mut SystemState, ui: &mut Ui, msgs: &mut Vec<Message>) {
         |ui| {
             Frame::new().inner_margin(Margin::same(5)).show(ui, |ui| {
                 ui.with_layout(Layout::left_to_right(Align::TOP), |ui| {
-                    ui.heading("Hierarchy");
+                    ui.add_space(3.0);
+                    ui.heading(egui::RichText::new("Hierarchy").size(16.0));
                     ui.add_space(3.0);
                     state.draw_variable_filter_edit(ui, msgs);
                 });

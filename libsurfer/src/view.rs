@@ -521,7 +521,7 @@ impl SystemState {
                 .show(ctx, |ui| {
                     ui.add_space(max_height * 0.1);
                     ui.vertical_centered(|ui| {
-                        ui.label(RichText::new("🏄 Surfer").monospace().size(24.));
+                        ui.label(RichText::new("Silimate WaveTalk").size(24.));
                         ui.add_space(20.);
                         let layout = Layout::top_down(Align::LEFT);
                         ui.allocate_ui_with_layout(
@@ -1234,7 +1234,7 @@ impl SystemState {
                     .column(Column::auto())
                     .header(20.0, |mut header| {
                         header.col(|ui| {
-                            ui.heading("Properties");
+                            ui.heading(egui::RichText::new("Properties").size(16.0));
                         });
                     })
                     .body(|mut body| {
@@ -1292,7 +1292,7 @@ impl SystemState {
                         });
                         body.row(row_height + 5., |mut row| {
                             row.col(|ui| {
-                                ui.heading("Attributes");
+                                ui.heading(egui::RichText::new("Attributes").size(16.0));
                             });
                         });
 
@@ -1319,7 +1319,7 @@ impl SystemState {
                         if !focused_transaction.inc_relations.is_empty() {
                             body.row(row_height + 5., |mut row| {
                                 row.col(|ui| {
-                                    ui.heading("Incoming Relations");
+                                    ui.heading(egui::RichText::new("Incoming Relations").size(16.0));
                                 });
                             });
 
@@ -1347,7 +1347,7 @@ impl SystemState {
                         if !focused_transaction.out_relations.is_empty() {
                             body.row(row_height + 5., |mut row| {
                                 row.col(|ui| {
-                                    ui.heading("Outgoing Relations");
+                                    ui.heading(egui::RichText::new("Outgoing Relations").size(16.0));
                                 });
                             });
 

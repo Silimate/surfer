@@ -76,10 +76,10 @@ impl SystemState {
                         .stick_to_bottom(true)
                         .header(20.0, |mut header| {
                             header.col(|ui| {
-                                ui.heading("Level");
+                                ui.heading(egui::RichText::new("Level").size(16.0));
                             });
                             header.col(|ui| {
-                                ui.heading("Message");
+                                ui.heading(egui::RichText::new("Message").size(16.0));
                             });
                         })
                         .body(|body| {

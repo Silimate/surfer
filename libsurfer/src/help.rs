@@ -74,7 +74,7 @@ pub fn draw_about_window(ctx: &Context, msgs: &mut Vec<Message>) {
         .resizable(true)
         .show(ctx, |ui| {
             ui.vertical_centered(|ui| {
-                ui.label(RichText::new("🏄 Surfer").monospace().size(24.));
+                ui.label(RichText::new("Silimate WaveTalk").size(24.));
                 ui.add_space(20.);
                 ui.label(format!(
                     "Cargo version: {ver}",

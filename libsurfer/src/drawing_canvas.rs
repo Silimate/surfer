@@ -1624,10 +1624,10 @@ fn transaction_tooltip_table(ui: &mut Ui, tx: &Transaction) {
         .column(Column::exact(80.))
         .header(20.0, |mut header| {
             header.col(|ui| {
-                ui.heading("Attribute");
+                ui.heading(egui::RichText::new("Attribute").size(16.0));
             });
             header.col(|ui| {
-                ui.heading("Value");
+                ui.heading(egui::RichText::new("Value").size(16.0));
             });
         })
         .body(|body| {

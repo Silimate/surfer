@@ -252,7 +252,7 @@ impl SystemState {
             // Create text edit
             let response = ui.add(
                 TextEdit::singleline(&mut self.user.variable_filter.name_filter_str)
-                    .hint_text("Filter (context menu for type)"),
+                    .hint_text("Filter"),
             );
             response.context_menu(|ui| {
                 self.variable_filter_type_menu(ui, msgs);
